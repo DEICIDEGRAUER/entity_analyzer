@@ -1,0 +1,317 @@
+<UserControl x:Class="EntityAnalyzer.App.Views.DashboardPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:EntityAnalyzer.App.Views">
+
+    <!-- Экран «Обзор»: левая колонка (Bg-Nav, настройки, ширина регулируется
+         сплиттером) / правая — вкладки «Обзор» и «Поиск и паттерны». -->
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="3*" MinWidth="300" MaxWidth="560"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="7*" MinWidth="420"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Разделитель колонок: тянется, меняя ширину настроек -->
+        <GridSplitter Grid.Column="1" Width="8" HorizontalAlignment="Center"
+                      VerticalAlignment="Stretch" Background="Transparent"
+                      ResizeBehavior="PreviousAndNext" ResizeDirection="Columns"
+                      Style="{DynamicResource AcademicSplitterStyle}"/>
+
+        <!-- ═══ Левая колонка: настройки (Bg-Nav) ═══ -->
+        <Border Grid.Column="0" Background="{DynamicResource BrushBgNav}"
+                BorderBrush="{DynamicResource BrushBorderLight}" BorderThickness="0,0,1,0">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="32,32,32,48">
+
+                    <TextBlock Text="ПАРАМЕТРЫ АНАЛИЗА"
+                               Style="{DynamicResource SectionHeaderStyle}"/>
+
+                    <!-- Корпус. QA-UX #5: подпись честно перечисляет форматы -->
+                    <TextBlock Text="Папка с текстами (.txt, .fb2, .epub, .docx…)"
+                               Style="{DynamicResource MetaStyle}" Margin="0,24,0,0"/>
+                    <TextBox Text="{Binding CorpusDir, UpdateSourceTrigger=PropertyChanged}" Margin="0,8,0,0"/>
+                    <Button Content="Выбрать папку…" Style="{DynamicResource GhostButtonStyle}"
+                            Command="{Binding BrowseCorpus}" HorizontalAlignment="Left" Padding="0,8"/>
+                    <!-- R2-11: исследование как файл — сохранить/открыть контекст целиком -->
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button Content="💾 Сохранить исследование…" Style="{DynamicResource GhostButtonStyle}"
+                                Command="{Binding SaveProjectCommand}" Padding="0,8"
+                                ToolTip="Упаковать корпус, кодекс, паттерны и настройки в один файл .eaproj — перенос на другую машину одним файлом"/>
+                        <Button Content="📂 Открыть исследование…" Style="{DynamicResource GhostButtonStyle}"
+                                Command="{Binding OpenProjectCommand}" Padding="0,8" Margin="16,0,0,0"
+                                ToolTip="Открыть .eaproj: восстановить кодекс, паттерны, корпус и профиль"/>
+                    </StackPanel>
+                    <!-- R2-6: watch-режим — анализ перезапускается сам при правках корпуса -->
+                    <Button Content="{Binding WatchButtonText}" Style="{DynamicResource GhostButtonStyle}"
+                            Command="{Binding WatchCommand}" HorizontalAlignment="Left" Padding="0,8" Margin="0,8,0,0"
+                            ToolTip="Следить за папкой корпуса: сохранение текста в редакторе автоматически перезапускает анализ"/>
+                    <!-- QA-UX #5: сводка форматов видна без раскрытия раздела -->
+                    <TextBlock Style="{DynamicResource MetaStyle}" TextWrapping="Wrap" Margin="0,4,0,0"
+                               Foreground="{DynamicResource BrushTextSecondary}">
+                        <Run Text="Будет прочитано: "/><Run Text="{Binding EnabledFormatsCount, Mode=OneWay}"/><Run Text=" форматов — полный список в разделе «Форматы файлов» ниже"/>
+                    </TextBlock>
+
+                    <!-- Профиль -->
+                    <TextBlock Text="Профиль поиска"
+                               Style="{DynamicResource MetaStyle}" Margin="0,16,0,0"/>
+                    <!-- QA-UX #1: русские названия профилей; SelectedValue хранит id -->
+                    <ComboBox ItemsSource="{Binding PresetItems}"
+                              DisplayMemberPath="Value" SelectedValuePath="Key"
+                              SelectedValue="{Binding Preset}" MinWidth="280" Margin="0,8,0,0"/>
+                    <!-- UX: человекочитаемая сводка профиля вместо эпитета-загадки -->
+                    <TextBlock Text="{Binding PresetSummary, Mode=OneWay}" Style="{DynamicResource MetaStyle}"
+                               Foreground="{DynamicResource BrushTextSecondary}"
+                               TextWrapping="Wrap" Margin="0,8,0,0"/>
+
+                    <!-- UX: что именно будет искаться — прямо над кнопкой запуска -->
+                    <TextBlock Text="{Binding CodexSummary, Mode=OneWay}" Style="{DynamicResource MetaStyle}"
+                               TextWrapping="Wrap" Margin="0,16,0,0"
+                               ToolTip="Справочник сущностей, по которым ведётся поиск. Пополнить его можно на странице «Кодекс»."/>
+
+                    <!-- Запуск: прогресс виден только во время анализа (UX: нулевая полоса читалась как «что-то идёт») -->
+                    <ProgressBar Value="{Binding ProgressValue, Mode=OneWay}"
+                                 Maximum="{Binding ProgressMax, Mode=OneWay}" Margin="0,32,0,0"
+                                 Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}"/>
+                    <TextBlock Text="{Binding EtaText}" Style="{DynamicResource TechStyle}" Margin="0,8,0,0"
+                               Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}"/>
+
+                    <Button Content="Запустить анализ" Style="{DynamicResource PrimaryButtonStyle}"
+                            Command="{Binding RunCommand}" HorizontalAlignment="Left"
+                            ToolTipService.ShowOnDisabled="True"
+                            ToolTip="{Binding StartHint}" Margin="0,24,0,0"/>
+                    <!-- R2-18: онбординг — демо-цикл одной кнопкой -->
+                    <Button Content="▶ Демо-корпус за 30 секунд" Style="{DynamicResource GhostButtonStyle}"
+                            Command="{Binding RunDemoCommand}" HorizontalAlignment="Left" Padding="0,8"
+                            Margin="0,16,0,0"
+                            ToolTip="Записывает встроенный микрокорпус (5 текстов) и сразу запускает анализ: полный цикл без выбора папок"/>
+                    <Button Content="Отмена" Style="{DynamicResource GhostButtonStyle}"
+                            Command="{Binding CancelCommand}" HorizontalAlignment="Left" Padding="0,8"/>
+                    <TextBlock Text="{Binding StartHint}" Style="{DynamicResource MetaStyle}"
+                               TextWrapping="Wrap" Margin="0,8,0,0"
+                               Visibility="{Binding StartHint, Converter={StaticResource EmptyToCollapsed}}"/>
+
+                    <!-- Настройки парсинга: свёрнутые секции со стрелкой > -->
+                    <Expander Margin="0,48,0,0">
+                        <Expander.Header>
+                            <TextBlock Text="ПАРАМЕТРЫ ПАРСИНГА" Style="{DynamicResource SectionHeaderStyle}"/>
+                        </Expander.Header>
+                        <StackPanel>
+                            <UniformGrid Columns="2" Margin="0,0,0,16">
+                                <StackPanel Margin="0,0,16,0">
+                                    <TextBlock Text="Контекст, слов" Style="{DynamicResource MetaStyle}"/>
+                                    <TextBox Text="{Binding ContextWords, UpdateSourceTrigger=PropertyChanged}" Margin="0,8,0,0"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Цитат на файл (0 = ∞)" Style="{DynamicResource MetaStyle}"/>
+                                    <TextBox Text="{Binding MentionsPerFile, UpdateSourceTrigger=PropertyChanged}" Margin="0,8,0,0"/>
+                                </StackPanel>
+                            </UniformGrid>
+                            <CheckBox Content="Нечёткий поиск опечаток" IsChecked="{Binding Fuzzy}" Margin="0,0,0,8"
+                                      ToolTip="Находит имена с 1–2 опечатками: Наг → Нагг, Йеб → Еб. Замедляет поиск на больших корпусах."/>
+                            <CheckBox Content="Глубокая порча имён" IsChecked="{Binding DeepCorrupt}"
+                                      ToolTip="Дополнительно генерирует искажённые формы запретных имён (пропуски и замены букв) — для текстов с намеренно испорченными названиями."/>
+                        </StackPanel>
+                    </Expander>
+
+                    <Expander Margin="0,24,0,0">
+                        <Expander.Header>
+                            <TextBlock Text="ФИЛЬТРЫ ЛОЖНЫХ СРАБАТЫВАНИЙ" Style="{DynamicResource SectionHeaderStyle}"/>
+                        </Expander.Header>
+                        <StackPanel>
+                            <CheckBox Content="Границы слов" IsChecked="{Binding BoundaryFilters}" Margin="0,0,0,8"
+                                      ToolTip="Отсекает совпадения, вклеенные в соседние слова"/>
+                            <CheckBox Content="Плотность сущностей" IsChecked="{Binding ListingDensity}" Margin="0,0,0,8"
+                                      ToolTip="Контексты, забитые другими именами — оглавления и справочники"/>
+                            <CheckBox Content="Чёрный список фраз" IsChecked="{Binding BlacklistPhrases}" Margin="0,0,0,8"
+                                      ToolTip="Известные заголовки списков («Великие ужасы и тайны…» и т.п.)"/>
+                            <CheckBox Content="Осмысленность" IsChecked="{Binding Meaningfulness}" Margin="0,0,0,8"
+                                      ToolTip="Контекст без служебных слов = перечисление имён, не проза"/>
+                            <CheckBox Content="Общие слова" IsChecked="{Binding CommonWordRule}" Margin="0,0,0,8"
+                                      ToolTip="Сущности вроде «Сон»/«Кот» только при мифологическом окружении"/>
+                            <CheckBox Content="Валидация титулов" IsChecked="{Binding TitleValidation}" Margin="0,0,0,8"
+                                      ToolTip="Титул засчитывается только при поддержке другим маркером"/>
+                            <CheckBox Content="Межфайловая дедупликация контекстов" IsChecked="{Binding CrossFileDedup}"
+                                      ToolTip="Одинаковые контексты из разных файлов группируются: ×N вместо тридцати повторов"/>
+                        </StackPanel>
+                    </Expander>
+
+                    <Expander Margin="0,24,0,0">
+                        <Expander.Header>
+                            <TextBlock Text="REGEX-ИСКЛЮЧЕНИЯ" Style="{DynamicResource SectionHeaderStyle}"/>
+                        </Expander.Header>
+                        <StackPanel>
+                            <TextBlock Text="Одна строка — один паттерн. Совпавший контекст отбрасывается."
+                                       Style="{DynamicResource MetaStyle}" TextWrapping="Wrap"/>
+                            <TextBox Text="{Binding UserExcludeText, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                     AcceptsReturn="True" TextWrapping="Wrap"
+                                     MinHeight="56" MaxHeight="120"
+                                     FontFamily="{DynamicResource MonoFontFamily}" FontSize="12"
+                                     VerticalScrollBarVisibility="Auto" Margin="0,16,0,0"/>
+                            <!-- UX: inline-валидация — ошибка паттерна видна сразу под полем -->
+                            <TextBlock Text="{Binding RegexValidationMessage, Mode=OneWay}"
+                                       Style="{DynamicResource TechStyle}" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource BrushBranch4}"
+                                       Visibility="{Binding RegexValidationMessage, Converter={StaticResource EmptyToCollapsed}}"
+                                       Margin="0,8,0,0"/>
+                        </StackPanel>
+                    </Expander>
+
+                    <Expander Margin="0,24,0,0">
+                        <Expander.Header>
+                            <TextBlock Text="ФОРМАТЫ ФАЙЛОВ" Style="{DynamicResource SectionHeaderStyle}"/>
+                        </Expander.Header>
+                        <StackPanel>
+                            <TextBlock Text="Какие расширения включать в сканирование корпуса."
+                                       Style="{DynamicResource MetaStyle}" TextWrapping="Wrap"/>
+                            <ItemsControl ItemsSource="{Binding ExtensionFlags}" Margin="0,12,0,0">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <CheckBox Content="{Binding Extension}" IsChecked="{Binding Included}"
+                                                  MinWidth="88" Margin="0,4,16,4"
+                                                  ToolTip="{Binding Hint}"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Expander>
+
+                    <Expander Margin="0,24,0,0">
+                        <Expander.Header>
+                            <TextBlock Text="ДОПОЛНИТЕЛЬНЫЕ ПАПКИ" Style="{DynamicResource SectionHeaderStyle}"/>
+                        </Expander.Header>
+                        <StackPanel>
+                            <ListBox ItemsSource="{Binding ExtraDirs}" SelectedItem="{Binding SelectedExtraDir}"
+                                     MinHeight="40" MaxHeight="96">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" Style="{DynamicResource TechStyle}"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                                <Button Content="Добавить папку" Style="{DynamicResource GhostButtonStyle}"
+                                        Command="{Binding AddExtraDir}"/>
+                                <Button Content="Убрать" Style="{DynamicResource GhostButtonStyle}"
+                                        Command="{Binding RemoveExtraDir}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Expander>
+
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- ═══ Правая колонка: вкладки «Обзор» / «Поиск и паттерны» (Bg-Main) ═══ -->
+        <Grid Grid.Column="2" Margin="0,24,32,24">
+            <!-- QA-UX #3: индекс вкладки управляется из MainViewModel (пункт рейки «Поиск и паттерны») -->
+            <TabControl Background="Transparent" BorderThickness="0"
+                        SelectedIndex="{Binding SearchTabIndex, Mode=TwoWay}">
+
+                <!-- ── Вкладка ОБЗОР: статус корпуса, плитки, журнал ── -->
+                <TabItem Header="ОБЗОР">
+                    <Grid Margin="48,24,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+            <!-- Статус / статистика -->
+            <Grid Grid.Row="0">
+                <!-- Empty State + мини-онбординг: три шага первого сеанса -->
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                            MaxWidth="560" TextOptions.TextRenderingMode="ClearType"
+                            Visibility="{Binding CorpusMissing, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="Корпус не загружен." Style="{DynamicResource H1Style}" TextAlignment="Center"/>
+                    <TextBlock Text="Выберите текстовые файлы для начала работы."
+                               Style="{DynamicResource BodyStyle}"
+                               Foreground="{DynamicResource BrushTextSecondary}"
+                               TextAlignment="Center" Margin="0,16,0,0"/>
+                    <TextBlock Text="1 · Выберите папку с .txt в левой колонке"
+                               Style="{DynamicResource BodyStyle}" TextAlignment="Center" Margin="0,32,0,0"/>
+                    <TextBlock Text="2 · Нажмите «Запустить анализ»"
+                               Style="{DynamicResource BodyStyle}" TextAlignment="Center" Margin="0,8,0,0"/>
+                    <TextBlock Text="3 · Цитаты появятся на странице «Результаты»"
+                               Style="{DynamicResource BodyStyle}" TextAlignment="Center" Margin="0,8,0,0"/>
+                    <Button Content="Что такое кодекс и кого ищут?"
+                            Style="{DynamicResource GhostButtonStyle}"
+                            Command="{Binding OpenCodexCommand}"
+                            HorizontalAlignment="Center" Padding="0,12"
+                            ToolTip="Кодекс — справочник сущностей: карточки с именами, алиасами и связями. Сейчас работает встроенный кодекс — его можно дополнить своими существами."/>
+                    <!-- QA-UX #3: мостик к головной функции соупоминаемости и паттернов -->
+                    <Button Content="Искать совместные упоминания и конструкции →"
+                            Style="{DynamicResource GhostButtonStyle}"
+                            Command="{Binding NavSearchTab}"
+                            HorizontalAlignment="Center" Padding="0,12"
+                            ToolTip="Гибкий поиск по двум объектам (в одном файле, рядом, разнесены) и семантические паттерны — конструкции вида «Год Красной Луны»"/>
+                </StackPanel>
+
+                <!-- Показатели последнего прогона: открытые блоки без карточек -->
+                <StackPanel Visibility="{Binding CorpusMissing, Converter={StaticResource InverseBoolToVis}}"
+                            VerticalAlignment="Top">
+                    <UniformGrid Columns="6">
+                        <StackPanel Margin="0,0,24,0">
+                            <TextBlock Text="ФАЙЛЫ С НАХОДКАМИ" Style="{DynamicResource SectionHeaderStyle}"/>
+                            <TextBlock Text="{Binding StatFiles}" Style="{DynamicResource StatNumberStyle}" Margin="0,16,0,0"/>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,24,0">
+                            <TextBlock Text="УПОМИНАНИЙ" Style="{DynamicResource SectionHeaderStyle}"/>
+                            <TextBlock Text="{Binding StatMentions}" Style="{DynamicResource StatNumberStyle}" Margin="0,16,0,0"/>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,24,0">
+                            <TextBlock Text="СУЩНОСТЕЙ" Style="{DynamicResource SectionHeaderStyle}"/>
+                            <TextBlock Text="{Binding StatEntities}" Style="{DynamicResource StatNumberStyle}" Margin="0,16,0,0"/>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,24,0">
+                            <TextBlock Text="ВРЕМЯ" Style="{DynamicResource SectionHeaderStyle}"/>
+                            <TextBlock Text="{Binding StatDuration}" Style="{DynamicResource StatNumberStyle}" Margin="0,16,0,0"/>
+                        </StackPanel>
+                        <StackPanel>
+                            <!-- QA-UX #12: плитка кликабельна — ведёт к отчётам о дублях -->
+                            <Button HorizontalAlignment="Left" Style="{StaticResource GhostButtonStyle}"
+                                    Padding="0" Command="{Binding OpenDuplicatesReport}"
+                                    ToolTip="Файлы с идентичным содержимым (SHA-256). Нажмите — откроется отчёт duplicates.txt">
+                                <TextBlock Text="ДУБЛИКАТЫ ТЕКСТОВ" Style="{DynamicResource SectionHeaderStyle}"/>
+                            </Button>
+                            <TextBlock Text="{Binding StatDuplicates}" Style="{DynamicResource StatNumberStyle}" Margin="0,16,0,0"/>
+                        </StackPanel>
+                        <StackPanel Margin="24,0,0,0">
+                            <TextBlock Text="СКРЫТО ЛИМИТОМ" Style="{DynamicResource SectionHeaderStyle}"
+                                       ToolTip="Совпадения сверх лимита цитат на файл: они не отклонены фильтрами — просто не показаны. Лимит меняется на «Обзоре» (Цитат на файл) или профилем поиска."/>
+                            <TextBlock Text="{Binding StatDisplayCapped}" Style="{DynamicResource StatNumberStyle}" Margin="0,16,0,0"/>
+                        </StackPanel>
+                    </UniformGrid>
+                </StackPanel>
+            </Grid>
+
+            <!-- Журнал: технические строки, открытый блок -->
+            <StackPanel Grid.Row="1" Margin="0,48,0,0">
+                <TextBlock Text="ЖУРНАЛ" Style="{DynamicResource SectionHeaderStyle}"/>
+                <ListBox ItemsSource="{Binding LogLines}" MinHeight="160" MaxHeight="256"
+                         Margin="0,16,0,0" ScrollViewer.VerticalScrollBarVisibility="Auto">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" Style="{DynamicResource TechStyle}"/>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </StackPanel>
+                    </Grid>
+                </TabItem>
+
+                <!-- ── Вкладка ПОИСК И ПАТТЕРНЫ: интегрированный модуль поиска ── -->
+                <TabItem Header="ПОИСК И ПАТТЕРНЫ">
+                    <views:AdvancedSearchPage
+                        DataContext="{Binding DataContext.AdvancedSearch,
+                                      RelativeSource={RelativeSource AncestorType=Window}}"/>
+                </TabItem>
+            </TabControl>
+        </Grid>
+    </Grid>
+</UserControl>

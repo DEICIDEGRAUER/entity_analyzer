@@ -1,0 +1,162 @@
+{
+  "id": "dune",
+  "title": "Дюна (Фрэнк Герберт)",
+  "description": "Карточки вселенной «Дюны»: персонажи, локации, артефакты и народы для анализа текстов о песчаной планете.",
+  "codex": {
+    "version": 2,
+    "types": [
+      {
+        "id": "person",
+        "name": "Персонаж",
+        "icon": "👤",
+        "color": "#D9A57F",
+        "fields": []
+      },
+      {
+        "id": "location",
+        "name": "Локация",
+        "icon": "🏛",
+        "color": "#7FB2D9",
+        "fields": []
+      },
+      {
+        "id": "artifact",
+        "name": "Артефакт",
+        "icon": "⚱",
+        "color": "#B07FD9",
+        "fields": []
+      },
+      {
+        "id": "race",
+        "name": "Раса / Народ",
+        "icon": "🧬",
+        "color": "#7FD9A5",
+        "fields": []
+      }
+    ],
+    "relations": [],
+    "cards": [
+      {
+        "id": "d_01",
+        "typeId": "person",
+        "name": "Пол Атрейдес",
+        "canonical": "Paul Atreides",
+        "aliases": [
+          "Пол Атрейдес",
+          "Paul Atreides",
+          "Пауль Атрейдес",
+          "Муад'Диб",
+          "Muad'Dib",
+          "Усул"
+        ],
+        "enabled": true,
+        "tags": [
+          "Атрейдесы"
+        ]
+      },
+      {
+        "id": "d_02",
+        "typeId": "person",
+        "name": "Лето Атрейдес",
+        "canonical": "Leto Atreides",
+        "aliases": [
+          "Лето Атрейдес",
+          "Leto Atreides",
+          "герцог Лето",
+          "Лето II"
+        ],
+        "enabled": true,
+        "tags": [
+          "Атрейдесы"
+        ]
+      },
+      {
+        "id": "d_03",
+        "typeId": "person",
+        "name": "Шаддам IV",
+        "canonical": "Shaddam IV",
+        "aliases": [
+          "Шаддам IV",
+          "Shaddam IV",
+          "Шаддам Четвёртый",
+          "падишах-император"
+        ],
+        "enabled": true,
+        "tags": [
+          "Коррино"
+        ]
+      },
+      {
+        "id": "d_04",
+        "typeId": "location",
+        "name": "Арракис",
+        "canonical": "Arrakis",
+        "aliases": [
+          "Арракис",
+          "Arrakis",
+          "Дюна",
+          "Dune",
+          "песчаная планета",
+          "Аррака"
+        ],
+        "enabled": true,
+        "tags": []
+      },
+      {
+        "id": "d_05",
+        "typeId": "location",
+        "name": "Каладан",
+        "canonical": "Caladan",
+        "aliases": [
+          "Каладан",
+          "Caladan"
+        ],
+        "enabled": true,
+        "tags": []
+      },
+      {
+        "id": "d_06",
+        "typeId": "artifact",
+        "name": "Спайс",
+        "canonical": "Melange",
+        "aliases": [
+          "спайс",
+          "Spice",
+          "меланж",
+          "Melange",
+          "пряность"
+        ],
+        "enabled": true,
+        "tags": []
+      },
+      {
+        "id": "d_07",
+        "typeId": "race",
+        "name": "Фремены",
+        "canonical": "Fremen",
+        "aliases": [
+          "фремены",
+          "Fremen",
+          "фремен",
+          "фремена"
+        ],
+        "enabled": true,
+        "tags": []
+      },
+      {
+        "id": "d_08",
+        "typeId": "race",
+        "name": "Бене Гессерит",
+        "canonical": "Bene Gesserit",
+        "aliases": [
+          "Бене Гессерит",
+          "Bene Gesserit",
+          "сёстры Гессерит"
+        ],
+        "enabled": true,
+        "tags": []
+      }
+    ],
+    "links": []
+  }
+}

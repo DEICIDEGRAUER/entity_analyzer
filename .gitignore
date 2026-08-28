@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+ENV/
+
+# Build
+build/
+dist/
+*.egg-info/
+
+# Cache
+.cache/
+output/.cache/
+*.cache
+
+# Output
+output/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Corpus (large files)
+ТЕКСТЫ/
+dotnet/corpus/
+test_corpus/
+
+# Large data files
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary
+_scratch/
+*.tmp
+*.temp
+
+# Distribution
+*.whl
+*.tar.gz

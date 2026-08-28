@@ -1,0 +1,49 @@
+# R2-16 «Матричный ночной CI»: Core+CLI под Windows/Linux, матрица локалей
+# (ru-RU, en-US, tr-TR — ловушка турецкого I). GUI остаётся Windows-only,
+# ядро доказанно переносимо — задел под headless API (R1-12).
+name: ci
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  schedule:
+    - cron: '0 2 * * *' # ночной прогон
+
+jobs:
+  test-matrix:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ windows-latest, ubuntu-latest ]
+        culture: [ ru-RU, en-US, tr-TR ]
+    runs-on: ${{ matrix.os }}
+    env:
+      EA_TEST_CULTURE: ${{ matrix.culture }}
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build (0 warnings policy)
+        working-directory: dotnet
+        run: dotnet build EntityAnalyzer.slnx -c Release
+
+      - name: Test
+        working-directory: dotnet
+        run: dotnet test EntityAnalyzer.slnx -c Release --nologo
+
+      - name: CLI smoke (edge corpus)
+        working-directory: dotnet
+        shell: pwsh
+        run: |
+          $corpus = Join-Path $env:RUNNER_TEMP "ea_ci_corpus"
+          New-Item -ItemType Directory $corpus | Out-Null
+          [System.IO.File]::WriteAllText("$corpus/t.txt", "Жрец Нага шептал у алтаря Йеба.", [System.Text.UTF8Encoding]::new($false))
+          dotnet publish src/EntityAnalyzer.Cli/EntityAnalyzer.Cli.csproj -c Release -o cli-out
+          & "./cli-out/EntityAnalyzer.Cli" --corpus $corpus --out "$corpus/_out" --preset light --no-incremental
+          if ($LASTEXITCODE -ne 0) { exit 1 }

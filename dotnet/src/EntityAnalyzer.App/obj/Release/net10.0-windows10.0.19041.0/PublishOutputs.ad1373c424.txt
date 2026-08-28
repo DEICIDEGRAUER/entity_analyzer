@@ -1,0 +1,10 @@
+C:\Users\malin\Desktop\entity_analyzer\dotnet\publish\EntityAnalyzer.exe
+C:\Users\malin\Desktop\entity_analyzer\dotnet\publish\EntityAnalyzer.dll
+C:\Users\malin\Desktop\entity_analyzer\dotnet\publish\EntityAnalyzer.deps.json
+C:\Users\malin\Desktop\entity_analyzer\dotnet\publish\EntityAnalyzer.runtimeconfig.json
+C:\Users\malin\Desktop\entity_analyzer\dotnet\publish\EntityAnalyzer.pdb
+C:\Users\malin\Desktop\entity_analyzer\dotnet\publish\Microsoft.Windows.SDK.NET.dll
+C:\Users\malin\Desktop\entity_analyzer\dotnet\publish\WinRT.Runtime.dll
+C:\Users\malin\Desktop\entity_analyzer\dotnet\publish\YamlDotNet.dll
+C:\Users\malin\Desktop\entity_analyzer\dotnet\publish\EntityAnalyzer.Core.dll
+C:\Users\malin\Desktop\entity_analyzer\dotnet\publish\EntityAnalyzer.Core.pdb

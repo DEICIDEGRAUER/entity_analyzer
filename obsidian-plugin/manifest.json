@@ -1,0 +1,10 @@
+{
+  "id": "entity-analyzer-sync",
+  "name": "Entity Analyzer Sync",
+  "version": "1.0.0",
+  "minAppVersion": "1.5.0",
+  "description": "Import Entity Analyzer exports (.earepro, entities_data.json, markdown reports) into Obsidian vault as linked notes. Sync changes back to project.",
+  "author": "Entity Analyzer Team",
+  "authorUrl": "https://github.com/entity-analyzer",
+  "isDesktopOnly": false
+}
