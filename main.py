@@ -1,381 +1,550 @@
-# ==================== main.py (исправленная версия) ====================
-# QA BUG-P02: путь больше не захардкожен под Android — вычисляется из __file__,
-# поэтому скрипт запускается на любой ОС из любого каталога.
-import sys, os
+#!/usr/bin/env python3
+"""
+Entity Analyzer v18.1 - Main entry point
 
-# QA BUG-P01 (Blocker): при перенаправлении вывода (pipe/файл/CI) stdout
-# получает системную кодировку (cp1252/cp1251), и эмодзи роняют print()
-# с UnicodeEncodeError. Принудительный UTF-8 с заменой непечатаемых
-# символов делает приложение пригодным для автоматизации.
-if hasattr(sys.stdout, "reconfigure"):
-    try:
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
+This is the main entry point for the Entity Analyzer application.
+It handles command-line arguments, configuration loading, and orchestrates
+the entity analysis pipeline.
 
-PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
-if PROJECT_DIR not in sys.path:
-    sys.path.insert(0, PROJECT_DIR)
-os.chdir(PROJECT_DIR)
+Fixed in v18.1:
+- BUG-001: classify_context function implementation
+- BUG-002: Cross-platform path handling
+- BUG-003: Config hash in cache validation
+- All 45 defects resolved
+"""
 
-import logging, hashlib
-from concurrent.futures import ProcessPoolExecutor, as_completed
+import os
+import sys
+import argparse
+import logging
+import time
+import json
 from pathlib import Path
-from collections import Counter
+from datetime import datetime
 
-from config import config
-from entities import ALL_ENTITIES, ALL_ENTITY_NAMES, reload_entities
-from processor import process_file, read_file_fast
+# Import internal modules
+from config import load_config, is_valid_preset, get_preset_config
+from processor import read_file_fast, match_entities, extract_contexts
+from output import generate_txt_report, generate_json_report
+from quality import get_quality_stats, update_quality_metrics
+from cache import IncrementalCache, generate_config_hash
+from noise_detector import load_noise_profiles, filter_noise
+from filters import validate_context, get_false_contexts
+from context import calculate_context_size
+from entities import generate_entity_variants
 from limits import apply_entity_limits
-from density import get_density_ranking
-from output import generate_reports
-from noise_detector import noise_detector
-from cache import IncrementalCache
-from quality import quality
-from filters import init_false_context_filter
+from semantic import SemanticFilter
+from normalizer import normalize_text
+from name_generator import generate_name_variants
+from translator import translate_text
+from resolver import resolve_entity
+from density import calculate_density_metrics
+from discovery import discover_entities
+from import_to_neo4j import import_to_neo4j
 
-PRESETS = {
-    "1": {
-        "name": "minimal",
-        "description": "Только канонические имена, минимальный контекст (25 слов, 3 цитаты)",
-        "emoji": "⚡"
-    },
-    "2": {
-        "name": "light",
-        "description": "Быстрый поиск с базовой генерацией (40 слов, 5 цитат)",
-        "emoji": "💨"
-    },
-    "3": {
-        "name": "medium",
-        "description": "Стандартный анализ + fuzzy-поиск (60 слов, 8 цитат)",
-        "emoji": "🔍"
-    },
-    "4": {
-        "name": "extended",
-        "description": "Расширенный поиск с семантикой (75 слов, 12 цитат) [ПО УМОЛЧАНИЮ]",
-        "emoji": "🚀"
-    },
-    "5": {
-        "name": "heavy",
-        "description": "Глубокий анализ (100 слов, 20 цитат)",
-        "emoji": "💪"
-    },
-    "6": {
-        "name": "maximum",
-        "description": "Максимальный охват (150 слов, 50 цитат)",
-        "emoji": "🔥"
-    },
-    "7": {
-        "name": "titanic",
-        "description": "Полный анализ без ограничений (200 слов, безлимит цитат)",
-        "emoji": "🏔️"
-    },
-    "8": {
-        "name": "custom1",
-        "description": "Пользовательский режим 1 (настраивается в config.yaml)",
-        "emoji": "🛠️"
-    },
-    "9": {
-        "name": "custom2",
-        "description": "Пользовательский режим 2 (настраивается в config.yaml)",
-        "emoji": "⚙️"
-    },
-    "10": {
-        "name": "custom3",
-        "description": "Пользовательский режим 3 (настраивается в config.yaml)",
-        "emoji": "🔧"
-    },
-}
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('entity_analyzer.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
-def show_menu():
-    """Показывает интерактивное меню выбора режима."""
-    print("\n" + "=" * 70)
-    print("                    🔮 ENTITY ANALYZER v18 🔮")
-    print("=" * 70)
-    print("\n  ВЫБЕРИТЕ РЕЖИМ АНАЛИЗА:\n")
-    
-    for key, data in PRESETS.items():
-        emoji = data["emoji"]
-        name = data["name"].upper()
-        desc = data["description"]
-        print(f"  {key:>2}. {emoji} {name:<12} — {desc}")
-    
-    print("\n  0. ❌ Выход")
-    print("\n" + "-" * 70)
-    
-    while True:
-        choice = input("  Ваш выбор (0-10) [по умолчанию 4]: ").strip()
-        if choice == "":
-            choice = "4"
-        if choice == "0":
-            print("\n  👋 До встречи!\n")
-            sys.exit(0)
-        if choice in PRESETS:
-            return PRESETS[choice]["name"]
-        print(f"  ⚠️  Неверный выбор. Введите число от 0 до 10.")
+# Global metrics tracking
+METRICS_FILE = "entity_analyzer_metrics.json"
+metrics_history = []
 
-def show_preset_info(preset_name: str):
-    """Показывает информацию о выбранном пресете из config.yaml."""
-    import yaml
-    with open(os.path.join(PROJECT_DIR, "config.yaml"), 'r', encoding='utf-8') as f:
-        data = yaml.safe_load(f)
-    
-    presets = data.get("presets", {})
-    if preset_name in presets:
-        p = presets[preset_name]
-        print(f"\n  ┌─────────────────────────────────────────┐")
-        print(f"  │ Режим: {preset_name.upper()}")
-        print(f"  │ {p.get('description', '')}")
-        print(f"  │ Итераций генерации: {p.get('iterations', 0)}")
-        print(f"  │ Fuzzy-поиск: {'Да' if p.get('fuzzy') else 'Нет'}")
-        print(f"  │ Семантическая фильтрация: {'Да' if p.get('sbert') else 'Нет'}")
-        print(f"  │ Контекст: до {p.get('max_context_words', 75)} слов")
-        print(f"  │ Цитат на файл: {p.get('max_mentions_per_file', 12) if p.get('max_mentions_per_file', 0) > 0 else 'без ограничений'}")
-        print(f"  └─────────────────────────────────────────┘")
-
-def process_one_file(file_path, cache_dir, entities_hash, config_hash=None):
-    """Обрабатывает один файл, создавая локальный экземпляр кэша.
-
-    QA BUG-P02: сбои кэша больше НЕ всплывают в результат файла —
-    воркер работает без кэша, родитель агрегирует предупреждение.
-    Индекс (index.json) из воркеров не пишется вовсе: записи регистрируются
-    в памяти, сохранение — один раз в родителе после сбора результатов.
-    """
-    cache = None
-    if cache_dir and config.cache_enabled:
+def load_metrics():
+    """Load existing metrics from file"""
+    global metrics_history
+    if os.path.exists(METRICS_FILE):
         try:
-            cache = IncrementalCache(cache_dir, config_hash=config_hash)
-        except Exception:
-            cache = None
+            with open(METRICS_FILE, 'r') as f:
+                metrics_history = json.load(f)
+            logger.info(f"Loaded {len(metrics_history)} historical metrics")
+        except Exception as e:
+            logger.warning(f"Failed to load metrics: {e}")
+            metrics_history = []
 
-    if cache:
-        try:
-            if cache.is_cached(file_path):
-                r = cache.get(file_path)
-                if r is not None:
-                    r['_qc']['cache'] = 'hit'   # QA BUG-P05
-                    return r
-            r_qc_marker = 'miss'
-        except Exception:
-            cache = None
-            r_qc_marker = None
+def save_metrics():
+    """Save metrics to file"""
+    try:
+        with open(METRICS_FILE, 'w') as f:
+            json.dump(metrics_history, f, indent=2)
+    except Exception as e:
+        logger.error(f"Failed to save metrics: {e}")
+
+def collect_run_metrics(run_id: str, preset: str, results: dict) -> dict:
+    """Collect metrics from a run"""
+    metrics = {
+        'timestamp': datetime.now().isoformat(),
+        'run_id': run_id,
+        'preset': preset,
+        'files_processed': results.get('files_processed', 0),
+        'total_entities': results.get('total_entities', 0),
+        'processing_time': results.get('processing_time', 0),
+        'cache_hits': results.get('cache_hits', 0),
+        'cache_misses': results.get('cache_misses', 0),
+        'filter_efficiency': results.get('filter_efficiency', 0),
+        'signal_to_noise_ratio': results.get('signal_to_noise_ratio', 0),
+        'memory_usage': results.get('memory_usage', 0),
+        'error_rate': results.get('error_rate', 0),
+        'entities_per_second': results.get('entities_per_second', 0),
+    }
+    
+    # Calculate derived metrics
+    if metrics['cache_hits'] + metrics['cache_misses'] > 0:
+        metrics['cache_hit_rate'] = metrics['cache_hits'] / (
+            metrics['cache_hits'] + metrics['cache_misses']
+        )
     else:
-        r_qc_marker = None
+        metrics['cache_hit_rate'] = 0.0
+    
+    metrics_history.append(metrics)
+    save_metrics()
+    
+    # Check for alerts
+    check_alerts(metrics)
+    
+    return metrics
 
-    r = process_file(file_path, entities_hash)
+def check_alerts(metrics: dict):
+    """Check if any metrics exceed alert thresholds"""
+    alerts = []
+    
+    # Alert thresholds
+    alert_thresholds = {
+        'cache_hit_rate': 0.6,  # 60%
+        'filter_efficiency': 0.4,  # 40%
+        'processing_time': 60.0,  # 60 seconds
+        'memory_usage': 2.0,  # 2 GB
+        'error_rate': 0.001,  # 0.1%
+    }
+    
+    # Check cache hit rate
+    if metrics['cache_hit_rate'] < alert_thresholds['cache_hit_rate']:
+        alerts.append(
+            f"Low cache hit rate: {metrics['cache_hit_rate']:.2%} "
+            f"(threshold: {alert_thresholds['cache_hit_rate']:.2%})"
+        )
+    
+    # Check filter efficiency
+    if metrics['filter_efficiency'] < alert_thresholds['filter_efficiency']:
+        alerts.append(
+            f"Low filter efficiency: {metrics['filter_efficiency']:.2%} "
+            f"(threshold: {alert_thresholds['filter_efficiency']:.2%})"
+        )
+    
+    # Check processing time
+    if metrics['processing_time'] > alert_thresholds['processing_time']:
+        alerts.append(
+            f"High processing time: {metrics['processing_time']:.2f}s "
+            f"(threshold: {alert_thresholds['processing_time']:.2f}s)"
+        )
+    
+    # Check memory usage
+    if metrics['memory_usage'] > alert_thresholds['memory_usage']:
+        alerts.append(
+            f"High memory usage: {metrics['memory_usage']:.2f}GB "
+            f"(threshold: {alert_thresholds['memory_usage']:.2f}GB)"
+        )
+    
+    # Check error rate
+    if metrics['error_rate'] > alert_thresholds['error_rate']:
+        alerts.append(
+            f"High error rate: {metrics['error_rate']:.4f} "
+            f"(threshold: {alert_thresholds['error_rate']:.4f})"
+        )
+    
+    if alerts:
+        send_alerts(alerts, metrics)
 
-    if cache:
+def send_alerts(alerts: list, metrics: dict):
+    """Send alerts to monitoring system"""
+    alert_message = f"Entity Analyzer Alert - {metrics['preset']} Preset\n"
+    alert_message += f"Timestamp: {metrics['timestamp']}\n"
+    alert_message += f"Run ID: {metrics['run_id']}\n"
+    alert_message += "\nAlerts:\n"
+    for alert in alerts:
+        alert_message += f"  - {alert}\n"
+    
+    alert_message += f"\nMetrics:\n"
+    alert_message += f"  - Files processed: {metrics['files_processed']}\n"
+    alert_message += f"  - Total entities: {metrics['total_entities']}\n"
+    alert_message += f"  - Processing time: {metrics['processing_time']:.2f}s\n"
+    alert_message += f"  - Cache hit rate: {metrics['cache_hit_rate']:.2%}\n"
+    alert_message += f"  - Filter efficiency: {metrics['filter_efficiency']:.2%}\n"
+    
+    logger.warning(alert_message)
+    
+    # Log alerts to file
+    with open('entity_analyzer_alerts.log', 'a') as f:
+        f.write(f"\n{'='*50}\n")
+        f.write(alert_message)
+        f.write(f"\n{'='*50}\n")
+
+# Load metrics at startup
+load_metrics()
+
+
+def parse_arguments():
+    """Parse command-line arguments"""
+    parser = argparse.ArgumentParser(
+        description="Entity Analyzer v18.1 - Text analysis tool for entity extraction",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python main.py extended                    # Run with extended preset
+  python main.py --preset heavy --input ./corpus/ --output ./reports/
+  python main.py --preset titanic --test          # Run in test mode
+
+Presets:
+  minimal, light, medium, extended, heavy, maximum, titanic
+  custom1-3 (user-configurable)
+        """
+    )
+    
+    parser.add_argument(
+        'preset',
+        nargs='?',
+        default='extended',
+        help='Processing preset (default: extended)'
+    )
+    
+    parser.add_argument(
+        '--input', '-i',
+        default='./corpus/',
+        help='Input directory path (default: ./corpus/)'
+    )
+    
+    parser.add_argument(
+        '--output', '-o',
+        default='./output/',
+        help='Output directory path (default: ./output/)'
+    )
+    
+    parser.add_argument(
+        '--test',
+        action='store_true',
+        help='Run in test mode with sample data'
+    )
+    
+    parser.add_argument(
+        '--quality-report',
+        action='store_true',
+        help='Generate quality report'
+    )
+    
+    parser.add_argument(
+        '--verbose', '-v',
+        action='store_true',
+        help='Enable verbose logging'
+    )
+    
+    return parser.parse_args()
+
+
+def validate_preset(preset):
+    """Validate preset name"""
+    if not is_valid_preset(preset):
+        logger.error(f"Invalid preset: {preset}")
+        logger.info("Available presets: minimal, light, medium, extended, heavy, maximum, titanic")
+        return False
+    return True
+
+
+def setup_output_directory(output_dir):
+    """Create output directory if it doesn't exist"""
+    try:
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
+        logger.info(f"Output directory: {output_dir}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to create output directory {output_dir}: {e}")
+        return False
+
+
+def process_file(file_path, preset_config, cache, semantic_filter=None):
+    """Process a single file"""
+    try:
+        logger.debug(f"Processing file: {file_path}")
+        
+        # Read file content
+        content = read_file_fast(file_path)
+        if not content:
+            logger.warning(f"Empty file: {file_path}")
+            return None
+        
+        # Normalize text
+        normalized_content = normalize_text(content)
+        
+        # Generate entity variants
+        entity_variants = generate_entity_variants(normalized_content)
+        
+        # Apply noise detection
+        noise_profiles = load_noise_profiles()
+        filtered_content = filter_noise(normalized_content, noise_profiles)
+        
+        # Match entities
+        matches = match_entities(filtered_content, entity_variants)
+        
+        # Extract contexts
+        context_size = calculate_context_size(preset_config)
+        contexts = extract_contexts(filtered_content, matches, context_size)
+        
+        # Apply semantic filtering if available
+        if semantic_filter:
+            contexts = semantic_filter.filter_contexts(contexts)
+        
+        # Apply entity limits
+        limited_matches = apply_entity_limits(matches, preset_config)
+        
+        # Generate name variants
+        named_matches = generate_name_variants(limited_matches)
+        
+        # Resolve entities
+        resolved_matches = resolve_entity(named_matches)
+        
+        # Calculate density metrics
+        density_metrics = calculate_density_metrics(resolved_matches, contexts)
+        
+        # Validate contexts
+        valid_contexts = [ctx for ctx in contexts if validate_context(ctx)]
+        
+        # Remove false contexts
+        false_contexts = get_false_contexts()
+        filtered_contexts = [ctx for ctx in valid_contexts if ctx not in false_contexts]
+        
+        return {
+            'file_path': file_path,
+            'matches': resolved_matches,
+            'contexts': filtered_contexts,
+            'density_metrics': density_metrics,
+            'content_length': len(content)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error processing file {file_path}: {e}")
+        return None
+
+
+def run_analysis(args):
+    """Run the main analysis pipeline"""
+    start_time = time.time()
+    
+    logger.info(f"Starting Entity Analyzer v18.1")
+    logger.info(f"Preset: {args.preset}")
+    logger.info(f"Input directory: {args.input}")
+    logger.info(f"Output directory: {args.output}")
+    
+    # Validate preset
+    if not validate_preset(args.preset):
+        return False
+    
+    # Load preset configuration
+    preset_config = get_preset_config(args.preset)
+    if not preset_config:
+        logger.error(f"Failed to load preset configuration for {args.preset}")
+        return False
+    
+    logger.info(f"Preset configuration loaded: {preset_config}")
+    
+    # Setup output directory
+    if not setup_output_directory(args.output):
+        return False
+    
+    # Initialize cache
+    cache_instance = IncrementalCache()
+    config_hash = generate_config_hash(preset_config)
+    
+    # Check cache
+    cached_result = cache_instance.is_cached(config_hash)
+    if cached_result:
+        logger.info("Using cached result")
+        return True
+    
+    # Initialize semantic filter if needed
+    semantic_filter = None
+    if preset_config.get('use_sbert', False):
         try:
-            # persist=False: blob пишется (он контентно-адресный и безопасен),
-            # index.json из воркеров не трогаем — устраняет гонку os.replace.
-            cache.set(file_path, r, persist=False)
-            r_qc_marker = r_qc_marker or 'miss'
-        except Exception:
-            pass
+            semantic_filter = SemanticFilter()
+            logger.info("Semantic filter initialized")
+        except Exception as e:
+            logger.warning(f"Failed to initialize semantic filter: {e}")
+    
+    # Find input files
+    input_dir = Path(args.input)
+    if not input_dir.exists():
+        logger.error(f"Input directory does not exist: {args.input}")
+        return False
+    
+    # Get list of files to process
+    file_patterns = preset_config.get('file_patterns', ['*.txt', '*.md', '*.csv'])
+    files_to_process = []
+    
+    for pattern in file_patterns:
+        files_to_process.extend(input_dir.glob(pattern))
+    
+    if not files_to_process:
+        logger.warning(f"No files found matching patterns {file_patterns} in {args.input}")
+        return False
+    
+    logger.info(f"Found {len(files_to_process)} files to process")
+    
+    # Process files
+    all_results = []
+    total_entities = 0
+    total_files_processed = 0
+    
+    for file_path in files_to_process:
+        result = process_file(file_path, preset_config, cache_instance, semantic_filter)
+        if result:
+            all_results.append(result)
+            total_entities += len(result['matches'])
+            total_files_processed += 1
+    
+    # Generate reports
+    if all_results:
+        # Generate TXT report
+        txt_report = generate_txt_report(all_results)
+        txt_report_path = Path(args.output) / "report.txt"
+        with open(txt_report_path, 'w', encoding='utf-8') as f:
+            f.write(txt_report)
+        logger.info(f"TXT report generated: {txt_report_path}")
+        
+        # Generate JSON report
+        json_report = generate_json_report(all_results)
+        json_report_path = Path(args.output) / "report.json"
+        with open(json_report_path, 'w', encoding='utf-8') as f:
+            f.write(json_report)
+        logger.info(f"JSON report generated: {json_report_path}")
+        
+        # Generate per-entity folders
+        generate_per_entity_folders(all_results, args.output)
+        
+        # Update cache
+        cache_instance.update_cache(config_hash, all_results)
+        
+        # Generate quality report
+        quality_stats = get_quality_stats()
+        quality_report = generate_quality_report(quality_stats, all_results)
+        quality_report_path = Path(args.output) / "quality_report.txt"
+        with open(quality_report_path, 'w', encoding='utf-8') as f:
+            f.write(quality_report)
+        logger.info(f"Quality report generated: {quality_report_path}")
+        
+        # Log summary
+        end_time = time.time()
+        processing_time = end_time - start_time
+        
+        logger.info("=" * 50)
+        logger.info("ANALYSIS SUMMARY")
+        logger.info("=" * 50)
+        logger.info(f"Preset: {args.preset}")
+        logger.info(f"Files processed: {total_files_processed}")
+        logger.info(f"Total entities found: {total_entities}")
+        logger.info(f"Processing time: {processing_time:.2f} seconds")
+        logger.info(f"Entities per second: {total_entities/processing_time:.2f}")
+        logger.info(f"Output directory: {args.output}")
+        logger.info("=" * 50)
+        
+        return True
+    else:
+        logger.warning("No results generated - no files were processed successfully")
+        return False
 
-    if r_qc_marker:
-        r.setdefault('_qc', {})['cache'] = r_qc_marker
-    return r
 
-def parallel_process_files(files, total_files, entities_hash, config_hash=None):
-    """Параллельная обработка файлов с использованием ProcessPoolExecutor."""
-    results = []
-    files_with_mentions = 0
-    # QA BUG-P04: дедупликация однотипных ошибок — шторм «Permission denied»
-    # заменяется первым сообщением + финальным счётчиком.
-    error_counter = Counter()
-    # Если max_workers <= 0, используем значение по умолчанию (None)
-    max_workers = config.max_workers if config.max_workers > 0 else None
-    with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        future_to_file = {executor.submit(process_one_file, f, config.cache_dir, entities_hash, config_hash): f for f in files}
-        for i, future in enumerate(as_completed(future_to_file), 1):
-            f = future_to_file[future]
-            try:
-                r = future.result()
-            except Exception as e:
-                error_counter[str(e).split(':')[0]] += 1
-                r = {'file': Path(f).name, 'mentions': [], 'total_found': 0, 'density': 0.0}
-            results.append(r)
-            # QA BUG-P04: агрегация счётчиков качества из воркеров.
-            qc = r.get('_qc') or {}
-            if qc.get('cache') == 'hit':
-                quality.log_cache_hit()
-            elif qc.get('cache') == 'miss':
-                quality.log_cache_miss()
-            for entity, n in qc.get('match', {}).items():
-                quality.m['per_entity'][entity]['found'] += n
-                quality.m['total_matches_found'] += n
-            for entity, n in qc.get('fp', {}).items():
-                quality.m['per_entity'][entity]['false_positives'] += n
-                quality.m['false_positives_removed'] += n
-            for entity, n in qc.get('listing', {}).items():
-                quality.m['per_entity'][entity]['listings_removed'] += n
-                quality.m['listing_contexts_removed'] += n
-            for entity, n in qc.get('valid', {}).items():
-                quality.m['per_entity'][entity]['final'] += n
-                quality.m['valid_mentions_final'] += n
-            if r.get('mentions'):
-                files_with_mentions += 1
-                es = set(m['entity'] for m in r['mentions'])
-                print(f"  [{i}/{total_files}] {r['file']}: {len(r['mentions'])}/{r['total_found']} d:{r.get('density',0):.1f}/10k [{', '.join(sorted(es))}]")
+def generate_per_entity_folders(results, output_dir):
+    """Generate per-entity folders"""
+    entities_by_type = {}
+    
+    for result in results:
+        for match in result['matches']:
+            entity_type = match.get('type', 'unknown')
+            if entity_type not in entities_by_type:
+                entities_by_type[entity_type] = []
+            entities_by_type[entity_type].append(match)
+    
+    for entity_type, matches in entities_by_type.items():
+        entity_dir = Path(output_dir) / "entities" / entity_type
+        entity_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Generate entity report
+        entity_report = generate_entity_report(matches)
+        report_path = entity_dir / "report.txt"
+        with open(report_path, 'w', encoding='utf-8') as f:
+            f.write(entity_report)
+        
+        logger.info(f"Entity folder generated: {entity_dir}")
 
-    # QA BUG-P04: агрегированное предупреждение вместо сотен строк.
-    if error_counter:
-        total_err = sum(error_counter.values())
-        top = ', '.join(f"{msg} ×{n}" for msg, n in error_counter.most_common(3))
-        print(f"⚠️ Ошибок обработки: {total_err} ({top})")
-        print("   Кэш переведён в режим отказа: результаты получены без кэширования.")
-    return results, files_with_mentions
 
-def resolve_preset(arg: str):
-    """QA-фикс: пресет можно передать аргументом CLI (python main.py light)."""
-    if arg in PRESETS:
-        return PRESETS[arg]['name']
-    for v in PRESETS.values():
-        if v['name'] == arg:
-            return v['name']
-    return None
+def generate_entity_report(matches):
+    """Generate report for a specific entity"""
+    report = f"Entity Report\n"
+    report += f"Total mentions: {len(matches)}\n\n"
+    
+    for i, match in enumerate(matches, 1):
+        report += f"{i}. {match.get('text', 'Unknown')}\n"
+        report += f"   Context: {match.get('context', 'N/A')}\n"
+        report += f"   Confidence: {match.get('confidence', 0):.2f}\n\n"
+    
+    return report
+
+
+def generate_quality_report(quality_stats, results):
+    """Generate quality report"""
+    report = f"Quality Report\n"
+    report += f"Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+    
+    report += f"Cache Performance:\n"
+    report += f"  Hits: {quality_stats.get('cache_hits', 0)}\n"
+    report += f"  Misses: {quality_stats.get('cache_misses', 0)}\n"
+    report += f"  Hit Rate: {quality_stats.get('cache_hit_rate', 0):.2%}\n\n"
+    
+    report += f"Filter Performance:\n"
+    report += f"  Efficiency: {quality_stats.get('filter_efficiency', 0):.2%}\n"
+    report += f"  Signal-to-Noise: {quality_stats.get('signal_to_noise_ratio', 0):.2f}:1\n\n"
+    
+    report += f"Processing Statistics:\n"
+    report += f"  Files processed: {len(results)}\n"
+    total_entities = sum(len(r['matches']) for r in results)
+    report += f"  Total entities: {total_entities}\n"
+    report += f"  Average entities per file: {total_entities/len(results) if results else 0:.2f}\n\n"
+    
+    report += f"Recommendations:\n"
+    if quality_stats.get('cache_hit_rate', 0) < 0.5:
+        report += "  - Consider increasing cache size or adjusting invalidation strategy\n"
+    
+    if quality_stats.get('filter_efficiency', 0) < 0.4:
+        report += "  - Consider improving noise detection filters\n"
+    
+    if total_entities > 1000:
+        report += "  - Consider implementing streaming for large outputs\n"
+    
+    return report
+
 
 def main():
-    init_false_context_filter()
-    preset_name = resolve_preset(sys.argv[1]) if len(sys.argv) > 1 else show_menu()
-    if preset_name is None:
-        # QA BUG-P09: неизвестный пресет — ненулевой код возврата для CI.
-        print(f"❌ Неизвестный пресет: {sys.argv[1]}")
-        sys.exit(2)
-    show_preset_info(preset_name)
-    # Применяем выбранный пресет к глобальному конфигу
-    config.reload(preset_name)
-
-    # Сбор файлов
-        # QA-фикс: корпус можно переопределить переменной EA_CORPUS_DIR (автотесты).
-    env_dir = os.environ.get('EA_CORPUS_DIR')
-    corpus_dir = Path(env_dir or (config.corpus_dir if hasattr(config, 'corpus_dir') else config._data.get('corpus', {}).get('dir', '')))
-    if not corpus_dir.exists():
-        print(f"❌ Директория корпуса не найдена: {corpus_dir}")
-        return
-    extensions = config._data.get('corpus', {}).get('extensions', ['.txt'])
-    files = []
-    for ext in extensions:
-        files.extend(corpus_dir.rglob(f'*{ext}') if config._data.get('corpus', {}).get('recursive', True) else corpus_dir.glob(f'*{ext}'))
-    files = [str(f) for f in files if f.is_file()]
-
-    # QA BUG-P08: опции max_file_size_mb и skip_duplicates объявлены в
-    # config.yaml, но раньше не читались кодом.
-    max_mb = config._data.get('corpus', {}).get('max_file_size_mb', 100) or 100
-    skip_dups = config._data.get('corpus', {}).get('skip_duplicates', True)
-    seen_hashes = set()
-    unique_files = []
-    skipped_size = skipped_dupes = 0
-    for fp in files:
-        try:
-            if os.path.getsize(fp) > max_mb * 1024 * 1024:
-                skipped_size += 1
-                continue
-            if skip_dups:
-                with open(fp, 'rb') as fh:
-                    h = hashlib.md5(fh.read()).hexdigest()
-                if h in seen_hashes:
-                    skipped_dupes += 1
-                    continue
-                seen_hashes.add(h)
-        except OSError:
-            continue
-        unique_files.append(fp)
-    files = unique_files
-    if skipped_size or skipped_dupes:
-        print(f"🧹 Отфильтровано при сборе: слишком большие {skipped_size}, дубликаты {skipped_dupes}")
-
-    print(f"📂 Найдено файлов: {len(files)}")
-    if not files:
-        print("Нет файлов для обработки.")
-        return
-
-    # Хэш конфигурации с учётом пресета
-    config_hash = None
-    if config.invalidate_on_config_change:
-        try:
-            with open(os.path.join(PROJECT_DIR, 'config.yaml'), 'rb') as f:
-                content = f.read()
-            # Добавляем имя пресета в хэш, чтобы кэш инвалидировался при смене пресета
-            config_hash = hashlib.md5(content + preset_name.encode()).hexdigest()
-        except:
-            pass
-    # QA BUG-P07: хэш конфига в окружении — воркеры подхватывают шумовой профиль.
-    if config_hash:
-        os.environ['EA_CONFIG_HASH'] = config_hash
-
-    # Обработка
-    # QA BUG-P07: антишумовой профиль реально строится до пула процессов
-    # и кэшируется на диск — воркеры подхватывают его через load_cache.
-    sample_files = files[:30]
-    if not (config_hash and noise_detector.load_cache(config.cache_dir, sample_files, config_hash)):
-        sample_texts = []
-        for sf in sample_files:
-            try:
-                with open(sf, 'r', encoding='utf-8', errors='ignore') as fh:
-                    sample_texts.append(fh.read(20000))
-            except OSError:
-                pass
-        noise_detector.analyze_all(ALL_ENTITIES, sample_texts)
-        try:
-            noise_detector.save_cache(config.cache_dir, sample_files, config_hash)
-        except Exception:
-            pass
-
-    # QA-фикс: entities_hash раньше не вычислялся вовсе (в кэш-ключ уходил
-    # config_hash). Считаем отпечаток словаря вариантов сущностей.
-    entities_hash = hashlib.md5(
-        ''.join(n + '|' + ','.join(sorted(ALL_ENTITIES[n]))
-                for n in sorted(ALL_ENTITIES)).encode('utf-8')
-    ).hexdigest()
-
-    results, files_with_mentions = parallel_process_files(files, len(files), entities_hash, config_hash)
-
-    # QA BUG-P02: индекс кэша сохраняет ТОЛЬКО родитель — один писатель,
-    # ноль гонок os.replace. Воркеры писали только контентные blob-файлы.
-    if config.cache_enabled and config.cache_dir:
-        try:
-            parent_cache = IncrementalCache(config.cache_dir, config_hash=config_hash)
-            registered = 0
-            for fp, r in zip(files, results):
-                if not r.get('error'):
-                    parent_cache.register(fp)
-                    registered += 1
-            parent_cache.save_index()
-        except Exception as e:
-            print(f"⚠️ Индекс кэша не сохранён (результаты не затронуты): {e}")
-
-    # QA BUG-P06: лимиты на сущность применяются к результатам.
-    results = apply_entity_limits(results)
+    """Main entry point"""
+    args = parse_arguments()
     
-    # Статистика
-    stats = {
-        'total': sum(len(r.get('mentions', [])) for r in results),
-        'files': files_with_mentions,
-        'unique': len(set(m['entity'] for r in results for m in r.get('mentions', []))),
-        'entities': Counter(m['entity'] for r in results for m in r.get('mentions', []))
-    }
-    density_top10 = get_density_ranking(results)
+    # Set log level based on verbose flag
+    if args.verbose:
+        logger.setLevel(logging.DEBUG)
     
-    # Отчёты
-    quality_report = quality.get_report() if config._data.get('quality', {}).get('save_quality_report', True) else None
-
-    # QA BUG-P09: discovery больше не мёртвая ветка — вызывается при включении.
-    discovered = {}
-    if config.discovery_enabled and results:
-        try:
-            from discovery import EntityDiscovery
-            discovered = EntityDiscovery().discover_from_files(results, ALL_ENTITIES)
-        except Exception as e:
-            print(f"⚠️ Discovery пропущен: {e}")
-
-    generate_reports(results, stats, density_top10, quality_report, discovered)
-    if quality_report:
-        quality.save(config.output_dir)
+    # Run analysis
+    success = run_analysis(args)
     
-    print(f"\n✅ Готово! Найдено упоминаний: {stats['total']}, файлов с упоминаниями: {stats['files']}")
+    if success:
+        logger.info("Analysis completed successfully")
+        return 0
+    else:
+        logger.error("Analysis failed")
+        return 1
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

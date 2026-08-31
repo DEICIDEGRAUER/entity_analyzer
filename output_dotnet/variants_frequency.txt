@@ -1,0 +1,211 @@
+частота	вариант
+12103	Тот
+4514	Той
+4149	Darkness
+3594	Zhar
+2461	Ghouls
+1900	The Darkness
+1766	Тьмы
+1717	Yog-Sothoth
+1209	Тьме
+1184	The Gate
+1107	Yeb
+1027	Тьма
+915	The Key
+805	Туман
+783	Тьму
+670	Ghoul
+632	Nug
+572	Йог-Сотот
+558	Yog
+413	Тумана
+397	Йог-Сотота
+287	Тумане
+269	Мерзость
+264	Бытие
+263	Нуг
+253	Lloigor
+204	Тьмой
+194	The Unspeakable
+184	Йог-Сототу
+178	Упыри
+161	Zoth
+161	Туманом
+143	The Lurker at the Threshold
+138	Упырь
+135	Зот
+124	Ллойгор
+113	Гулей
+104	Безымянные
+103	Гули
+97	Nut
+85	Тьмою
+81	Нут
+78	Cxaxukluth
+78	Nug and Yeb
+69	Гуль
+64	Внешний Бог
+56	Йог-Сототом
+55	Нага
+55	Гуля
+53	'Umr at-Tawil
+53	Йог-Сототе
+52	Хранитель Врат
+51	Geb
+51	Dark Star
+47	the Outer God
+47	Туманов
+46	Aforgomon
+43	Yog Sothoth
+43	Наг
+41	Zhar and Lloigor
+41	Magnum Innominandum
+36	Нагов
+31	Нуит
+30	Туману
+30	Йогг-Сотота
+29	Yog-Sothothery
+29	Йогг-Сотот
+28	The Opener of the Way
+27	Наги
+24	Nuit
+24	Туманами
+24	Гулями
+24	Наг и Йеб
+22	Вурдалак
+21	Таящийся у Порога
+21	Пожиратель душ
+20	All-Encompassing
+19	Him Who is Not to Be Named
+18	Вурдалаки
+18	Йог-Сототх
+17	Ghisguth
+17	Гуле
+17	Кеб
+17	Геб
+17	Йог-Сохот
+16	Umr at-Tawil
+16	Ptmâk
+16	Not-to-be-Named One
+16	Туманах
+16	Нуг и Йеб
+14	Kthulhut
+14	Yok-Zothoth
+14	Йог-Соттот
+13	Opener of the Way
+13	The Guardian of the Gate
+12	Ycnagnnisssz
+12	Ghizghuth
+12	Йеба
+11	Нагами
+10	The Nameless Mist
+10	Yogge-Sothothe
+10	Гисгут
+10	Нагах
+10	Умр-ат-Тавил
+9	Iog-Sotôt
+9	Naggoob
+9	Себ
+9	Наге
+9	Икнагнисссз
+8	The Nameless One
+7	Гулем
+7	Nameless Mist
+7	Гулях
+7	Йог-Соттота
+7	Йог-Сотхотх
+7	Йеб
+6	Leng Ghouls
+6	Великая Тьма
+6	All-in-One
+6	Ycnágnnisssz
+6	Гулю
+6	Владыка гулей
+6	Наггуб
+6	Темная звезда
+6	Йогг-Сототу
+6	Нагу
+5	The Great Darkness
+5	The Key and the Gate
+5	Ключ и Врата
+5	Yogsoggoth
+5	Yogsothoth
+5	The All-in-One
+5	Все-в-Одном
+5	Безымянный Туман
+5	Трупоеды
+5	Йог Сотота
+5	Магнум Инноминандум
+5	Йог Сотот
+5	Нагом
+5	Йогг-Сототе
+5	Йогг-Сототом
+5	Йебу
+5	Гизгут
+4	Beyond-One
+4	Seb
+4	The Black Litany of Nug and Yeb
+4	The Twin Blasphemies
+4	порождение Азатота
+4	Нагам
+4	Зотх
+4	Туманам
+3	Yog-Sototl
+3	Yogg-Sothoth
+3	God Yog
+3	Gosoythoth
+3	Тьмами
+3	Афоргомон
+3	Гоулов
+3	Птмак
+2	The All-in-One and One-in-All
+2	The Unnamed One
+2	ЙогСотот
+2	The Key to the Gates
+2	Йог-Сототи
+2	Нечестивая Троица
+2	Yog-Shoggoth
+2	ог-Сотот
+2	Йог-Сото
+2	Неименуемый
+2	Трупоед
+2	Находящийся-за-Краем
+2	Magnum Tenebrosum
+2	Ramasekva
+2	Кого Нельзя Называть
+1	ЙогСотота
+1	All-is-One
+1	Нунет
+1	Great Not-to-Be-Named
+1	Yoggy
+1	Yeb of the Whispering Mists
+1	Пожиратели трупов
+1	Dreamlands Ghouls
+1	Ycnàgnnissssz
+1	ог-Сототу
+1	Гоула
+1	Наггоб
+1	Прародитель упырей
+1	Йог-Софот
+1	Йог-Софота
+1	Йог-Софотом
+1	Yog Sototh
+1	Открыватель Пути
+1	Близнецы-богохульники
+1	Затаившийся на Пороге
+1	ог-Сотота
+1	og Sothoth
+1	Father of Ghouls
+1	One-in-All
+1	TheDarkness
+1	YogSototh
+1	Yaji Ash-Shuthath
+1	Тумани
+1	Ключ и хранитель Врат
+1	Отец упырей
+1	Жар и Ллойгор
+1	ЙогСототу
+1	Йебом
+1	Владыка Врат
+1	НагиЙеб
+1	Нуг и Йиб

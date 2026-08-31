@@ -8,17 +8,9 @@
       "window": 4,
       "enabled": true,
       "tokens": [
-        {
-          "kind": "lexicon",
-          "value": "epithets"
-        },
-        {
-          "kind": "proper"
-        },
-        {
-          "kind": "lexicon",
-          "value": "ritual"
-        }
+        { "kind": "lexicon", "value": "epithets" },
+        { "kind": "proper" },
+        { "kind": "lexicon", "value": "ritual" }
       ]
     },
     {
@@ -29,13 +21,8 @@
       "window": 3,
       "enabled": true,
       "tokens": [
-        {
-          "kind": "lexicon",
-          "value": "titles"
-        },
-        {
-          "kind": "proper"
-        }
+        { "kind": "lexicon", "value": "titles" },
+        { "kind": "proper" }
       ]
     },
     {
@@ -46,13 +33,8 @@
       "window": 3,
       "enabled": true,
       "tokens": [
-        {
-          "kind": "literal",
-          "value": "порождение"
-        },
-        {
-          "kind": "proper"
-        }
+        { "kind": "literal", "value": "порождение" },
+        { "kind": "proper" }
       ]
     },
     {
@@ -63,13 +45,8 @@
       "window": 3,
       "enabled": true,
       "tokens": [
-        {
-          "kind": "lexicon",
-          "value": "kin"
-        },
-        {
-          "kind": "proper"
-        }
+        { "kind": "lexicon", "value": "kin" },
+        { "kind": "proper" }
       ]
     },
     {
@@ -80,14 +57,8 @@
       "window": 3,
       "enabled": true,
       "tokens": [
-        {
-          "kind": "lexicon",
-          "value": "epithets"
-        },
-        {
-          "kind": "lexicon",
-          "value": "books"
-        }
+        { "kind": "lexicon", "value": "epithets" },
+        { "kind": "lexicon", "value": "books" }
       ]
     },
     {
@@ -98,10 +69,7 @@
       "window": 2,
       "enabled": true,
       "tokens": [
-        {
-          "kind": "regex",
-          "value": "^(18|19|20)\\d{2}$|^\\d{1,2}[./-]\\d{1,2}[./-]\\d{2,4}$"
-        }
+        { "kind": "regex", "value": "^(18|19|20)\\d{2}$|^\\d{1,2}[./-]\\d{1,2}[./-]\\d{2,4}$" }
       ]
     },
     {
@@ -112,14 +80,8 @@
       "window": 4,
       "enabled": true,
       "tokens": [
-        {
-          "kind": "lexicon",
-          "value": "periods"
-        },
-        {
-          "kind": "lexicon",
-          "value": "periods"
-        }
+        { "kind": "lexicon", "value": "periods" },
+        { "kind": "lexicon", "value": "periods" }
       ],
       "total_window": 6
     },
@@ -131,14 +93,8 @@
       "window": 2,
       "enabled": false,
       "tokens": [
-        {
-          "kind": "lexicon",
-          "value": "epithets"
-        },
-        {
-          "kind": "lexicon",
-          "value": "abstract"
-        }
+        { "kind": "lexicon", "value": "epithets" },
+        { "kind": "lexicon", "value": "abstract" }
       ]
     },
     {
@@ -158,16 +114,10 @@
         {
           "kind": "not",
           "options": [
-            {
-              "kind": "lexicon",
-              "value": "negations"
-            }
+            { "kind": "lexicon", "value": "negations" }
           ]
         },
-        {
-          "kind": "lexicon",
-          "value": "books"
-        }
+        { "kind": "lexicon", "value": "books" }
       ]
     },
     {
@@ -181,110 +131,32 @@
         {
           "kind": "any_of",
           "options": [
-            {
-              "kind": "literal",
-              "value": "год"
-            },
-            {
-              "kind": "literal",
-              "value": "года"
-            },
-            {
-              "kind": "literal",
-              "value": "году"
-            },
-            {
-              "kind": "literal",
-              "value": "годы"
-            },
-            {
-              "kind": "literal",
-              "value": "годом"
-            },
-            {
-              "kind": "literal",
-              "value": "час"
-            },
-            {
-              "kind": "literal",
-              "value": "часа"
-            },
-            {
-              "kind": "literal",
-              "value": "часу"
-            },
-            {
-              "kind": "literal",
-              "value": "часы"
-            },
-            {
-              "kind": "literal",
-              "value": "эра"
-            },
-            {
-              "kind": "literal",
-              "value": "эры"
-            },
-            {
-              "kind": "literal",
-              "value": "эре"
-            },
-            {
-              "kind": "literal",
-              "value": "эру"
-            },
-            {
-              "kind": "literal",
-              "value": "эрой"
-            },
-            {
-              "kind": "literal",
-              "value": "век"
-            },
-            {
-              "kind": "literal",
-              "value": "века"
-            },
-            {
-              "kind": "literal",
-              "value": "веку"
-            },
-            {
-              "kind": "literal",
-              "value": "годе"
-            },
-            {
-              "kind": "literal",
-              "value": "годов"
-            },
-            {
-              "kind": "literal",
-              "value": "годам"
-            },
-            {
-              "kind": "literal",
-              "value": "годами"
-            },
-            {
-              "kind": "literal",
-              "value": "часе"
-            },
-            {
-              "kind": "literal",
-              "value": "часов"
-            },
-            {
-              "kind": "literal",
-              "value": "часом"
-            },
-            {
-              "kind": "literal",
-              "value": "веке"
-            },
-            {
-              "kind": "literal",
-              "value": "веков"
-            }
+            { "kind": "literal", "value": "год" },
+            { "kind": "literal", "value": "года" },
+            { "kind": "literal", "value": "году" },
+            { "kind": "literal", "value": "годы" },
+            { "kind": "literal", "value": "годом" },
+            { "kind": "literal", "value": "час" },
+            { "kind": "literal", "value": "часа" },
+            { "kind": "literal", "value": "часу" },
+            { "kind": "literal", "value": "часы" },
+            { "kind": "literal", "value": "эра" },
+            { "kind": "literal", "value": "эры" },
+            { "kind": "literal", "value": "эре" },
+            { "kind": "literal", "value": "эру" },
+            { "kind": "literal", "value": "эрой" },
+            { "kind": "literal", "value": "век" },
+            { "kind": "literal", "value": "века" },
+            { "kind": "literal", "value": "веку" },
+            { "kind": "literal", "value": "годе" },
+            { "kind": "literal", "value": "годов" },
+            { "kind": "literal", "value": "годам" },
+            { "kind": "literal", "value": "годами" },
+            { "kind": "literal", "value": "часе" },
+            { "kind": "literal", "value": "часов" },
+            { "kind": "literal", "value": "часом" },
+            { "kind": "literal", "value": "веке" },
+            { "kind": "literal", "value": "веков" }
           ]
         },
         {
@@ -292,6 +164,117 @@
           "min": 1,
           "max": 3
         }
+      ]
+    },
+
+    {
+      "id": "occult-quote-verb-book",
+      "name": "Цитата из оккультной книги: название + глагол речи",
+      "description": "Название книги + глагол речи/ссылки + опциональный вводный элемент (that, :, кавычки)",
+      "branch": "cult",
+      "window": 3,
+      "total_window": 6,
+      "enabled": true,
+      "tokens": [
+        {
+          "kind": "not",
+          "options": [
+            { "kind": "lexicon", "value": "negations" }
+          ]
+        },
+        { "kind": "lexicon", "value": "occult_books" },
+        { "kind": "lexicon", "value": "speech_verbs" },
+        {
+          "kind": "any_of",
+          "options": [
+            { "kind": "literal", "value": ":" },
+            { "kind": "literal", "value": "that" },
+            { "kind": "literal", "value": "in" },
+            { "kind": "literal", "value": "from" },
+            { "kind": "literal", "value": "as" },
+            { "kind": "literal", "value": "«" },
+            { "kind": "literal", "value": "\"" }
+          ],
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "occult-quote-verb-author",
+      "name": "Цитата из оккультной книги: автор + глагол речи",
+      "description": "Автор (или его эпитет) + глагол речи/ссылки",
+      "branch": "cult",
+      "window": 3,
+      "total_window": 5,
+      "enabled": true,
+      "tokens": [
+        {
+          "kind": "not",
+          "options": [
+            { "kind": "lexicon", "value": "negations" }
+          ]
+        },
+        { "kind": "lexicon", "value": "occult_authors" },
+        { "kind": "lexicon", "value": "speech_verbs" }
+      ]
+    },
+    {
+      "id": "occult-quote-author-verb-inverted",
+      "name": "Цитата из оккультной книги: глагол + автор",
+      "description": "Глагол речи + автор (например, «wrote the mad Arab», «писал безумный араб»)",
+      "branch": "cult",
+      "window": 3,
+      "total_window": 5,
+      "enabled": true,
+      "tokens": [
+        {
+          "kind": "not",
+          "options": [
+            { "kind": "lexicon", "value": "negations" }
+          ]
+        },
+        { "kind": "lexicon", "value": "speech_verbs" },
+        { "kind": "lexicon", "value": "occult_authors" }
+      ]
+    },
+    {
+      "id": "occult-quote-from-book",
+      "name": "Цитата из оккультной книги: предлог + название",
+      "description": "Выражения вида «из Некрономикона», «from the Pnakotic Manuscripts», «in the Book of Eibon»",
+      "branch": "cult",
+      "window": 1,
+      "total_window": 3,
+      "enabled": true,
+      "tokens": [
+        {
+          "kind": "any_of",
+          "options": [
+            { "kind": "literal", "value": "из" },
+            { "kind": "literal", "value": "from" },
+            { "kind": "literal", "value": "in" },
+            { "kind": "literal", "value": "of" }
+          ]
+        },
+        { "kind": "lexicon", "value": "occult_books" }
+      ]
+    },
+    {
+      "id": "occult-quote-verb-book-inverted",
+      "name": "Цитата из оккультной книги: глагол + название",
+      "description": "Глагол речи + название книги (например, «read much in Alhazred's Necronomicon»)",
+      "branch": "cult",
+      "window": 3,
+      "total_window": 5,
+      "enabled": true,
+      "tokens": [
+        {
+          "kind": "not",
+          "options": [
+            { "kind": "lexicon", "value": "negations" }
+          ]
+        },
+        { "kind": "lexicon", "value": "speech_verbs" },
+        { "kind": "lexicon", "value": "occult_books" }
       ]
     }
   ]
