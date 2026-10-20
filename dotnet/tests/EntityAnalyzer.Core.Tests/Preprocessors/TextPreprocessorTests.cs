@@ -11,6 +11,11 @@ namespace EntityAnalyzer.Core.Tests.Preprocessors;
 // Пользовательские C#-скрипты (Roslyn) отложены до согласования NuGet;
 // реестр имён готов принять их без изменения формата конфигурации.
 
+// LogSequential: Signature_changes_only_with_preprocessors строит подписью
+// кэша, которая читает пользовательские semantic-файлы (SemanticPatternStore).
+// Параллельно AnalysisModuleTests и фикстура переключают процесс-глобальные
+// EA_SEMANTIC_USER_DIR/APPDATA — подпись «прыгала» между вызовами (флейк 1/10).
+[Collection("LogSequential")]
 public class TextPreprocessorTests
 {
     // ─── PageNumberStripper ───

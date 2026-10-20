@@ -21,7 +21,6 @@ public sealed class ExportViewModel : ObservableObject
         new("json", "JSON-данные"),
         new("csv", "CSV-таблица"),
         new("html", "HTML-отчёт"),
-        new("md", "Markdown-отчёт"),
         new("md", "Markdown-отчёт")
     ];
 
@@ -120,7 +119,7 @@ public sealed class ExportViewModel : ObservableObject
         try
         {
             ReportExporter.ExportAll(_main.Session, Path.GetFullPath(OutputDir), chosen,
-                perEntityFolders: true);
+                perEntityFolders: true, codex: _main.CodexVm.Doc);
             _main.StatusText = $"Экспорт завершён → {Path.GetFullPath(OutputDir)}";
             OpenFolder.Execute(null);
         }

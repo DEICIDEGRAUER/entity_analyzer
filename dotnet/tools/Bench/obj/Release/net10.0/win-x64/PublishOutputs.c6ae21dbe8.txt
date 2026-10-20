@@ -1,8 +1,0 @@
-C:\Users\malin\Desktop\entity_analyzer\dotnet\publish-bench\Bench.exe
-C:\Users\malin\Desktop\entity_analyzer\dotnet\publish-bench\Bench.dll
-C:\Users\malin\Desktop\entity_analyzer\dotnet\publish-bench\Bench.deps.json
-C:\Users\malin\Desktop\entity_analyzer\dotnet\publish-bench\Bench.runtimeconfig.json
-C:\Users\malin\Desktop\entity_analyzer\dotnet\publish-bench\Bench.pdb
-C:\Users\malin\Desktop\entity_analyzer\dotnet\publish-bench\YamlDotNet.dll
-C:\Users\malin\Desktop\entity_analyzer\dotnet\publish-bench\EntityAnalyzer.Core.dll
-C:\Users\malin\Desktop\entity_analyzer\dotnet\publish-bench\EntityAnalyzer.Core.pdb

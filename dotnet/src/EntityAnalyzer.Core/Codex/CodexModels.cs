@@ -115,14 +115,21 @@ public sealed class CardLink
     public string RelationId { get; set; } = "";
     public string Note { get; set; } = "";
 
+    /// <summary>
+    /// Evidence/confidence id: unknown, proven, likely, hypothesis, disputed.
+    /// Empty in old documents is treated as unknown.
+    /// </summary>
+    public string Confidence { get; set; } = "";
+
     public CardLink() { }
 
-    public CardLink(string fromId, string toId, string relationId, string note = "")
+    public CardLink(string fromId, string toId, string relationId, string note = "", string confidence = "")
     {
         FromId = fromId;
         ToId = toId;
         RelationId = relationId;
         Note = note;
+        Confidence = confidence;
     }
 }
 
@@ -259,6 +266,23 @@ public static CodexDocument CreateEmpty()
             doc.Relations.Add(new RelationType("parent", "родитель", "потомок"));
             doc.Relations.Add(new RelationType("ally", "союзник", "союзник"));
             doc.Relations.Add(new RelationType("cooccur", "упоминается вместе с", "упоминается вместе с"));
+        }
+
+        // Forward-compat: тип родства — не «настройка для избранных». Старые
+        // кодексы получают словарь приёмных/опекунских/крёстных/партнёрских
+        // связей, но существующие типы и их подписи не перезаписываются.
+        Ensure("adopt", "усыновляет", "приёмный ребёнок");
+        Ensure("foster", "берёт на воспитание", "воспитанник");
+        Ensure("guardian", "опекун", "подопечный");
+        Ensure("godparent", "крёстный", "крестник");
+        Ensure("named", "названый родитель", "названый ребёнок");
+        Ensure("partner", "партнёр", "партнёр");
+
+        void Ensure(string id, string forward, string reverse)
+        {
+            if (doc.Relations.Any(r => string.Equals(r.Id, id, StringComparison.OrdinalIgnoreCase)))
+                return;
+            doc.Relations.Add(new RelationType(id, forward, reverse));
         }
     }
 

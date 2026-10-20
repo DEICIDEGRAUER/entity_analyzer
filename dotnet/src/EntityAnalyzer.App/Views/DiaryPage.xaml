@@ -1,0 +1,120 @@
+<UserControl x:Class="EntityAnalyzer.App.Views.DiaryPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:infra="clr-namespace:EntityAnalyzer.App.Infrastructure">
+
+    <UserControl.Resources>
+        <infra:CountToVisibilityConverter x:Key="CountToVisibilityConverter"/>
+    </UserControl.Resources>
+
+    <!-- Группа 2 (item 22/30): «Дневник» — заметки с привязкой к файлам,
+         сущностям, паттернам и цитатам. Хранение — diary.db (SQLite). -->
+    <Grid Margin="32,32,32,24">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="360" MinWidth="300"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*" MinWidth="420"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Левая колонка: список заметок и фильтры -->
+        <DockPanel Grid.Column="0">
+            <StackPanel DockPanel.Dock="Top">
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                    <TextBlock Text="ДНЕВНИК" Style="{DynamicResource SectionHeaderStyle}"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding TotalCount, StringFormat='({0})'}" Style="{DynamicResource MetaStyle}"
+                               Margin="8,0,0,0" VerticalAlignment="Center"
+                               Foreground="{DynamicResource BrushBranch3}"/>
+                </StackPanel>
+                <Button Content="＋ Новая заметка" Style="{DynamicResource PrimaryButtonStyle}"
+                        Command="{Binding NewCommand}" HorizontalAlignment="Left" Margin="0,0,0,12"/>
+                <TextBox Text="{Binding Search, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="Поиск по заголовку, тексту и привязке"/>
+                <ComboBox ItemsSource="{Binding KindFilters}" DisplayMemberPath="Value"
+                          SelectedValuePath="Key" SelectedValue="{Binding KindFilter}" Margin="0,8,0,0"
+                          ToolTip="Фильтр по виду привязки"/>
+                <Button Content="Экспорт в Markdown" Style="{DynamicResource GhostButtonStyle}"
+                        HorizontalAlignment="Left" Command="{Binding ExportCommand}" Margin="0,12,0,0"
+                        ToolTip="Экспортируется текущий отфильтрованный список"/>
+            </StackPanel>
+
+            <TextBlock DockPanel.Dock="Bottom" Margin="0,12,0,0" TextWrapping="Wrap"
+                       Style="{DynamicResource MetaStyle}"
+                       Text="Заметки хранятся в diary.db (SQLite) с метками времени. Кнопки «✎» в разделах «Результаты», «Кодекс» и у паттернов создают заметку с готовой привязкой."/>
+
+            <Grid Margin="0,12,0,0">
+                <TextBlock Text="{Binding EmptyHint}" Style="{DynamicResource BodyStyle}"
+                           Foreground="{DynamicResource BrushTextSecondary}"
+                           TextWrapping="Wrap" VerticalAlignment="Center" HorizontalAlignment="Center"
+                           Visibility="{Binding IsDataEmpty, Converter={StaticResource BoolToVis}}"/>
+
+                <ListBox ItemsSource="{Binding Notes}" SelectedItem="{Binding Selected}"
+                         Visibility="{Binding IsDataEmpty, Converter={StaticResource InverseBoolToVis}}"
+                         Background="Transparent" BorderThickness="0"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         HorizontalContentAlignment="Stretch">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="0,4,0,8">
+                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding DatesText}" Style="{DynamicResource MetaStyle}"
+                                           Margin="0,2,0,0"/>
+                                <TextBlock Text="{Binding BindingText}" Style="{DynamicResource MetaStyle}"
+                                           Foreground="{DynamicResource BrushBranch3}" Margin="0,2,0,0"
+                                           TextTrimming="CharacterEllipsis"
+                                           Visibility="{Binding HasBinding, Converter={StaticResource BoolToVis}}"/>
+                                <TextBlock Text="{Binding Snippet}" Style="{DynamicResource MetaStyle}"
+                                           Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </DockPanel>
+
+        <Rectangle Grid.Column="1" Width="1" Fill="{DynamicResource BrushBorderLight}" Margin="24,0"/>
+
+        <!-- Правая колонка: редактор заметки -->
+        <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="0,0,16,0">
+                <TextBlock Text="РЕДАКТОР ЗАМЕТКИ" Style="{DynamicResource SectionHeaderStyle}"/>
+                <TextBlock Text="{Binding EditorMeta}" Style="{DynamicResource MetaStyle}" Margin="0,6,0,0"
+                           TextWrapping="Wrap"/>
+
+                <TextBlock Text="ЗАГОЛОВОК" Style="{DynamicResource SectionHeaderStyle}" Margin="0,20,0,6"/>
+                <TextBox Text="{Binding EditTitle, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="Короткий заголовок заметки (необязателен, если есть текст)"/>
+
+                <TextBlock Text="ПРИВЯЗКА" Style="{DynamicResource SectionHeaderStyle}" Margin="0,20,0,6"/>
+                <StackPanel Orientation="Horizontal">
+                    <ComboBox ItemsSource="{Binding BindingKinds}" DisplayMemberPath="Value"
+                              SelectedValuePath="Key" SelectedValue="{Binding EditKindKey}" Width="160"
+                              ToolTip="К чему привязана заметка: файл, сущность, паттерн или цитата"/>
+                    <ComboBox ItemsSource="{Binding BindingOptions}" DisplayMemberPath="Display"
+                              SelectedItem="{Binding SelectedBinding}"
+                              Text="{Binding EditBindingText, UpdateSourceTrigger=PropertyChanged}"
+                              IsEditable="True" Width="380" Margin="12,0,0,0"
+                              IsEnabled="{Binding BindingEnabled}"
+                              ToolTip="Выберите значение из списка или введите своё"/>
+                </StackPanel>
+
+                <TextBlock Text="ТЕКСТ" Style="{DynamicResource SectionHeaderStyle}" Margin="0,20,0,6"/>
+                <TextBox Text="{Binding EditBody, UpdateSourceTrigger=PropertyChanged}"
+                         AcceptsReturn="True" TextWrapping="Wrap" MinHeight="240"
+                         VerticalScrollBarVisibility="Auto"
+                         ToolTip="Текст заметки: наблюдения, гипотезы, ссылки на материалы"/>
+
+                <StackPanel Orientation="Horizontal" Margin="0,20,0,0">
+                    <Button Content="Сохранить" Style="{DynamicResource PrimaryButtonStyle}"
+                            Command="{Binding SaveCommand}"/>
+                    <Button Content="Удалить" Style="{DynamicResource GhostButtonStyle}"
+                            Command="{Binding DeleteCommand}" Margin="12,0,0,0"/>
+                </StackPanel>
+                <TextBlock Text="{Binding Status}" Style="{DynamicResource MetaStyle}" Margin="0,8,0,0"
+                           TextWrapping="Wrap"
+                           Visibility="{Binding Status, Converter={StaticResource EmptyToCollapsed}}"/>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

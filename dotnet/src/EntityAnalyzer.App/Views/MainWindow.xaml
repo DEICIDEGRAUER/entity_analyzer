@@ -8,7 +8,8 @@
         Height="760" Width="1220" MinHeight="600" MinWidth="980"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource BrushBgMain}"
-        TextOptions.TextFormattingMode="Ideal" UseLayoutRounding="True">
+        TextOptions.TextFormattingMode="Ideal" UseLayoutRounding="True"
+        ToolTip="Entity Analyzer — поиск упоминаний сущностей в текстовых корпусах (Лавкрафтианский пантеон и пользовательские кодексы). Анализ совместных упоминаний, семантические паттерны, экспорт отчётов.">
 
     <Window.Resources>
         <DataTemplate DataType="{x:Type vm:DashboardViewModel}">
@@ -32,11 +33,26 @@
         <DataTemplate DataType="{x:Type vm:ExportViewModel}">
             <views:ExportPage/>
         </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:AdvancedSearchViewModel}">
-            <views:AdvancedSearchPage/>
-        </DataTemplate>
         <DataTemplate DataType="{x:Type vm:HelpViewModel}">
             <views:HelpPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:QuoteBookViewModel}">
+            <views:QuoteBookPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:DiaryViewModel}">
+            <views:DiaryPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:FilePassportViewModel}">
+            <views:FilePassportPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:DictionariesViewModel}">
+            <views:DictionariesPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:CorpusViewModel}">
+            <views:CorpusPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:WorldViewModel}">
+            <views:WorldPage/>
         </DataTemplate>
     </Window.Resources>
 
@@ -47,7 +63,7 @@
             <ScaleTransform x:Name="RootTransform" ScaleX="{Binding Zoom}" ScaleY="{Binding Zoom}"/>
         </Grid.LayoutTransform>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="212" MinWidth="200" x:Name="RailColumn"/>
+            <ColumnDefinition Width="212" MinWidth="212" x:Name="RailColumn"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
@@ -78,10 +94,19 @@
                 <StackPanel DockPanel.Dock="Bottom" Margin="24,16">
                     <Separator Margin="0,0,0,16"/>
                     <!-- UX: аффорданс масштаба — раньше функция была известна только из документации -->
+                    <TextBlock Text="МАСШТАБ"
+                               Style="{DynamicResource SectionHeaderStyle}"
+                               Foreground="{DynamicResource BrushTextDisabled}" Margin="0,0,0,4"
+                               ToolTip="Масштаб интерфейса: Ctrl + колесо мыши или ползунок (0.8×–1.6×). Настройка сохраняется."/>
+                    <Slider Minimum="0.8" Maximum="1.6" TickFrequency="0.1"
+                            IsSnapToTickEnabled="True" Width="120"
+                            HorizontalAlignment="Left" Margin="0,0,0,12"
+                            Value="{Binding Zoom, Mode=TwoWay}"
+                            AutomationProperties.Name="Масштаб интерфейса"/>
                     <TextBlock Text="CTRL + КОЛЕСО — МАСШТАБ"
                                Style="{DynamicResource SectionHeaderStyle}"
                                Foreground="{DynamicResource BrushTextDisabled}" Margin="0,0,0,12"
-                               ToolTip="Масштаб интерфейса: удерживайте Ctrl и крутите колесо мыши (0.8×–1.6×). Настройка сохраняется."/>
+                               ToolTip="Удерживайте Ctrl и крутите колесо мыши (0.8×–1.6×). Настройка сохраняется."/>
                     <TextBlock Text="{Binding StatusText}"
                                Style="{DynamicResource MetaStyle}"
                                TextWrapping="Wrap"/>
@@ -97,6 +122,10 @@
                     <RadioButton Style="{DynamicResource NavRadioStyle}" GroupName="nav"
                                  Content="Кодекс"
                                  IsChecked="{Binding NavCodex, Mode=TwoWay}"/>
+                    <!-- Группа 4: мир — древо, иерархия, хронология, география. -->
+                    <RadioButton Style="{DynamicResource NavRadioStyle}" GroupName="nav"
+                                 Content="Мир"
+                                 IsChecked="{Binding NavWorld, Mode=TwoWay}"/>
                     <RadioButton Style="{DynamicResource NavRadioStyle}" GroupName="nav"
                                  Content="Схемы"
                                  IsChecked="{Binding NavSchema, Mode=TwoWay}"/>
@@ -106,13 +135,25 @@
                     <RadioButton Style="{DynamicResource NavRadioStyle}" GroupName="nav"
                                  Content="История"
                                  IsChecked="{Binding NavHistory, Mode=TwoWay}"/>
-                    <!-- QA-UX #3: головная функция соупоминаемости и паттернов видна в навигации.
-                         Кнопка (не радио): ведёт на «Обзор» и открывает вкладку поиска. -->
-                    <Button Style="{DynamicResource GhostButtonStyle}" HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Left" Margin="0,8,0,0" Padding="0,8"
-                            Command="{Binding Dashboard.NavSearchTab}"
-                            Content="Поиск и паттерны"
-                            ToolTip="Совместные упоминания двух объектов и семантические паттерны (вкладка на «Обзоре»)"/>
+                    <!-- Группа 2: пользовательские данные — цитатник (item 26) и дневник (item 22/30). -->
+                    <RadioButton Style="{DynamicResource NavRadioStyle}" GroupName="nav"
+                                 Content="Цитатник"
+                                 IsChecked="{Binding NavQuoteBook, Mode=TwoWay}"/>
+                    <RadioButton Style="{DynamicResource NavRadioStyle}" GroupName="nav"
+                                 Content="Дневник"
+                                 IsChecked="{Binding NavDiary, Mode=TwoWay}"/>
+                    <!-- Группа 3: паспорт файла (item 24) — исследование одного файла. -->
+                    <RadioButton Style="{DynamicResource NavRadioStyle}" GroupName="nav"
+                                 Content="Паспорт"
+                                 IsChecked="{Binding NavPassport, Mode=TwoWay}"/>
+                    <!-- Группа 3: словари (items 23/25/8) — эпитеты, глоссарий, каталог. -->
+                    <RadioButton Style="{DynamicResource NavRadioStyle}" GroupName="nav"
+                                 Content="Словари"
+                                 IsChecked="{Binding NavDictionaries, Mode=TwoWay}"/>
+                    <!-- Группа 3: корпус (items 31/28/29/53) — поиск по фрагменту, годы, интертекст, темы. -->
+                    <RadioButton Style="{DynamicResource NavRadioStyle}" GroupName="nav"
+                                 Content="Корпус"
+                                 IsChecked="{Binding NavCorpus, Mode=TwoWay}"/>
                     <!-- UX: «Экспорт» слит с «Отчётами» (вкладка «Выгрузка»); вместо них появился пункт «Справка». -->
                     <RadioButton Style="{DynamicResource NavRadioStyle}" GroupName="nav"
                                  Content="Справка"

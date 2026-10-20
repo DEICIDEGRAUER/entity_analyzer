@@ -17,8 +17,22 @@ public class SemanticSearchTests
         {
             var v = new double[Dimensions];
             foreach (var w in text.ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries))
-                v[Math.Abs(w.GetHashCode()) % Dimensions] += 1;
+                v[StableBucket(w)] += 1;
             return v;
+        }
+
+        // Детерминированная корзина (FNV-1a): string.GetHashCode() в .NET
+        // рандомизирован в каждом процессе — тест мигал по составу корзин
+        // и «культ алтарь жрец» иногда обгонял точное совпадение.
+        private static int StableBucket(string word)
+        {
+            var h = 2166136261u;
+            foreach (var c in word)
+            {
+                h ^= c;
+                h *= 16777619u;
+            }
+            return (int)(h % 6);
         }
     }
 

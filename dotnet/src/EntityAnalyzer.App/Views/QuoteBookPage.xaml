@@ -1,0 +1,94 @@
+<UserControl x:Class="EntityAnalyzer.App.Views.QuoteBookPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:infra="clr-namespace:EntityAnalyzer.App.Infrastructure">
+
+    <UserControl.Resources>
+        <infra:CountToVisibilityConverter x:Key="CountToVisibilityConverter"/>
+    </UserControl.Resources>
+
+    <!-- Группа 2 (item 26): «Цитатник» — постоянная книга отмеченных цитат.
+         Отметки ставятся в «Результатах» и хранятся в quotes.jsonl. -->
+    <Grid Margin="32,32,32,24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Заголовок и инструменты -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="ЦИТАТНИК" Style="{DynamicResource SectionHeaderStyle}"
+                           VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding Count, StringFormat='({0})'}" Style="{DynamicResource MetaStyle}"
+                           Margin="8,0,0,0" VerticalAlignment="Center"
+                           Foreground="{DynamicResource BrushBranch3}"/>
+                <Button Content="Экспорт в Markdown" Style="{DynamicResource GhostButtonStyle}" Margin="24,0,0,0"
+                        Command="{Binding ExportCommand}"
+                        ToolTip="Экспортируется текущий отфильтрованный список (без фильтров — вся книга)"/>
+                <Button Content="Очистить всё" Style="{DynamicResource GhostButtonStyle}" Margin="8,0,0,0"
+                        Command="{Binding ClearAllCommand}"
+                        ToolTip="Снять все звёздочки (история отметок остаётся в файле quotes.jsonl)"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                <TextBox Width="320" Text="{Binding Search, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="Поиск по тексту цитаты, сущности, варианту, файлу"/>
+                <ComboBox ItemsSource="{Binding EntityFilters}" SelectedItem="{Binding EntityFilter}"
+                          Width="220" Margin="12,0,0,0"
+                          ToolTip="Фильтр по сущности"/>
+            </StackPanel>
+            <TextBlock Margin="0,12,0,0" Style="{DynamicResource MetaStyle}" TextWrapping="Wrap"
+                       Text="Звёздочки ставятся на странице «Результаты» (★ или Ctrl+S); книга хранится в quotes.jsonl и переживает перезапуск. «В результатах» открывает файл цитаты в текущей сессии."/>
+        </StackPanel>
+
+        <!-- Список цитат / пустое состояние -->
+        <Grid Grid.Row="1">
+            <TextBlock Text="{Binding EmptyHint}" Style="{DynamicResource BodyStyle}"
+                       Foreground="{DynamicResource BrushTextSecondary}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap"
+                       Visibility="{Binding IsDataEmpty, Converter={StaticResource BoolToVis}}"/>
+
+            <ListBox ItemsSource="{Binding Items}"
+                     Visibility="{Binding IsDataEmpty, Converter={StaticResource InverseBoolToVis}}"
+                     Background="Transparent" BorderThickness="0"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     HorizontalContentAlignment="Stretch">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Border BorderBrush="{DynamicResource BrushBorderLight}" BorderThickness="1,0,0,0"
+                                Padding="24,0,0,0" Margin="0,0,0,20">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                    <TextBlock Text="{Binding Entity}" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource BrushTextPrimary}"/>
+                                    <TextBlock Text="{Binding Variant}" Style="{DynamicResource MetaStyle}"
+                                               Margin="12,0,0,0"/>
+                                    <TextBlock Style="{DynamicResource MetaStyle}" Margin="12,0,0,0">
+                                        <Run Text="стр. "/><Run Text="{Binding Line, Mode=OneWay}"/>
+                                    </TextBlock>
+                                    <TextBlock Text="{Binding FileName}" Style="{DynamicResource MetaStyle}"
+                                               Margin="12,0,0,0"/>
+                                    <TextBlock Text="{Binding StarredAtText}" Style="{DynamicResource MetaStyle}"
+                                               Margin="12,0,0,0"/>
+                                    <Button Content="В результатах" Style="{DynamicResource MiniGhostButtonStyle}"
+                                            FontSize="11" Margin="16,0,0,0"
+                                            Command="{Binding DataContext.OpenSourceCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                            CommandParameter="{Binding}"
+                                            Visibility="{Binding CanOpenSource, Converter={StaticResource BoolToVis}}"
+                                            ToolTip="Открыть файл этой цитаты на странице «Результаты»"/>
+                                    <Button Content="✕ убрать" Style="{DynamicResource MiniGhostButtonStyle}"
+                                            FontSize="11" Margin="8,0,0,0"
+                                            Command="{Binding DataContext.RemoveCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                            CommandParameter="{Binding}"
+                                            ToolTip="Снять звёздочку (цитата останется в истории отметок)"/>
+                                </StackPanel>
+                                <TextBlock Text="{Binding Context}" Style="{DynamicResource QuoteStyle}"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Grid>
+    </Grid>
+</UserControl>

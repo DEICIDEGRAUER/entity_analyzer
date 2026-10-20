@@ -172,7 +172,9 @@ public sealed class SchemaViewModel : ObservableObject
     private void SaveAndRefresh(string logLine)
     {
         UserCodexStore.Save(_main.Codex);
-        _main.CodexVm.RefreshCollectionsPublic();
+        // QA/UX #45: правки категорий/полей/связей видны сразу — обновляем
+        // страницу «Кодекс» (поля выбранной карточки, фильтры, цвета ветвей).
+        _main.CodexVm.OnSchemaChanged();
         _main.Dashboard.Log("▦ " + logLine);
     }
 }

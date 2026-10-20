@@ -4,7 +4,7 @@
 # [опционально GUI-смоук] -> JSON-итог.
 #
 # Запуск:  powershell -File verify.ps1 [-WithGuiSmoke] [-SkipPublish]
-# Коды возврата: 0 — всё зелёное; 1..4 — упавший шаг; 10 — смоук.
+# Коды возврата: 0 — всё зелёное; 1 — есть провал (какой шаг — в итоговом JSON).
 # Итог: _scratch\verify_result.json (машиночитаемая сводка).
 # Требование PowerShell 5.1: файл сохранён с BOM (кириллица в строках).
 # ═══════════════════════════════════════════════════════════════════
@@ -13,6 +13,12 @@ param(
     [switch]$SkipPublish
 )
 
+# Защита от «зависаний» Start-Process -Wait (наблюдались простои до 15 минут):
+# воркеры MSBuild (/nodeReuse:true) наследуют перенаправленные потоки и держат
+# их открытыми после завершения команды. Отключаем переиспользование и сервер.
+$env:MSBUILDDISABLENODEREUSE = '1'
+$env:DOTNET_CLI_USE_MSBUILD_SERVER = '0'
+
 $ErrorActionPreference = 'Continue'
 $root     = Split-Path -Parent $MyInvocation.MyCommand.Path   # <repo>\dotnet
 $scratch  = Join-Path $root "_scratch"
@@ -20,6 +26,20 @@ if (-not (Test-Path $scratch)) { New-Item -ItemType Directory -Path $scratch | O
 $resultPath = Join-Path $scratch "verify_result.json"
 $steps    = [System.Collections.Generic.List[object]]::new()
 $swTotal  = [System.Diagnostics.Stopwatch]::StartNew()
+
+# ── Герметичность профиля: CLI и GUI-смоук работают на ВРЕМЕННОМ профиле
+# (ENTITYANALYZER_DATA_DIR); реальный %APPDATA%\EntityAnalyzer обязан
+# остаться нетронутым — проверка «profile-untouched» в конце.
+$env:ENTITYANALYZER_DATA_DIR = Join-Path $env:TEMP "ea_verify_profile"
+if (Test-Path $env:ENTITYANALYZER_DATA_DIR) { Remove-Item $env:ENTITYANALYZER_DATA_DIR -Recurse -Force -ErrorAction SilentlyContinue }
+New-Item -ItemType Directory -Force -Path $env:ENTITYANALYZER_DATA_DIR | Out-Null
+$realProfile = Join-Path $env:APPDATA "EntityAnalyzer"
+function Get-ProfileSnapshot([string]$dir) {
+    if (-not (Test-Path $dir)) { return @() }
+    return @(Get-ChildItem $dir -Recurse -File -Force -ErrorAction SilentlyContinue |
+        Sort-Object FullName | ForEach-Object { $_.FullName + "|" + $_.Length + "|" + $_.LastWriteTimeUtc.Ticks })
+}
+$profileBefore = Get-ProfileSnapshot $realProfile
 
 function Add-Step([string]$name, [int]$code, [string]$detail, [double]$seconds) {
     $script:steps.Add(@{ step = $name; exitCode = $code; ok = ($code -eq 0); detail = $detail; seconds = [math]::Round($seconds, 1) })
@@ -43,6 +63,11 @@ function Mark([string]$msg) {
         ">> $msg`r`n", [System.Text.Encoding]::UTF8)
 }
 
+# ── Шаги 1–5. Досрочный выход при провале — `break verify_pipeline`
+# (настоящего goto в PowerShell нет: прежний `goto FINISH` не работал и шаги
+# выполнялись дальше провала, а строка `FINISH:` падала с CommandNotFound).
+:verify_pipeline do {
+
 # ── 1. Сборка: требование 0 ошибок / 0 предупреждений ───────────────
 Mark "step1 build: старт"
 $t = [System.Diagnostics.Stopwatch]::StartNew()
@@ -55,7 +80,7 @@ $warnHits  = ([regex]::Matches($buildText, '[Ww]arning|предупрежден�
 $errHits   = ([regex]::Matches($buildText, '[Ee]rror|ошибк[аи]')).Count
 $detail = "exit=$code; маркеров warning≈$warnHits, error≈$errHits (см. verify_build.log)"
 Add-Step "build" $code $detail $t.Elapsed.TotalSeconds
-if ($code -ne 0) { Write-Output "Сборка сломана — остальные шаги пропущены."; goto FINISH }
+if ($code -ne 0) { Write-Output "Сборка сломана — остальные шаги пропущены."; break verify_pipeline }
 
 # ── 2. Тесты: эталон ≥ 257 ──────────────────────────────────────────
 Mark "step2 test: старт"
@@ -77,7 +102,7 @@ if (Test-Path $testLog) {
 $ok = ($code -eq 0) -and ($failed -eq 0) -and ($total -ge 257)
 $detail = "exit=$code; passed=$passed, failed=$failed, total=$total (эталон ≥257)"
 Add-Step "test" ($(if ($ok) { 0 } else { 2 })) $detail $t.Elapsed.TotalSeconds
-if (-not $ok) { goto FINISH }
+if (-not $ok) { break verify_pipeline }
 
 # ── 3. Публикация GUI и CLI ─────────────────────────────────────────
 if (-not $SkipPublish) {
@@ -88,7 +113,7 @@ if (-not $SkipPublish) {
     $t.Stop()
     $code = $(if ($c1 -eq 0 -and $c2 -eq 0) { 0 } else { 3 })
     Add-Step "publish" $code "gui=$c1, cli=$c2" $t.Elapsed.TotalSeconds
-    if ($code -ne 0) { goto FINISH }
+    if ($code -ne 0) { break verify_pipeline }
 }
 
 # ── 4. CLI на изолированном корпусе (temp, не пользовательские данные) ──
@@ -127,7 +152,7 @@ if ($code -ne 0) {
 }
 $t.Stop()
 Add-Step "bench-gate" $code "exit=$code (порог ×1.5, n=9, автоповтор при провале)" $t.Elapsed.TotalSeconds
-if ($code -ne 0) { goto FINISH }
+if ($code -ne 0) { break verify_pipeline }
 
 # ── 5. GUI-смоук (опционально; отсоединённый запуск с бэкапом данных) ──
 if ($WithGuiSmoke) {
@@ -136,14 +161,26 @@ if ($WithGuiSmoke) {
         $t = [System.Diagnostics.Stopwatch]::StartNew()
         $code = Run-Detached "powershell" @('-NoProfile','-ExecutionPolicy','Bypass','-File',$smokeScript) $root (Join-Path $scratch "verify_smoke.log") (Join-Path $scratch "verify_smoke.err.log")
         $t.Stop()
-        Add-Step "gui-smoke" $code "exit=$code (SMOKE V10)" $t.Elapsed.TotalSeconds
+        Add-Step "gui-smoke" $code "exit=$code (SMOKE V13)" $t.Elapsed.TotalSeconds
     } else {
         Add-Step "gui-smoke" 9 "скрипт не найден: $smokeScript" 0
     }
 }
 
+} while ($false)
+
+# ── 6. Профиль пользователя не тронут (герметичность смоука) ────────
+$t = [System.Diagnostics.Stopwatch]::StartNew()
+$profileAfter = Get-ProfileSnapshot $realProfile
+$profileDiff = Compare-Object $profileBefore $profileAfter
+if ($profileDiff) {
+    $changed = ($profileDiff | ForEach-Object { $_.InputObject }) -join "; "
+    Add-Step "profile-untouched" 5 ("реальный профиль ИЗМЕНЁН: " + $changed.Substring(0, [Math]::Min(400, $changed.Length))) $t.Elapsed.TotalSeconds
+} else {
+    Add-Step "profile-untouched" 0 ("$realProfile не изменён (файлов: " + $profileAfter.Count + ")") $t.Elapsed.TotalSeconds
+}
+
 # ── Итог ────────────────────────────────────────────────────────────
-FINISH:
 $swTotal.Stop()
 $allOk = ($steps | Where-Object { $_.ok -ne $true }).Count -eq 0
 $summary = @{

@@ -168,7 +168,7 @@ public static class HeadlessServer
         var session = engine.Run(CancellationToken.None);
         clock.Stop();
         ReportExporter.ExportAll(session, options.Output.Dir, request.Formats.ToHashSet(StringComparer.OrdinalIgnoreCase),
-            perEntityFolders: options.Output.PerEntityFolders, catalog: catalog, options: options);
+            perEntityFolders: options.Output.PerEntityFolders, catalog: catalog, options: options, codex: codex);
 
         var q = session.Quality;
         WriteJson(ctx.Response, 200, HeadlessProtocol.ToJson(new HeadlessResponse(

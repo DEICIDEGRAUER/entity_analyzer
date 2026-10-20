@@ -17,6 +17,11 @@ namespace EntityAnalyzer.Core.Tests.Analysis;
 // Воронка сущностей остаётся в движке сознательно: она владеет кэшем
 // и счётчиками качества; миграция описана в README.
 
+// LogSequential: конструктор/Dispose переключают процесс-глобальную
+// EA_SEMANTIC_USER_DIR — вне последовательной коллекции это «переключало»
+// пользовательский каталог под ногами параллельных тестов (флейк подписи
+// кэша в TextPreprocessorTests.Signature_changes_only_with_preprocessors).
+[Collection("LogSequential")]
 public sealed class AnalysisModuleTests : IDisposable
 {
     private readonly string _tempDir;

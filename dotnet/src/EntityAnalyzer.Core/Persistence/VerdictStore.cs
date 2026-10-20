@@ -50,8 +50,7 @@ public sealed class VerdictStore
 
     /// <summary>Канонический файл (%APPDATA%\EntityAnalyzer\verdicts.jsonl).</summary>
     public static string DefaultPath { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "EntityAnalyzer", "verdicts.jsonl");
+        ProfilePaths.DirectoryPath, "verdicts.jsonl");
 
     /// <summary>Хранилище по каноническому пути.</summary>
     public static VerdictStore Default { get; } = new(DefaultPath);
@@ -86,6 +85,32 @@ public sealed class VerdictStore
         }
     }
 
+    /// <summary>
+    /// Добавить несколько вердиктов одной записью — для массовой проверки
+    /// выборки. Порядок сохраняется, последняя запись по ключу побеждает.
+    /// </summary>
+    public void AppendRange(IEnumerable<VerdictRecord> records)
+    {
+        lock (_gate)
+        {
+            EnsureLoaded();
+            var batch = records as IList<VerdictRecord> ?? records.ToList();
+            if (batch.Count == 0) return;
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+                var lines = string.Join(Environment.NewLine,
+                    batch.Select(r => JsonSerializer.Serialize(r, JsonOpts)));
+                File.AppendAllText(_path, lines + Environment.NewLine, Encoding.UTF8);
+            }
+            catch (Exception ex)
+            {
+                Logging.Log.Warn("verdicts", $"Не удалось дописать вердикты: {ex.Message}");
+            }
+            foreach (var record in batch) _index[KeyOf(record)] = record;
+        }
+    }
+
     /// <summary>Действующий вердикт по ключу находки либо null.</summary>
     public VerdictRecord? Find(string fileHash, long offset, string variant)
     {
@@ -93,6 +118,41 @@ public sealed class VerdictStore
         {
             EnsureLoaded();
             return _index.GetValueOrDefault((fileHash ?? "", offset, variant ?? ""));
+        }
+    }
+
+    /// <summary>
+    /// Удалить действующий вердикт (отмена последнего решения в интерфейсе).
+    /// Файл компактируется атомарно: в нём остаются только действующие записи.
+    /// Append-only журнал при этом сохраняет главный контракт — «последний
+    /// вердикт по ключу побеждает»; удаление просто убирает ключ из индекса.
+    /// Возвращает false, если записи не было.
+    /// </summary>
+    public bool Remove(string fileHash, long offset, string variant)
+    {
+        lock (_gate)
+        {
+            EnsureLoaded();
+            if (!_index.Remove((fileHash ?? "", offset, variant ?? ""))) return false;
+            RewriteLocked();
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Удалить несколько действующих вердиктов одной атомарной перезаписью —
+    /// для отмены массовой проверки. Возвращает число реально удалённых ключей.
+    /// </summary>
+    public int RemoveRange(IEnumerable<(string FileHash, long Offset, string Variant)> keys)
+    {
+        lock (_gate)
+        {
+            EnsureLoaded();
+            var removed = 0;
+            foreach (var (hash, offset, variant) in keys)
+                if (_index.Remove((hash ?? "", offset, variant ?? ""))) removed++;
+            if (removed > 0) RewriteLocked();
+            return removed;
         }
     }
 
@@ -130,6 +190,27 @@ public sealed class VerdictStore
 
     private static (string, long, string) KeyOf(VerdictRecord r) =>
         (r.FileHash ?? "", r.Offset, r.Variant ?? "");
+
+    /// <summary>Атомарно переписать журнал действующими записями (после удаления).</summary>
+    private void RewriteLocked()
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+            var tmp = _path + ".tmp";
+            File.WriteAllLines(
+                tmp,
+                _index.Values.Select(r => JsonSerializer.Serialize(r, JsonOpts)),
+                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            File.Move(tmp, _path, overwrite: true);
+        }
+        catch (Exception ex)
+        {
+            // Индекс уже обновлён: в памяти отмена сработала, на диск попадёт
+            // при следующей успешной записи. Не роняем интерфейс из-за I/O.
+            Logging.Log.Warn("verdicts", $"Не удалось переписать вердикты: {ex.Message}");
+        }
+    }
 
     private void EnsureLoaded()
     {

@@ -8,6 +8,12 @@
     <!-- Экран «Кодекс»: словарь сущностей.
          Колонки: Группы 15% · Список терминов 25% · Статья 60%.
          Разделители — волосяные линии; маркеры ветвей — точки 6×6. -->
+    <UserControl.InputBindings>
+        <!-- QA/UX #47: Ctrl+S — сохранить карточку; Ctrl+Shift+Z — отменить черновик.
+             Раньше на Ctrl+S висели обе команды: жест был неоднозначным. -->
+        <KeyBinding Key="S" Modifiers="Control" Command="{Binding ApplyEdits}"/>
+        <KeyBinding Key="Z" Modifiers="Control+Shift" Command="{Binding DiscardEdits}"/>
+    </UserControl.InputBindings>
     <UserControl.Resources>
         <!-- Точка-маркер ветви: единственный цветной элемент строки термина -->
         <DataTemplate x:Key="TermTemplate">
@@ -54,7 +60,8 @@
                       Style="{DynamicResource AcademicSplitterStyle}"/>
 
         <!-- ═══ Колонка 2: список терминов ═══ -->
-        <DockPanel Grid.Column="2">
+        <DockPanel Grid.Column="2"
+                   Visibility="{Binding IsGraphView, Converter={StaticResource InverseBoolToVis}}">
             <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
                 <TextBox Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
                          x:Name="CodexSearchBox"
@@ -100,7 +107,7 @@
                           ToolTip="Переключить список/таблица" VerticalAlignment="Center" Margin="12,0,12,0"/>
                 <CheckBox DockPanel.Dock="Left" Content="Граф" IsChecked="{Binding IsGraphView, Mode=OneWay}"
                           Checked="GraphView_Checked" Unchecked="GraphView_Checked"
-                          ToolTip="Созвездие совместных упоминаний (R2-7)" VerticalAlignment="Center"/>
+                          ToolTip="Граф: совместные упоминания или генеалогическое древо кодекса" VerticalAlignment="Center"/>
             </DockPanel>
 
             <TextBlock DockPanel.Dock="Bottom" Style="{DynamicResource MetaStyle}" Margin="0,8,0,0"
@@ -136,18 +143,6 @@
                     </GridView>
                 </ListView.View>
             </ListView>
-
-            <!-- R2-7: созвездие совместных упоминаний (Canvas, своя физика) -->
-            <Grid Visibility="{Binding IsGraphView, Converter={StaticResource BoolToVis}}"
-                  Background="{DynamicResource BrushBgMain}">
-                <Canvas x:Name="GraphCanvas" MouseMove="GraphCanvas_MouseMove"
-                        MouseLeave="GraphCanvas_MouseLeave" MouseLeftButtonDown="GraphCanvas_Click"
-                        ClipToBounds="True"/>
-                <TextBlock Text="{Binding GraphEmptyText}" Style="{DynamicResource MetaStyle}"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                           TextAlignment="Center" Margin="24,0"
-                           Visibility="{Binding GraphAvailable, Converter={StaticResource InverseBoolToVis}}"/>
-            </Grid>
         </DockPanel>
 
         <GridSplitter Grid.Column="3" Width="8" HorizontalAlignment="Center"
@@ -156,7 +151,8 @@
                       Style="{DynamicResource AcademicSplitterStyle}"/>
 
         <!-- ═══ Колонка 3: статья / редактор ═══ -->
-        <DockPanel Grid.Column="4">
+        <DockPanel Grid.Column="4"
+                   Visibility="{Binding IsGraphView, Converter={StaticResource InverseBoolToVis}}">
             <!-- Действия кодекса: только текст (ghost) -->
             <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,16">
                 <TextBlock Text="{Binding StatsText}" Style="{DynamicResource MetaStyle}"
@@ -329,11 +325,16 @@
                             <DockPanel Margin="0,48,0,0">
                                 <Button Content="Применить" Style="{DynamicResource PrimaryButtonStyle}"
                                         Command="{Binding ApplyEdits}" HorizontalAlignment="Left"
-                                        x:Name="ApplyCardBtn"/>
+                                        x:Name="ApplyCardBtn"
+                                        ToolTip="Сохранить правки карточки (Ctrl+S)"/>
                                 <!-- QA-UX #11: отмена черновика рядом с «Применить» -->
                                 <Button Content="Отменить правки" Style="{DynamicResource GhostButtonStyle}"
                                         Command="{Binding DiscardEdits}" Margin="16,0,0,0"
-                                        ToolTip="Вернуть поля карточки к последним сохранённым значениям"/>
+                                        ToolTip="Вернуть поля карточки к последним сохранённым значениям (Ctrl+Shift+Z)"/>
+                                <!-- Группа 2 (item 30): заметка дневника с привязкой к сущности -->
+                                <Button Content="✎ В дневник" Style="{DynamicResource GhostButtonStyle}"
+                                        Command="{Binding AddEntityNoteCommand}" Margin="16,0,0,0"
+                                        ToolTip="Новая заметка дневника, привязанная к этой сущности"/>
                                 <TextBlock DockPanel.Dock="Right" Text="{Binding DirtyHint}" VerticalAlignment="Center"
                                            Style="{DynamicResource MetaStyle}" Margin="0,0,16,0"/>
                             </DockPanel>
@@ -353,8 +354,15 @@
                                           DisplayMemberPath="ForwardLabel" Margin="0,0,16,0" ToolTip="Тип связи"/>
                                 <Button Content="Связать" Style="{DynamicResource PrimaryButtonStyle}" Command="{Binding AddLink}"/>
                             </UniformGrid>
-                            <TextBox Text="{Binding NewLinkNote, UpdateSourceTrigger=PropertyChanged}"
-                                     Margin="0,16,0,0" ToolTip="Заметка к связи (необязательно)"/>
+                            <DockPanel Margin="0,16,0,0">
+                                <ComboBox DockPanel.Dock="Left" Width="170"
+                                          ItemsSource="{Binding ConfidenceChoices}"
+                                          DisplayMemberPath="Label"
+                                          SelectedItem="{Binding NewLinkConfidence}"
+                                          ToolTip="Насколько утверждение о связи подтверждено"/>
+                                <TextBox Text="{Binding NewLinkNote, UpdateSourceTrigger=PropertyChanged}"
+                                         Margin="16,0,0,0" ToolTip="Заметка к связи (необязательно)"/>
+                            </DockPanel>
                         </StackPanel>
                         <ListBox ItemsSource="{Binding LinkRows}" x:Name="LinksList">
                             <ListBox.ItemTemplate>
@@ -426,6 +434,116 @@
                 </TabItem>
             </TabControl>
         </DockPanel>
+            <!-- R2-7 / item 5.1: граф занимает всю рабочую область (список и
+                 редактор скрываются), чтобы созвездию и древу хватало места.
+                 Справа — карточка выбранного узла, клик по узлу её заполняет. -->
+            <DockPanel Grid.Column="0" Grid.ColumnSpan="5" Panel.ZIndex="10"
+                       HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                       Visibility="{Binding IsGraphView, Converter={StaticResource BoolToVis}}"
+                       Background="{DynamicResource BrushBgMain}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="300"/>
+                    </Grid.ColumnDefinitions>
+
+                    <DockPanel Grid.Column="0">
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                            <Button DockPanel.Dock="Right" Content="Выйти из графа"
+                                    Style="{DynamicResource GhostButtonStyle}"
+                                    Click="GraphExit_Click" Margin="12,0,0,0"
+                                    ToolTip="Вернуться к списку и редактору карточек"/>
+                            <TextBlock Text="РЕЖИМ ГРАФА" Style="{DynamicResource SectionHeaderStyle}"
+                                       VerticalAlignment="Center"/>
+                            <ComboBox DockPanel.Dock="Left" Width="230" Margin="10,0,14,0"
+                                      VerticalAlignment="Center"
+                                      ItemsSource="{Binding GraphModes}"
+                                      SelectedIndex="{Binding GraphModeIndex, Mode=TwoWay}"
+                                      ToolTip="Совместные упоминания или генеалогическое древо кодекса"/>
+                            <TextBlock Text="{Binding GraphModeHint}" Style="{DynamicResource MetaStyle}"
+                                       TextWrapping="Wrap" VerticalAlignment="Center"/>
+                        </DockPanel>
+
+                        <Expander DockPanel.Dock="Bottom" Margin="0,12,0,0"
+                                  Visibility="{Binding IsCooccurrenceMode, Converter={StaticResource BoolToVis}}">
+                            <Expander.Header>
+                                <TextBlock Style="{DynamicResource SectionHeaderStyle}"
+                                           Text="{Binding Suggestions.Count, StringFormat=РАЗМЕТКА СВЯЗЕЙ · ПОДСКАЗКИ ({0})}"/>
+                            </Expander.Header>
+                            <StackPanel Margin="0,8,0,0">
+                                <DockPanel>
+                                    <ComboBox DockPanel.Dock="Left" Width="220" DisplayMemberPath="ForwardLabel"
+                                              ItemsSource="{Binding Doc.Relations}"
+                                              SelectedItem="{Binding GraphMarkupRelation}"
+                                              ToolTip="Тип связи, которым размечаются подсказки"/>
+                                    <TextBlock Style="{DynamicResource MetaStyle}" Margin="16,0,0,0"
+                                               VerticalAlignment="Center" TextWrapping="Wrap"
+                                               Text="Подсказки построены по совместным упоминаниям: «Разметить» добавляет типизированную связь, сохраняет кодекс и рисует её пунктиром поверх графа."/>
+                                </DockPanel>
+                                <ItemsControl ItemsSource="{Binding Suggestions}" Margin="0,12,0,0">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <DockPanel Margin="0,4">
+                                                <Button DockPanel.Dock="Right" Content="Разметить"
+                                                        Style="{DynamicResource MiniGhostButtonStyle}"
+                                                        Command="{Binding DataContext.MarkupSuggestedLink, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}"/>
+                                                <TextBlock VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource BrushTextPrimary}">
+                                                    <Run Text="{Binding FirstName, Mode=OneWay}"/><Run Text=" ↔ "/><Run Text="{Binding SecondName, Mode=OneWay}"/><Run Text="  ·  ко-упоминаний: "/><Run Text="{Binding CoCount, Mode=OneWay}"/>
+                                                </TextBlock>
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Expander>
+
+                        <Grid>
+                            <Canvas x:Name="GraphCanvas" MouseMove="GraphCanvas_MouseMove"
+                                    MouseLeave="GraphCanvas_MouseLeave" MouseLeftButtonDown="GraphCanvas_Click"
+                                    ClipToBounds="True"/>
+                            <TextBlock Text="{Binding GraphEmptyText}" Style="{DynamicResource MetaStyle}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       TextAlignment="Center" Margin="24,0"
+                                       Visibility="{Binding GraphAvailable, Converter={StaticResource InverseBoolToVis}}"/>
+                        </Grid>
+                    </DockPanel>
+
+                    <Border Grid.Column="1" Margin="12,0,0,0" Padding="14" CornerRadius="8"
+                            BorderThickness="1" BorderBrush="{DynamicResource BrushBorderLight}"
+                            Background="{DynamicResource BrushBgNav}">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top" Text="КАРТОЧКА"
+                                       Style="{DynamicResource SectionHeaderStyle}"/>
+                            <Button DockPanel.Dock="Bottom" Content="Открыть в редакторе"
+                                    Style="{DynamicResource GhostButtonStyle}"
+                                    Click="GraphOpenCard_Click"
+                                    IsEnabled="{Binding HasSelection}"
+                                    Margin="0,10,0,0"
+                                    ToolTip="Вернуться к списку и открыть выбранную карточку"/>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,10,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="Клик по узлу графа покажет карточку."
+                                               Style="{DynamicResource MetaStyle}" TextWrapping="Wrap"
+                                               Visibility="{Binding HasSelection, Converter={StaticResource InverseBoolToVis}}"/>
+                                    <TextBlock Text="{Binding Selected.Name}" Style="{DynamicResource H2Style}"
+                                               TextWrapping="Wrap" Margin="0,0,0,4"/>
+                                    <TextBlock Text="{Binding Selected.Canonical}" Style="{DynamicResource MetaStyle}"
+                                               TextWrapping="Wrap" Margin="0,0,0,12"/>
+                                    <TextBlock Text="{Binding Selected.Group, StringFormat=Группа: {0}}"
+                                               Style="{DynamicResource MetaStyle}" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{Binding Selected.Aliases.Count, StringFormat=Алиасов: {0}}"
+                                               Style="{DynamicResource MetaStyle}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                    <TextBlock Text="{Binding Selected.Description}" Style="{DynamicResource BodyStyle}"
+                                               TextWrapping="Wrap" Margin="0,14,0,0"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </DockPanel>
+
         </Grid>
     </Grid>
 </UserControl>

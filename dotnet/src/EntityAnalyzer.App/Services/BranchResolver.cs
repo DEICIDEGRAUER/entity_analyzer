@@ -85,14 +85,28 @@ public static class BranchResolver
         return false;
     }
 
-    /// <summary>Доступ к кистям палитры через ресурсы приложения.</summary>
+    /// <summary>Item 14: сбросить кэш кистей после смены темы или цветов ветвей.</summary>
+    public static void InvalidatePalette() => Palette.Invalidate();
+
+    /// <summary>Доступ к кистям палитры через ресурсы приложения (кэш до сброса темы).</summary>
     private static class Palette
     {
-        public static readonly Brush Branch1 = Load("BrushBranch1");
-        public static readonly Brush Branch2 = Load("BrushBranch2");
-        public static readonly Brush Branch3 = Load("BrushBranch3");
-        public static readonly Brush Branch4 = Load("BrushBranch4");
-        public static readonly Brush Branch5 = Load("BrushBranch5");
+        private static readonly Brush[] Cache = new Brush[5];
+
+        public static Brush Branch1 => Get(0);
+        public static Brush Branch2 => Get(1);
+        public static Brush Branch3 => Get(2);
+        public static Brush Branch4 => Get(3);
+        public static Brush Branch5 => Get(4);
+
+        public static void Invalidate()
+        {
+            for (var i = 0; i < Cache.Length; i++)
+                Cache[i] = null!;
+        }
+
+        private static Brush Get(int index) =>
+            Cache[index] ??= Load("BrushBranch" + (index + 1));
 
         private static Brush Load(string key) =>
             System.Windows.Application.Current?.TryFindResource(key) as Brush

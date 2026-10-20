@@ -5,6 +5,29 @@ All notable changes to Entity Analyzer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Bulk verdicts are now undone as one action: `Ctrl+Z` restores the whole
+  selection instead of only the last card. Batch storage uses a single
+  `VerdictStore.RemoveRange` rewrite.
+- Duplicate content is counted before the cache fast path. A warm cache could
+  previously return cached results for a duplicate and bypass
+  `SkippedDuplicate`; a regression test covers the cold/warm pair.
+- Recent-project settings are pruned from missing or invalid paths at startup
+  and after removal; invalid legacy entries can no longer break project opening.
+
+### Changed
+- Review and quote-book toolbars use `WrapPanel`, so controls wrap instead of
+  being clipped on narrow windows.
+- README updated to the current 806-test baseline.
+
+### Verified
+- 806/806 Core tests.
+- `verify.ps1 -WithGuiSmoke`: build, tests, GUI/CLI publish, CLI smoke,
+  performance gate, GUI smoke, and real-profile-untouched check.
+- Isolated GUI smokes: bulk verdict undo, recent-project pruning.
+
 ## [18.1.0] - 2026-08-29
 
 ### Fixed

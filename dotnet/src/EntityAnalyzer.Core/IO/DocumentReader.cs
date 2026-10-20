@@ -214,38 +214,25 @@ public static partial class DocumentReader
 
     // ---------- PDF (best-effort) ----------
 
-    [GeneratedRegex(@"stream\r?\n([\s\S]*?)endstream")]
-    private static partial Regex PdfStream();
-
-    [GeneratedRegex(@"\(((?:\\.|[^\\()])*)\)\s*(Tj|TJ|')")]
-    private static partial Regex PdfLiteralStrings();
-
-    [GeneratedRegex(@"\[([\s\S]*?)\]\s*TJ")]
-    private static partial Regex PdfArrayStrings();
-
-    [GeneratedRegex(@"\(((?:\\.|[^\\()])*)\)")]
-    private static partial Regex PdfAnyLiteral();
-
-    [GeneratedRegex(@"<([0-9A-Fa-f\s]+)>\s*Tj")]
-
-    private static partial Regex PdfHexString();
-
     private static string ExtractPdf(byte[] bytes)
     {
         try
         {
             var raw = Encoding.Latin1.GetString(bytes);
-            var sb = new StringBuilder();
+            var sb = new StringBuilder(Math.Min(raw.Length, 1 << 16));
 
-            foreach (Match stream in PdfStream().Matches(raw))
+            // Потоковые объекты ищем линейно: Regex с [\s\S]*? по всему PDF
+            // на больших файлах уходит в катастрофический бэктрекинг.
+            var searchFrom = 0;
+            while (TryFindPdfStream(raw, ref searchFrom, out var start, out var length))
             {
-                var body = stream.Groups[1].Value;
+                var body = raw.Substring(start, length);
                 var decoded = TryInflate(body) ?? body; // несжатые потоки идут как есть
                 AppendPdfText(decoded, sb);
             }
 
             // Строки вне потоков (редко, но встречается в простых PDF).
-            AppendPdfText(raw, sb, skipStreams: false);
+            AppendPdfText(raw, sb);
 
             var result = sb.ToString().Trim();
             if (result.Length == 0)
@@ -259,42 +246,245 @@ public static partial class DocumentReader
         }
     }
 
-    private static void AppendPdfText(string content, StringBuilder sb, bool skipStreams = true)
+    /// <summary>Находит очередной <c>stream\r?\n…endstream</c> без регэкспов.</summary>
+    private static bool TryFindPdfStream(string raw, ref int searchFrom,
+        out int bodyStart, out int bodyLength)
     {
-        // TJ-массивы: [(deep) 120 (Yeb)] TJ — берём все строковые литералы внутри.
-        foreach (Match arr in PdfArrayStrings().Matches(content))
+        while (searchFrom < raw.Length)
         {
-            foreach (Match lit in PdfAnyLiteral().Matches(arr.Groups[1].Value))
-                sb.Append(UnescapePdfString(lit.Groups[1].Value));
+            var stream = raw.IndexOf("stream", searchFrom, StringComparison.Ordinal);
+            if (stream < 0) break;
+
+            var body = stream + 6;
+            if (body < raw.Length && raw[body] == '\r') body++;
+            if (body < raw.Length && raw[body] == '\n')
+            {
+                body++; // тело начинается сразу после перевод строки
+                var end = raw.IndexOf("endstream", body, StringComparison.Ordinal);
+                if (end < 0) break;
+                bodyStart = body;
+                bodyLength = end - body;
+                searchFrom = end + 9;
+                return true;
+            }
+
+            searchFrom = stream + 6;
+        }
+
+        bodyStart = 0;
+        bodyLength = 0;
+        return false;
+    }
+
+    private static void AppendPdfText(string content, StringBuilder sb)
+    {
+        // Порядок совпадает с прежним: сначала TJ-массивы, затем одиночные
+        // литералы, затем hex-строки. Это важно для порядка цитат в отчёте.
+        AppendPdfArrays(content, sb);
+        AppendPdfLiteralStrings(content, sb);
+        AppendPdfHexStrings(content, sb);
+
+        if (sb.Length > 0 && sb[^1] != '\n') sb.Append('\n');
+    }
+
+    /// <summary>Эквивалент <c>\[([\s\S]*?)\]\s*TJ</c> за линейный проход.</summary>
+    private static void AppendPdfArrays(string content, StringBuilder sb)
+    {
+        // Все ']', после которых идут пробелы и TJ. Для каждой '[' нужен
+        // первый такой закрывающий символ: regex с нежадным [\s\S]*?
+        // перебирает ']' до первого, за которым следует TJ.
+        var closers = new List<int>();
+        var tj = content.IndexOf("TJ", StringComparison.Ordinal);
+        while (tj >= 0)
+        {
+            var k = tj - 1;
+            while (k >= 0 && char.IsWhiteSpace(content[k])) k--;
+            if (k >= 0 && content[k] == ']') closers.Add(k);
+            tj = content.IndexOf("TJ", tj + 1, StringComparison.Ordinal);
+        }
+
+        var search = 0;
+        var closerIndex = 0;
+        while (search < content.Length)
+        {
+            var open = content.IndexOf('[', search);
+            if (open < 0) break;
+
+            while (closerIndex < closers.Count && closers[closerIndex] <= open)
+                closerIndex++;
+            if (closerIndex >= closers.Count) break; // позже '[' уже нечего закрывать
+
+            var close = closers[closerIndex];
+            AppendPdfLiteralRange(content, open + 1, close, sb);
             sb.Append(' ');
-        }
 
-        // Одиночные строки: (text) Tj
-        foreach (Match lit in PdfLiteralStrings().Matches(content))
-        {
-            sb.Append(UnescapePdfString(lit.Groups[1].Value));
-            if (lit.Value.Contains("Tj")) sb.Append(' ');
+            // Конец совпадения — сразу после TJ (пробелы перед ним уже
+            // пропущены при построении closers).
+            var after = close + 1;
+            while (after < content.Length && char.IsWhiteSpace(content[after])) after++;
+            search = after + 2;
         }
+    }
 
-        // Hex-строки UTF-16BE: <FEFF...> Tj
-        foreach (Match hex in PdfHexString().Matches(content))
+    /// <summary>Эквивалент <c>\(((?:\\.|[^\\()])*)\)</c> внутри диапазона.</summary>
+    private static void AppendPdfLiteralRange(string content, int start, int end, StringBuilder sb)
+    {
+        var i = start;
+        while (i < end)
         {
+            var open = content.IndexOf('(', i);
+            if (open < 0 || open >= end) break;
+
+            if (!TryReadPdfLiteral(content, open, end, out var valueStart, out var valueEnd, out var next))
+            {
+                i = open + 1;
+                continue;
+            }
+
+            sb.Append(UnescapePdfString(content.Substring(valueStart, valueEnd - valueStart)));
+            i = next;
+        }
+    }
+
+    /// <summary>Эквивалент <c>\((…)\)\s*(Tj|TJ|')</c>.</summary>
+    private static void AppendPdfLiteralStrings(string content, StringBuilder sb)
+    {
+        var i = 0;
+        while (i < content.Length)
+        {
+            var open = content.IndexOf('(', i);
+            if (open < 0) break;
+
+            if (!TryReadPdfLiteral(content, open, content.Length,
+                    out var valueStart, out var valueEnd, out var next))
+            {
+                i = open + 1;
+                continue;
+            }
+
+            var after = next;
+            while (after < content.Length && char.IsWhiteSpace(content[after])) after++;
+
+            var isTj = after + 1 < content.Length && content[after] == 'T' && content[after + 1] == 'j';
+            var isTjArray = after + 1 < content.Length && content[after] == 'T' && content[after + 1] == 'J';
+            var isQuote = after < content.Length && content[after] == '\'';
+            if (!isTj && !isTjArray && !isQuote)
+            {
+                i = open + 1;
+                continue;
+            }
+
+            var literal = UnescapePdfString(content.Substring(valueStart, valueEnd - valueStart));
+            // Исторический контракт: пробел добавлялся, если "Tj" встречался
+            // в тексте самого match (литерал + маркер), а не только в маркере.
+            var addSpace = isTj ||
+                content.IndexOf("Tj", valueStart, valueEnd - valueStart,
+                    StringComparison.Ordinal) >= 0;
+            sb.Append(literal);
+            if (addSpace) sb.Append(' ');
+            i = isQuote ? after + 1 : after + 2;
+        }
+    }
+
+    /// <summary>Эквивалент <c>&lt;([0-9A-Fa-f\s]+)&gt;\s*Tj</c>.</summary>
+    private static void AppendPdfHexStrings(string content, StringBuilder sb)
+    {
+        var i = 0;
+        while (i < content.Length)
+        {
+            var open = content.IndexOf('<', i);
+            if (open < 0) break;
+
+            var end = open + 1;
+            while (end < content.Length &&
+                   (Uri.IsHexDigit(content[end]) || char.IsWhiteSpace(content[end])))
+                end++;
+
+            if (end == open + 1 || end >= content.Length || content[end] != '>')
+            {
+                i = open + 1;
+                continue;
+            }
+
+            var after = end + 1;
+            while (after < content.Length && char.IsWhiteSpace(content[after])) after++;
+            if (after + 1 >= content.Length ||
+                content[after] != 'T' || content[after + 1] != 'j')
+            {
+                i = open + 1;
+                continue;
+            }
+
             try
             {
-                var hexStr = Regex.Replace(hex.Groups[1].Value, @"\s", "");
-                if (hexStr.Length % 2 != 0) hexStr += "0";
-                var data = new byte[hexStr.Length / 2];
-                for (var i = 0; i < data.Length; i++)
-                    data[i] = Convert.ToByte(hexStr.Substring(i * 2, 2), 16);
+                var data = DecodePdfHex(content.AsSpan(open + 1, end - open - 1));
                 var decoded = (data.Length >= 2 && data[0] == 0xFE && data[1] == 0xFF)
                     ? Encoding.BigEndianUnicode.GetString(data, 2, data.Length - 2)
                     : Encoding.Latin1.GetString(data);
                 sb.Append(decoded).Append(' ');
             }
             catch { /* битый hex — пропустить */ }
+
+            i = after + 2;
+        }
+    }
+
+    /// <summary>
+    /// Читает PDF-литерал, начиная с открывающей скобки. Возвращает false,
+    /// если внутри встретилась неэкранированная '(' — тогда матч начинается
+    /// со следующей скобки, как у прежнего regex.
+    /// </summary>
+    private static bool TryReadPdfLiteral(string text, int open, int limit,
+        out int valueStart, out int valueEnd, out int next)
+    {
+        valueStart = open + 1;
+        valueEnd = -1;
+        next = open + 1;
+
+        var i = open + 1;
+        while (i < limit)
+        {
+            var c = text[i];
+            if (c == '\\')
+            {
+                i += 2; // \\. — экранированный символ целиком
+                continue;
+            }
+            if (c == ')')
+            {
+                valueEnd = i;
+                next = i + 1;
+                return true;
+            }
+            if (c == '(')
+            {
+                next = i;
+                return false;
+            }
+            i++;
         }
 
-        if (sb.Length > 0 && !sb.ToString().EndsWith('\n')) sb.Append('\n');
+        return false;
+    }
+
+    private static byte[] DecodePdfHex(ReadOnlySpan<char> hex)
+    {
+        var digits = new List<byte>(hex.Length + 1);
+        foreach (var c in hex)
+        {
+            if (char.IsWhiteSpace(c)) continue;
+            var v = c <= '9' ? c - '0'
+                : c is >= 'a' and <= 'f' ? c - 'a' + 10
+                : c - 'A' + 10;
+            digits.Add((byte)v);
+        }
+
+        var odd = digits.Count % 2 != 0;
+        var data = new byte[digits.Count / 2 + (odd ? 1 : 0)];
+        for (var i = 0; i + 1 < digits.Count; i += 2)
+            data[i / 2] = (byte)((digits[i] << 4) | digits[i + 1]);
+        if (odd) data[^1] = (byte)(digits[^1] << 4); // нечётный хвост дополняется нулём
+        return data;
     }
 
     private static string UnescapePdfString(string s)
@@ -585,28 +775,49 @@ public static partial class DocumentReader
         if (run.Length >= 6) sb.Append(run).Append('\n');
     }
 
+    private static readonly Encoding Cp1251 = Encoding.GetEncoding(1251);
+    private static readonly char[] Cp1251Chars = BuildCp1251Chars();
+
+    private static char[] BuildCp1251Chars()
+    {
+        var table = new char[256];
+        var bytes = new byte[256];
+        for (var i = 0; i < bytes.Length; i++) bytes[i] = (byte)i;
+        Cp1251.GetChars(bytes, 0, bytes.Length, table, 0);
+        return table;
+    }
+
     private static void AppendCp1251Runs(byte[] b, StringBuilder sb)
     {
-        var enc = Encoding.GetEncoding(1251);
-        var run = new MemoryStream();
-        var flush = () =>
+        var runStart = -1;
+
+        void Flush(int start, int end)
         {
-            if (run.Length >= 10)
-            {
-                var s = enc.GetString(run.ToArray());
-                if (s.Count(char.IsLetter) * 2 >= s.Length) sb.Append(s).Append('\n');
-            }
-            run.SetLength(0);
-        };
+            var length = end - start;
+            if (length < 10) return;
+
+            var s = Cp1251.GetString(b.AsSpan(start, length));
+            var letters = 0;
+            foreach (var c in s)
+                if (char.IsLetter(c)) letters++;
+            if (letters * 2 >= s.Length) sb.Append(s).Append('\n');
+        }
 
         for (var i = 0; i < b.Length; i++)
         {
             var ch = b[i];
-            var decoded = enc.GetString([ch])[0];
-            if (IsTextChar(decoded) && ch != 0) run.WriteByte(ch);
-            else flush();
+            if (IsTextChar(Cp1251Chars[ch]) && ch != 0)
+            {
+                if (runStart < 0) runStart = i;
+            }
+            else
+            {
+                if (runStart >= 0) Flush(runStart, i);
+                runStart = -1;
+            }
         }
-        flush();
+
+        if (runStart >= 0) Flush(runStart, b.Length);
     }
 
     private static bool IsTextChar(char c) =>

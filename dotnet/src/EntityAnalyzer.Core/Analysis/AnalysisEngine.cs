@@ -67,6 +67,27 @@ public sealed class AnalysisEngine
         return dir;
     }
 
+    /// <summary>
+    /// Кэш контентно-адресный: после переименования/перемещения файла
+    /// верхнеуровневые FileName/FullPath надо обновить, но и вложенные
+    /// SemanticMatch.FilePath — иначе отчёты по паттернам ссылаются на старое
+    /// имя. Это же правило использует любой путь возврата из кэша.
+    /// </summary>
+    internal static FileResult StampFileIdentity(FileResult cached, string path)
+    {
+        var fileName = Path.GetFileName(path);
+        var semantics = cached.SemanticMatches;
+        if (semantics.Count == 0)
+            return cached with { FileName = fileName, FullPath = path };
+
+        return cached with
+        {
+            FileName = fileName,
+            FullPath = path,
+            SemanticMatches = semantics.Select(s => s with { FilePath = path }).ToArray(),
+        };
+    }
+
     public AnalysisSession Run(CancellationToken cancellationToken, IProgress<AnalysisProgress>? progress = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -112,9 +133,31 @@ public sealed class AnalysisEngine
         });
 
         var configSignature = BuildConfigSignature();
-        IAnalysisCache? cache = _options.Cache.Enabled
-            ? new JsonFileCache(_cacheDir, configSignature)
-            : null;
+        IAnalysisCache? cache = null;
+        MemoryCacheLayer? l2 = null;
+        if (_options.Cache.Enabled)
+        {
+            // Жизненный цикл (TTL, лимит объёма, осиротевшие файлы) применяется
+            // при открытии кэша — один раз на сессию; результат — в журнал.
+            var policy = CachePolicy.From(_options.Cache);
+            var disk = new JsonFileCache(_cacheDir, configSignature, policy);
+            if (disk.LastPruneRemoved > 0)
+                Logging.Log.Info("cache", "Кэш: убрано записей {0}, освобождено {1:0.#} МБ",
+                    disk.LastPruneRemoved, disk.LastPruneFreedBytes / 1048576.0);
+
+            if (_options.Cache.MemoryEnabled && _options.Cache.MemoryBudgetMb > 0)
+            {
+                l2 = MemoryCacheLayer.Wrap(_cacheDir, configSignature, disk,
+                    _options.Cache.MemoryBudgetMb * 1024L * 1024L);
+                cache = l2;
+            }
+            else
+            {
+                cache = disk;
+            }
+        }
+        var l2HitsBefore = l2?.HitCount ?? 0;
+        var l2MissesBefore = l2?.MissCount ?? 0;
 
         // Discovery lists paths only; bytes are read inside the parallel loop
         // so disk IO overlaps with CPU work instead of serializing upfront.
@@ -174,50 +217,67 @@ public sealed class AnalysisEngine
             try
             {
                 string contentKey;
-                byte[] bytes;
+                byte[]? bytes = null;
                 var hashFromIndex = false;
-
-                if (incrementalIndex is not null)
+                if (incrementalIndex is not null && incrementalIndex.TryGetHash(path, out var indexedHash))
                 {
                     // Хэш из индекса без чтения файла, если размер и mtime не изменились.
-                    contentKey = incrementalIndex.GetOrComputeHash(path, () =>
-                    {
-                        var b = File.ReadAllBytes(path);
-                        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(b));
-                    });
+                    contentKey = indexedHash;
                     hashFromIndex = true;
-                    bytes = [];
                 }
                 else
                 {
                     bytes = File.ReadAllBytes(path);
                     contentKey = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes));
+                    incrementalIndex?.StoreHash(path, contentKey);
+                    // Свежий хэш тоже позволяет сразу проверить кэш по контенту
+                    // (переименование/перемещение) — как раньше делал GetOrComputeHash.
+                    hashFromIndex = incrementalIndex is not null;
                 }
 
                 // Регистрация контента для отчёта по дубликатам (до любых ранних выходов).
-                if (!firstPathByHash.TryAdd(contentKey, path))
+                // Пропуск дубликатов решается здесь, до кэша: иначе второй файл
+                // с тем же содержимым мог получить готовый результат из кэша и
+                // обойти счётчик SkippedDuplicate (гонка на холодном кэше и
+                // гарантированно — на тёплом).
+                var isDuplicate = !firstPathByHash.TryAdd(contentKey, path);
+                if (isDuplicate)
+                {
                     duplicateHits.Add((contentKey, path));
+                    if (_options.Corpus.SkipDuplicates)
+                    {
+                        quality.CountSkippedDuplicate();
+                        return ValueTask.CompletedTask;
+                    }
+                }
 
                 // Быстрый путь: кэш-попадание по хэшу из индекса — файл не читаем вовсе.
                 var cacheKey = contentKey + "|" + configSignature;
-                if (hashFromIndex && cache is not null && cache.TryGet(cacheKey, out var cachedEarly) && cachedEarly is not null)
+                var cacheChecked = false;
+                if (hashFromIndex && cache is not null)
                 {
-                    quality.CountCacheHit();
-                    quality.CountUnchangedSkipped();
-                    // R2-5: результат контентно-адресный, а имя/путь могли смениться
-                    // (переименование/перемещение) — штампуем актуальную идентификацию.
-                    result = cachedEarly with { FileName = Path.GetFileName(path), FullPath = path };
+                    cacheChecked = true;
+                    if (cache.TryGet(cacheKey, out var cachedEarly) && cachedEarly is not null)
+                    {
+                        quality.CountCacheHit();
+                        quality.CountUnchangedSkipped();
+                        // R2-5: результат контентно-адресный, а имя/путь могли смениться
+                        // (переименование/перемещение) — штампуем актуальную идентификацию.
+                        result = StampFileIdentity(cachedEarly, path);
+                        quality.CountFinalMentions(result.Mentions.Count);
+                    }
                 }
-                else
+
+                if (result is null)
                 {
-                    if (bytes.Length == 0) bytes = File.ReadAllBytes(path);
+                    bytes ??= File.ReadAllBytes(path);
 
                     result = AnalyzeFile(
-                        path, bytes, automaton,
+                        path, bytes, contentKey, automaton,
                         listingFilter, commonWordRule, titleValidator,
                         blacklistFilter, meaningFilter, userExclusions,
                         allNames, cache, quality, configSignature,
-                        seenContentHashes);
+                        seenContentHashes, skipCacheLookup: cacheChecked);
                 }
             }
             catch (OperationCanceledException) { throw; }
@@ -258,7 +318,26 @@ public sealed class AnalysisEngine
         incrementalIndex?.Flush();
         cache?.Flush();
 
-        var orderedResults = results.OrderBy(r => r.FileName, StringComparer.Ordinal).ToList();
+        // L2-метрика прогона: дельта счётчиков слоя (память уже прогрета прошлыми
+        // прогонами — абсолютные значения к прогону не относятся).
+        if (l2 is not null)
+        {
+            var l2Hits = (int)Math.Max(0, l2.HitCount - l2HitsBefore);
+            var l2Misses = (int)Math.Max(0, l2.MissCount - l2MissesBefore);
+            quality.SetCacheL2(l2Hits, l2Misses);
+            if (l2Hits + l2Misses > 0)
+                Logging.Log.Info("cache", "Кэш L2 (память): попаданий {0}, обращений к диску {1}",
+                    l2Hits, l2Misses);
+        }
+
+        // Primary order is the historical file-name order. FullPath is a
+        // deterministic tie-breaker for same-named files from different folders
+        // (for example many «Оригинал.txt»), otherwise parallel completion order
+        // leaks into semantic reports and makes repeated runs non-identical.
+        var orderedResults = results
+            .OrderBy(r => r.FileName, StringComparer.Ordinal)
+            .ThenBy(r => r.FullPath, StringComparer.Ordinal)
+            .ToList();
 
         // Группы текстовых дубликатов: оригинал + копии с тем же SHA-256.
         var duplicateGroups = BuildDuplicateGroups(firstPathByHash, duplicateHits);
@@ -433,46 +512,46 @@ public sealed class AnalysisEngine
         var largeFiles = new List<string>();
 
         foreach (var dir in roots)
-            foreach (var ext in extensions)
-                foreach (var path in Directory.EnumerateFiles(dir, "*" + ext, searchOption))
+            foreach (var path in Directory.EnumerateFiles(dir, "*", searchOption))
+            {
+                ct.ThrowIfCancellationRequested();
+                if (!extensions.Contains(Path.GetExtension(path))) continue;
+                if (!seen.Add(path)) continue;
+                try
                 {
-                    ct.ThrowIfCancellationRequested();
-                    if (!seen.Add(path)) continue;
-                    try
+                    var info = new FileInfo(path);
+                    if (!info.Exists || info.Length == 0)
                     {
-                        var info = new FileInfo(path);
-                        if (!info.Exists || info.Length == 0)
-                        {
-                            if (info.Exists) quality?.CountSkippedEmpty();
-                            continue;
-                        }
-                        if (info.Length > maxBytes)
-                        {
-                            if (_options.Corpus.StreamLargeFiles)
-                                largeFiles.Add(path);
-                            else
-                                quality?.CountSkippedTooLarge();
-                            continue;
-                        }
-
-                        // Файлы внутри выходной папки/кэша не сканируются.
-                        if (excludedRoots is { Count: > 0 })
-                        {
-                            var full = Path.GetFullPath(path);
-                            var isExcluded = false;
-                            foreach (var root in excludedRoots)
-                                if (full.StartsWith(root, StringComparison.OrdinalIgnoreCase))
-                                {
-                                    isExcluded = true;
-                                    break;
-                                }
-                            if (isExcluded) continue;
-                        }
-
-                        list.Add(path);
+                        if (info.Exists) quality?.CountSkippedEmpty();
+                        continue;
                     }
-                    catch { /* unreadable file — skip */ }
+                    if (info.Length > maxBytes)
+                    {
+                        if (_options.Corpus.StreamLargeFiles)
+                            largeFiles.Add(path);
+                        else
+                            quality?.CountSkippedTooLarge();
+                        continue;
+                    }
+
+                    // Файлы внутри выходной папки/кэша не сканируются.
+                    if (excludedRoots is { Count: > 0 })
+                    {
+                        var full = Path.GetFullPath(path);
+                        var isExcluded = false;
+                        foreach (var root in excludedRoots)
+                            if (full.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                            {
+                                isExcluded = true;
+                                break;
+                            }
+                        if (isExcluded) continue;
+                    }
+
+                    list.Add(path);
                 }
+                catch { /* unreadable file — skip */ }
+            }
 
         return Tuple.Create(
             list
@@ -486,7 +565,7 @@ public sealed class AnalysisEngine
     // ---------- per-file pipeline ----------
 
     private FileResult? AnalyzeFile(
-        string path, byte[] bytes, AhoCorasick<EntityRef> automaton,
+        string path, byte[] bytes, string contentKey, AhoCorasick<EntityRef> automaton,
         ListingDensityFilter listingFilter, CommonWordContextRule commonWordRule,
         TitleValidator titleValidator,
         BlacklistPhraseFilter? blacklistFilter, MeaningfulnessFilter? meaningFilter,
@@ -494,14 +573,15 @@ public sealed class AnalysisEngine
         List<string> allNames,
         IAnalysisCache? cache,
         QualityCollector quality, string configSignature,
-        ConcurrentDictionary<string, byte> seenHashes)
+        ConcurrentDictionary<string, byte> seenHashes,
+        bool skipCacheLookup = false)
     {
         var fileName = Path.GetFileName(path);
         var proc = _options.Processing;
         try
         {
-            // Duplicate content guard.
-            var contentKey = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes));
+            // Duplicate content guard. Хэш уже посчитан в Run(): не читаем и не
+            // хешируем те же байты повторно.
             if (_options.Corpus.SkipDuplicates && !seenHashes.TryAdd(contentKey, 0))
             {
                 quality.CountSkippedDuplicate();
@@ -509,12 +589,22 @@ public sealed class AnalysisEngine
             }
 
             var cacheKey = contentKey + "|" + configSignature;
-            if (cache is not null && cache.TryGet(cacheKey, out var cached))
+            if (cache is not null && skipCacheLookup)
+            {
+                // Ранний путь в Run() уже проверил диск и не нашёл записи.
+                quality.CountCacheMiss();
+            }
+            else if (cache is not null && cache.TryGet(cacheKey, out var cached))
             {
                 quality.CountCacheHit();
-                return cached! with { FileName = fileName, FullPath = path };
+                var reused = StampFileIdentity(cached!, path);
+                quality.CountFinalMentions(reused.Mentions.Count);
+                return reused;
             }
-            quality.CountCacheMiss();
+            else if (cache is not null)
+            {
+                quality.CountCacheMiss();
+            }
 
             string text;
             using (quality.Measure("read"))
@@ -584,8 +674,8 @@ public sealed class AnalysisEngine
         var raw = new List<RawMatch>();
         using (quality.Measure("match"))
         {
-            foreach (var hit in automaton.Find(normalized))
-                raw.Add(new RawMatch(hit.Start, hit.End, hit.Payload.Variant, hit.Payload.Entity));
+            automaton.Find(normalized,
+                hit => raw.Add(new RawMatch(hit.Start, hit.End, hit.Payload.Variant, hit.Payload.Entity)));
         }
         quality.CountRawMatches(raw.Count);
 
@@ -823,7 +913,12 @@ public sealed class AnalysisEngine
     private static bool HasUtf8BomOrValid(byte[] bytes)
     {
         if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) return true;
-        try { new UTF8Encoding(false, true).GetBytes(new UTF8Encoding(false, true).GetString(bytes)); return true; }
+        try
+        {
+            // Валидация без материализации строки и обратного кодирования.
+            new UTF8Encoding(false, true).GetCharCount(bytes);
+            return true;
+        }
         catch (DecoderFallbackException) { return false; }
     }
 

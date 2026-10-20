@@ -35,8 +35,10 @@ Thumbs.db
 
 # Corpus (large files)
 ТЕКСТЫ/
+ТЕКСТЫ.zip
 dotnet/corpus/
 test_corpus/
+.venv_test/
 
 # Large data files
 *.db

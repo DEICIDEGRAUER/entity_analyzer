@@ -3,10 +3,14 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!-- Раздел «Поиск и паттерны» (вкладка на Обзоре):
-         1) обособленный скан паттернов без анализа сущностей;
-         2) совместные упоминания двух объектов;
-         3) редактор семантических паттернов (декларативные категории);
-         4) находки последнего прогона/скана. -->
+          1) обособленный скан паттернов без анализа сущностей;
+          2) совместные упоминания двух объектов;
+          3) редактор семантических паттернов (декларативные категории);
+         3c) редактор словарей (item 46/48: удаление слов из встроенных словарей);
+          4) находки последнего прогона/скана. -->
+    <UserControl.InputBindings>
+        <KeyBinding Key="S" Modifiers="Control" Command="{Binding SaveDraftCommand}"/>
+    </UserControl.InputBindings>
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="0,0,24,24" MaxWidth="1400" HorizontalAlignment="Left">
 
@@ -57,9 +61,14 @@
             </UniformGrid>
             <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
                 <Button Content="Найти" Style="{DynamicResource PrimaryButtonStyle}"
-                        Command="{Binding FindCommand}"/>
+                        Command="{Binding FindCommand}"
+                        ToolTip="Искать файлы, где встречаются выбранные объекты (условие задаётся слева)"/>
+                <Button Content="Перейти к запуску анализа" Style="{DynamicResource GhostButtonStyle}"
+                        Command="{Binding GoRunAnalysisCommand}" Margin="16,0,0,0"
+                        Visibility="{Binding ShowRunHint, Converter={StaticResource BoolToVis}}"
+                        ToolTip="Результатов анализа ещё нет — откроется вкладка «Обзор» для запуска прогона"/>
                 <TextBlock Text="{Binding CoOccurSummary}" Style="{DynamicResource MetaStyle}"
-                           VerticalAlignment="Center" Margin="24,0,0,0"/>
+                           VerticalAlignment="Center" Margin="24,0,0,0" TextWrapping="Wrap"/>
             </StackPanel>
 
             <TextBlock Text="Ничего не найдено — измените условие."
@@ -116,6 +125,17 @@
                                                   ToolTip="Включён ли паттерн в сканирование"/>
                                         <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
                                                    Margin="12,0,0,0" TextTrimming="CharacterEllipsis"/>
+                                        <!-- Индикатор встроенного паттерна -->
+                                        <TextBlock Text="🔒" FontSize="10" Margin="6,0,0,0" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource BrushTextDisabled}"
+                                                   ToolTip="Встроенный паттерн. Отредактируйте и нажмите «Сохранить в конфиг», чтобы создать пользовательскую копию."
+                                                   Visibility="{Binding IsEmbedded, Converter={StaticResource BoolToVis}}"/>
+                                        <!-- Группа 2 (item 30): заметка дневника с привязкой к паттерну -->
+                                        <Button Content="✎" FontSize="11" Padding="4,0" Margin="8,0,0,0"
+                                                Style="{DynamicResource MiniGhostButtonStyle}"
+                                                Command="{Binding DataContext.AddPatternNoteCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip="Добавить заметку в «Дневник» с привязкой к этому паттерну"/>
                                     </StackPanel>
                                     <TextBlock Text="{Binding Id}" Style="{DynamicResource TechStyle}"
                                                Foreground="{DynamicResource BrushTextSecondary}" Margin="28,2,0,0"/>
@@ -232,6 +252,73 @@
                                    Foreground="{DynamicResource BrushBranch4}"/>
                     </StackPanel>
                 </ScrollViewer>
+            </Grid>
+
+            <!-- ═══ 3c. Редактор словарей (item 46/48) ═══ -->
+            <TextBlock Text="РЕДАКТОР СЛОВАРЕЙ" Style="{DynamicResource SectionHeaderStyle}" Margin="0,48,0,0"/>
+            <TextBlock Text="Словари (epithets, titles, ritual, periods…) используются токенами «lexicon» в паттернах. Удалённое слово сохраняется в пользовательском конфиге пометкой «!слово» — встроенный словарь не изменяется и переживает обновления приложения. Изменения применяются к следующему сканированию и анализу."
+                       Style="{DynamicResource MetaStyle}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+            <Grid Margin="0,16,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="280"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <ListBox Grid.Column="0" ItemsSource="{Binding LexiconNames}"
+                         SelectedItem="{Binding SelectedLexicon}"
+                         MinHeight="220" MaxHeight="360"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ToolTip="Словари встроенные и пользовательские после слияния">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" FontFamily="{DynamicResource MonoFontFamily}" FontSize="12"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <Rectangle Grid.Column="1" Width="1" Fill="{DynamicResource BrushBorderLight}" Margin="24,0"/>
+
+                <DockPanel Grid.Column="2">
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                        <TextBox Text="{Binding NewWord, UpdateSourceTrigger=PropertyChanged}"
+                                 MinWidth="200"
+                                 ToolTip="Новое слово для выбранного словаря (нормализация — нижний регистр)"/>
+                        <Button Content="Добавить" Style="{DynamicResource GhostButtonStyle}"
+                                Command="{Binding AddLexiconWordCommand}" Margin="12,0,0,0"
+                                ToolTip="Добавить слово в пользовательское дополнение словаря"/>
+                        <Button Content="Сбросить словарь" Style="{DynamicResource GhostButtonStyle}"
+                                Command="{Binding ResetLexiconCommand}" Margin="12,0,0,0"
+                                ToolTip="Убрать все пользовательские правки выбранного словаря — вернуть встроенный состав"/>
+                        <Button Content="Открыть файл словарей" Style="{DynamicResource GhostButtonStyle}"
+                                Command="{Binding OpenLexiconsFileCommand}" Margin="12,0,0,0"
+                                ToolTip="Открыть semantic_lexicons.json в AppData для ручной правки"/>
+                    </StackPanel>
+                    <TextBlock DockPanel.Dock="Bottom" Text="{Binding LexiconSummary}"
+                               Style="{DynamicResource MetaStyle}" Margin="0,12,0,0"/>
+                    <TextBlock DockPanel.Dock="Bottom" Text="{Binding LexiconValidation}"
+                               Style="{DynamicResource MetaStyle}" TextWrapping="Wrap"
+                               Foreground="{DynamicResource BrushBranch4}" Margin="0,4,0,0"/>
+                    <ListBox ItemsSource="{Binding LexiconWords}" Margin="0,12,0,0"
+                             MinHeight="180" MaxHeight="320"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ToolTip="Эффективный состав словаря после слияния встроенных слов с пользовательскими правками">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Content="✕" FontSize="11"
+                                            Style="{DynamicResource GhostButtonStyle}" Padding="4,0"
+                                            Command="{Binding DataContext.RemoveLexiconWordCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                            CommandParameter="{Binding}"
+                                            ToolTip="Исключить слово из словаря (в пользовательском конфиге появится пометка «!слово»); вернуть — добавить его снова"/>
+                                    <TextBlock Text="{Binding}" VerticalAlignment="Center"
+                                               FontFamily="{DynamicResource MonoFontFamily}" FontSize="12"/>
+                                </DockPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
             </Grid>
 
             <!-- ═══ 3b. Песочница паттернов (R1-8): live-превью ═══ -->

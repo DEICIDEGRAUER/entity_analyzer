@@ -14,6 +14,7 @@ public sealed class QualityCollector
     private int _overlapsResolved;
     private int _skippedTooLarge, _skippedEmpty, _skippedDuplicate;
     private int _cacheHits, _cacheMisses, _unchangedSkipped;
+    private int _l2Hits, _l2Misses;
     private int _utf8Files, _cp1251Files;
     private long _bytesScanned;
     private readonly Dictionary<string, long> _stageTicks = [];
@@ -44,6 +45,16 @@ public sealed class QualityCollector
     public void CountCacheHit() { lock (_gate) _cacheHits++; }
     public void CountCacheMiss() { lock (_gate) _cacheMisses++; }
     public void CountUnchangedSkipped() { lock (_gate) _unchangedSkipped++; }
+
+    /// <summary>L2 (память): попадания/промахи уровня RAM за прогон (дельта счётчиков слоя).</summary>
+    public void SetCacheL2(int hits, int misses)
+    {
+        lock (_gate)
+        {
+            _l2Hits = hits;
+            _l2Misses = misses;
+        }
+    }
 
     public void CountEncoding(bool isUtf8, long bytes)
     {
@@ -106,6 +117,8 @@ public sealed class QualityCollector
                 SkippedTooLarge = _skippedTooLarge,
                 SkippedEmpty = _skippedEmpty,
                 SkippedDuplicate = _skippedDuplicate,
+                L2Hits = _l2Hits,
+                L2Misses = _l2Misses,
             };
         }
     }

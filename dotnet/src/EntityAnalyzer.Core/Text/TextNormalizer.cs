@@ -13,15 +13,6 @@ public static partial class TextNormalizer
     [GeneratedRegex(@"\((?:cid|CID):\d+\)")]
     private static partial Regex CidArtifact();
 
-    [GeneratedRegex(@"[ \t\x0B\f]+")]
-    private static partial Regex HorizontalRuns();
-
-    [GeneratedRegex(@"\n{3,}")]
-    private static partial Regex BlankLineRuns();
-
-    [GeneratedRegex(@" +")]
-    private static partial Regex MultiSpaces();
-
     public static string Normalize(string text)
     {
         if (string.IsNullOrEmpty(text)) return text;
@@ -30,31 +21,56 @@ public static partial class TextNormalizer
         if (text[0] == '\uFEFF') text = text.TrimStart('\uFEFF');
 
         // Compatibility folding (fullwidth forms, ligatures, superscripts…).
-        var sb = new StringBuilder(text.Normalize(NormalizationForm.FormKC));
+        // Большинство текстов уже нормализованы: IsNormalized избавляет от
+        // лишней копии, а Normalize вызывается только при реальной разнице.
+        var normalized = text.IsNormalized(NormalizationForm.FormKC)
+            ? text
+            : text.Normalize(NormalizationForm.FormKC);
 
-        // Drop PDF "(cid:123)" artifacts.
-        var cleaned = CidArtifact().Replace(sb.ToString(), string.Empty);
+        // Drop PDF "(cid:123)" artifacts only when they are actually present:
+        // regex по каждому файлу был заметной долей времени нормализации.
+        if (normalized.Contains("(cid:", StringComparison.Ordinal) ||
+            normalized.Contains("(CID:", StringComparison.Ordinal))
+            normalized = CidArtifact().Replace(normalized, string.Empty);
 
-        var dst = new StringBuilder(cleaned.Length);
-        foreach (var ch in cleaned)
+        // Один проход вместо четырёх regex: CR→LF, тире/кавычки, схлопывание
+        // горизонтальных пробелов, не более двух переводов строк и удаление
+        // пробелов рядом с границами строк.
+        var sb = new StringBuilder(normalized.Length);
+        var pendingSpace = false;
+        var newlineRun = 0;
+
+        foreach (var raw in normalized)
         {
-            dst.Append(ch switch
+            var ch = raw switch
             {
                 '\r' => '\n',
                 '\u2013' or '\u2014' or '\u2212' => '\u2014', // – — − → em dash
                 '\u00AB' or '\u00BB' or '\u201E' or '\u201C' or '\u201D' or '"' => '"',
-                _ => ch
-            });
+                _ => raw
+            };
+
+            if (ch == '\n')
+            {
+                pendingSpace = false;
+                if (newlineRun < 2) sb.Append('\n');
+                newlineRun++;
+                continue;
+            }
+
+            if (ch is ' ' or '\t' or '\u000B' or '\f')
+            {
+                if (newlineRun == 0) pendingSpace = true;
+                continue;
+            }
+
+            if (pendingSpace && sb.Length > 0 && sb[^1] != '\n')
+                sb.Append(' ');
+            pendingSpace = false;
+            newlineRun = 0;
+            sb.Append(ch);
         }
 
-        var result = dst.ToString()
-            .Replace("\r\n", "\n");
-
-        result = HorizontalRuns().Replace(result, " ");
-        result = MultiSpaces().Replace(result, " ");
-        result = BlankLineRuns().Replace(result, "\n\n");
-        result = result.Replace(" \n", "\n").Replace("\n ", "\n");
-
-        return result.Trim();
+        return sb.ToString().Trim();
     }
 }

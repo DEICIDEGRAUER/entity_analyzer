@@ -6,6 +6,7 @@ using EntityAnalyzer.App.Services;
 using EntityAnalyzer.Core.Analysis;
 using EntityAnalyzer.Core.Codex;
 using EntityAnalyzer.Core.Exporting;
+using EntityAnalyzer.Core.Genealogy;
 using EntityAnalyzer.Core.Logging;
 using EntityAnalyzer.Core.Persistence;
 using EntityAnalyzer.Core.Variants;
@@ -111,12 +112,40 @@ public sealed class CodexViewModel : ObservableObject
 
     // ─── Граф совместных упоминаний (R2-7) ───
 
-    /// <summary>Есть ли данные для графа (сессия последнего анализа).</summary>
-    public bool GraphAvailable => _main.Session is not null;
+    /// <summary>Item 5.1: режимы встроенного графа кодекса.</summary>
+    public string[] GraphModes { get; } = ["Совместные упоминания", "Генеалогическое древо"];
+
+    private int _graphModeIndex;
+    public int GraphModeIndex
+    {
+        get => _graphModeIndex;
+        set
+        {
+            if (!Set(ref _graphModeIndex, Math.Clamp(value, 0, 1))) return;
+            OnPropertyChanged(nameof(IsCooccurrenceMode));
+            OnPropertyChanged(nameof(GraphModeHint));
+            OnPropertyChanged(nameof(GraphAvailable));
+            OnPropertyChanged(nameof(GraphEmptyText));
+            GraphInvalidated?.Invoke();
+        }
+    }
+
+    public bool IsCooccurrenceMode => GraphModeIndex == 0;
+
+    public string GraphModeHint => IsCooccurrenceMode
+        ? "Рёбра — совместные упоминания; клик по узлу показывает карточку справа."
+        : "Рёбра — родственные связи; тип показан штрихом, уверенность — бейджем, гипотезы можно скрыть.";
+
+    /// <summary>Есть ли данные для графа (сессия последнего анализа или родственные связи кодекса).</summary>
+    public bool GraphAvailable => GraphModeIndex == 1
+        ? Doc.Links.Any(l => FamilyTreeBuilder.IsKinshipRelation(Doc, l.RelationId))
+        : _main.Session is not null;
 
     public string GraphEmptyText => GraphAvailable
         ? ""
-        : "Граф появится после первого анализа корпуса — рёбра строятся из совместных упоминаний.";
+        : GraphModeIndex == 1
+            ? "Генеалогическое древо строится из связей «породил», «родитель», «усыновляет», «опекун», «крёстный» и «партнёр». Добавьте их на карточках — типы и поколения появятся автоматически."
+            : "Граф появится после первого анализа корпуса — рёбра строятся из совместных упоминаний.";
 
     /// <summary>Фильтры пяти ветвей (индексы совпадают с BranchResolver.ResolveIndex).</summary>
     public bool[] BranchFilter { get; } = [true, true, true, true, true];
@@ -131,6 +160,27 @@ public sealed class CodexViewModel : ObservableObject
         var names = nodes.Select(n => n.Name).ToHashSet(StringComparer.Ordinal);
         var links = full.Links.Where(l => names.Contains(l.Source) && names.Contains(l.Target)).ToList();
         return new CoOccurrenceGraph(nodes, links);
+    }
+
+    /// <summary>Item 16: тип связи для быстрой разметки подсказок (по умолчанию «cooccur»).</summary>
+    private RelationType? _graphMarkupRelation;
+    public RelationType? GraphMarkupRelation
+    {
+        get => _graphMarkupRelation;
+        set => Set(ref _graphMarkupRelation, value);
+    }
+
+    /// <summary>
+    /// Item 16: рёбра ручной разметки поверх графа — типизированные связи
+    /// кодекса, обе карточки которых видны в текущем (отфильтрованном) графе.
+    /// </summary>
+    public IReadOnlyList<OverlayLink> GetOverlayLinks()
+    {
+        var graph = GetFilteredGraph();
+        if (graph is null || graph.Nodes.Count == 0) return [];
+        var namesById = Doc.Cards.ToDictionary(c => c.Id, c => c.Name, StringComparer.Ordinal);
+        var nodeNames = graph.Nodes.Select(n => n.Name).ToHashSet(StringComparer.Ordinal);
+        return LinkOverlay.Build(Doc.Links, namesById, Doc.Relations, nodeNames);
     }
 
     /// <summary>Выбрать карточку по имени сущности графа (клик по узлу).</summary>
@@ -232,6 +282,16 @@ public sealed class CodexViewModel : ObservableObject
     private string _newLinkNote = "";
     public string NewLinkNote { get => _newLinkNote; set => Set(ref _newLinkNote, value); }
 
+    /// <summary>Варианты уверенности для новой связи; «не указана» — допустимое значение.</summary>
+    public IReadOnlyList<ConfidenceChoice> ConfidenceChoices { get; } = FamilyConfidenceScale.Choices;
+
+    private ConfidenceChoice _newLinkConfidence = FamilyConfidenceScale.Choices[0];
+    public ConfidenceChoice NewLinkConfidence
+    {
+        get => _newLinkConfidence;
+        set => Set(ref _newLinkConfidence, value ?? FamilyConfidenceScale.Choices[0]);
+    }
+
     // ─── Path finder ───
 
     private Card? _pathTarget;
@@ -283,10 +343,15 @@ public sealed class CodexViewModel : ObservableObject
     public RelayCommand FindPathCommand { get; }
     public RelayCommand MergeCommand { get; }
     public RelayCommand AcceptSuggestions { get; }
+    /// <summary>Item 16: разметка одной подсказки графа выбранным типом связи.</summary>
+    public RelayCommand MarkupSuggestedLink { get; }
     public RelayCommand ExportMarkdown { get; }
     public RelayCommand ExportJson { get; }
     /// <summary>R1-17: Anki-колода для интервального повторения.</summary>
     public RelayCommand ExportAnki { get; }
+
+    /// <summary>Группа 2 (item 30): заметка дневника о текущей сущности (карточке).</summary>
+    public RelayCommand AddEntityNoteCommand { get; }
     /// <summary>R1-17: Zotero/Excel CSV (симметричен импорту).</summary>
     public RelayCommand ExportResearchCsv { get; }
     public RelayCommand ImportJson { get; }
@@ -304,8 +369,7 @@ public sealed class CodexViewModel : ObservableObject
         Doc = main.Codex;
 
         _changeLog = new CatalogChangeLog(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "EntityAnalyzer", "catalog_history.jsonl"));
+            EntityAnalyzer.Core.Persistence.ProfilePaths.DirectoryPath, "catalog_history.jsonl"));
 
         AddCard = new RelayCommand(_ =>
         {
@@ -339,6 +403,15 @@ public sealed class CodexViewModel : ObservableObject
         // QA-UX #11: явная отмена черновика — раньше единственный способ
         // «отменить» был случайный автопримен при переключении карточки.
         DiscardEdits = new RelayCommand(_ => LoadDraft(), _ => HasSelection && IsDirty);
+
+        // Группа 2 (item 30): «✎ В дневник» — заметка с привязкой к сущности.
+        AddEntityNoteCommand = new RelayCommand(_ =>
+        {
+            var name = EditName.Trim();
+            if (name.Length == 0) return;
+            _main.Diary.StartNewNote(NoteBindingKind.Entity, name, name);
+            _main.Navigate(_main.Diary);
+        }, _ => !string.IsNullOrWhiteSpace(EditName));
 
         PickImage = new RelayCommand(_ =>
         {
@@ -377,11 +450,15 @@ public sealed class CodexViewModel : ObservableObject
             if (NewLinkTarget.Id == Selected.Id) return;
             if (Doc.Links.Any(l => l.FromId == Selected.Id && l.ToId == NewLinkTarget.Id && l.RelationId == NewLinkRelation.Id))
                 return;
-            Doc.Links.Add(new CardLink(Selected.Id, NewLinkTarget.Id, NewLinkRelation.Id, NewLinkNote.Trim()));
-            Record("связь", Selected.Name, $"—{NewLinkRelation.ForwardLabel}→ {NewLinkTarget.Name}");
+            Doc.Links.Add(new CardLink(Selected.Id, NewLinkTarget.Id, NewLinkRelation.Id,
+                NewLinkNote.Trim(), FamilyConfidenceScale.Id(NewLinkConfidence.Value)));
+            Record("связь", Selected.Name, $"—{NewLinkRelation.ForwardLabel}→ {NewLinkTarget.Name}" +
+                (NewLinkConfidence.Value == FamilyConfidence.Unknown ? "" : $" ({NewLinkConfidence.Label})"));
             NewLinkNote = "";
+            NewLinkConfidence = FamilyConfidenceScale.Choices[0];
             LoadLinks();
             Save();
+            NotifyGraphDataChanged();
         }, _ => HasSelection && NewLinkTarget is not null && NewLinkRelation is not null);
 
         RemoveLink = new RelayCommand(param =>
@@ -393,6 +470,7 @@ public sealed class CodexViewModel : ObservableObject
             Record("связь удалена", Selected.Name, $"{row.FromName} → {row.ToName}");
             LoadLinks();
             Save();
+            NotifyGraphDataChanged();
         });
 
         FindPathCommand = new RelayCommand(_ =>
@@ -414,6 +492,7 @@ public sealed class CodexViewModel : ObservableObject
             ApplyFilters();
             LoadLinks();
             Save();
+            NotifyGraphDataChanged();
             _main.Dashboard.Log("⚖ " + report);
         }, _ => HasSelection && MergeSource is not null);
 
@@ -424,9 +503,34 @@ public sealed class CodexViewModel : ObservableObject
             Suggestions.Clear();
             SuggestionsHint = "";
             Save();
+            NotifyGraphDataChanged();
             RebuildIndex.Execute(null);
             _main.Dashboard.Log($"🔗 Принято предложений связей: {added}");
         }, _ => Suggestions.Count > 0);
+
+        GraphMarkupRelation = Doc.Relations.FirstOrDefault(r => r.Id == "cooccur")
+                              ?? Doc.Relations.FirstOrDefault();
+
+        MarkupSuggestedLink = new RelayCommand(param =>
+        {
+            if (param is not LinkProposal proposal) return;
+            var relation = GraphMarkupRelation ?? Doc.Relations.FirstOrDefault();
+            if (relation is null) return;
+            if (Doc.Links.Any(l => (l.FromId == proposal.FirstId && l.ToId == proposal.SecondId) ||
+                                   (l.FromId == proposal.SecondId && l.ToId == proposal.FirstId))) return;
+
+            Doc.Links.Add(new CardLink(proposal.FirstId, proposal.SecondId, relation.Id,
+                $"ко-упоминаний: {proposal.CoCount}"));
+            Record("связь", proposal.FirstName, $"—{relation.ForwardLabel}→ {proposal.SecondName}");
+            Suggestions.Remove(proposal);
+            SuggestionsHint = Suggestions.Count == 0
+                ? "Все подсказки размечены."
+                : $"Осталось подсказок: {Suggestions.Count}.";
+            Save();
+            LoadLinks();
+            NotifyGraphDataChanged();
+            _main.Dashboard.Log($"🔗 Размечена связь: {proposal.FirstName} —{relation.ForwardLabel}→ {proposal.SecondName}");
+        });
 
         ExportMarkdown = new RelayCommand(_ =>
         {
@@ -578,11 +682,40 @@ public sealed class CodexViewModel : ObservableObject
     /// <summary>Public hook for the schema editor: categories/relations changed.</summary>
     public void RefreshCollectionsPublic() => RefreshCollections();
 
+    /// <summary>
+    /// QA/UX #45: правки схемы (категории, поля, типы связей) должны быть видны
+    /// сразу, без перезапуска приложения. Обновляет карточку, список и цвета ветвей.
+    /// </summary>
+    public void OnSchemaChanged()
+    {
+        BranchResolver.Initialize(Doc); // новые/переименованные категории → цвета ветвей
+        RefreshCollections();
+        LoadFieldRows(); // состав «ПОЛЯ КАТЕГОРИИ» изменился
+        LoadLinks();     // подписи типов связей могли обновиться
+        ApplyFilters();
+    }
+
     private void AfterStructureChange()
     {
         RefreshCollections();
         ApplyFilters();
         Save();
+        BranchResolver.Initialize(Doc); // цвета сущностей без перезапуска (QA/UX #45)
+        NotifyGraphDataChanged();
+        // Пересобрать каталог поиска, чтобы изменения вступили силу без рестарта.
+        _ = RebuildCatalogAsync();
+    }
+
+    /// <summary>
+    /// Связи или карточки изменились: обновить доступность режима древа и
+    /// перерисовать встроенный граф. Раньше вызов был только у структуры,
+    /// поэтому первая же добавленная связь «породил» оставляла пустое состояние.
+    /// </summary>
+    private void NotifyGraphDataChanged()
+    {
+        OnPropertyChanged(nameof(GraphAvailable));
+        OnPropertyChanged(nameof(GraphEmptyText));
+        GraphInvalidated?.Invoke();
     }
 
     private void RefreshCollections()
@@ -750,14 +883,16 @@ public sealed class CodexViewModel : ObservableObject
             var target = Doc.FindCard(l.ToId);
             if (target is null) continue;
             LinkRows.Add(new LinkRowVM(l.FromId, card.Name, target.Id, target.Name, l.RelationId,
-                Doc.FindRelation(l.RelationId)?.ForwardLabel ?? l.RelationId, l.Note, Forward: true));
+                Doc.FindRelation(l.RelationId)?.ForwardLabel ?? l.RelationId, l.Note, Forward: true,
+                Confidence: l.Confidence));
         }
         foreach (var l in Doc.Links.Where(l => l.ToId == card.Id))
         {
             var source = Doc.FindCard(l.FromId);
             if (source is null) continue;
             LinkRows.Add(new LinkRowVM(l.FromId, source.Name, l.ToId, card.Name, l.RelationId,
-                Doc.FindRelation(l.RelationId)?.ReverseLabel ?? l.RelationId, l.Note, Forward: false));
+                Doc.FindRelation(l.RelationId)?.ReverseLabel ?? l.RelationId, l.Note, Forward: false,
+                Confidence: l.Confidence));
         }
     }
 
@@ -829,6 +964,31 @@ public sealed class CodexViewModel : ObservableObject
         Log.Info("codex", $"{action}: {entity} — {details}");
     }
 
+    /// <summary>
+    /// Группа 3 (item 8): добавить обнаруженный анализом синоним к карточке
+    /// (вкладка «Каталог» раздела «Словари»). False — карточка не найдена,
+    /// синоним пуст/короткий или уже есть. Индекс пересобирается сразу.
+    /// </summary>
+    public bool AddDiscoveredAlias(string entity, string alias)
+    {
+        alias = alias.Trim();
+        if (alias.Length < 3) return false;
+        var card = Doc.Cards.FirstOrDefault(c =>
+            string.Equals(c.Name, entity, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(c.Canonical, entity, StringComparison.OrdinalIgnoreCase) ||
+            c.Aliases.Any(a => string.Equals(a, entity, StringComparison.OrdinalIgnoreCase)));
+        if (card is null) return false;
+        var before = card.Aliases.Count;
+        card.AddAlias(alias);
+        if (card.Aliases.Count == before) return false;
+        card.ModifiedAt = DateTime.Now;
+        Record("правка", card.Name, $"синоним из анализа: «{alias}»");
+        Save();
+        RebuildIndex.Execute(null);
+        ApplyFilters();
+        return true;
+    }
+
     // ─────────────────────── catalog rebuild ───────────────────────
 
     public async Task RebuildCatalogAsync()
@@ -837,6 +997,9 @@ public sealed class CodexViewModel : ObservableObject
         await Task.Run(() => _main.Catalog = new EntityCatalog(definitions, generateVariants: true));
         var total = _main.Catalog.VariantsByEntity.Values.Sum(v => v.Count);
         _main.Dashboard.Log($"⟳ Индекс пересобран: карточек {definitions.Count}, вариантов {total} (морфология включена)");
+        // QA/UX #45: сводка «Поиск по кодексу: N карточек» и список сущностей
+        // обновляются немедленно — без перезапуска приложения.
+        _main.Dashboard.OnCodexChanged();
     }
 }
 
@@ -845,11 +1008,22 @@ public sealed class CodexViewModel : ObservableObject
 /// <summary>One link line in the card profile (forward or reverse).</summary>
 public sealed record LinkRowVM(
     string FromId, string FromName, string ToId, string ToName, string RelationId,
-    string Label, string Note, bool Forward)
+    string Label, string Note, bool Forward, string Confidence = "")
 {
-    public string Display => Forward
-        ? $"→ {ToName}   ({Label})"
-        : $"← {FromName}   ({Label}, обратная)";
+    public string ConfidenceLabel => FamilyConfidenceScale.Label(FamilyConfidenceScale.Parse(Confidence));
+
+    public string Display
+    {
+        get
+        {
+            var suffix = FamilyConfidenceScale.Parse(Confidence) == FamilyConfidence.Unknown
+                ? ""
+                : $" · {ConfidenceLabel}";
+            return Forward
+                ? $"→ {ToName}   ({Label}{suffix})"
+                : $"← {FromName}   ({Label}, обратная{suffix})";
+        }
+    }
 }
 
 /// <summary>One mention quote inside the card profile.</summary>

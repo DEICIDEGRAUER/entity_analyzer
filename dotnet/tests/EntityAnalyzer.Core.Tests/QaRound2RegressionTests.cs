@@ -32,11 +32,11 @@ public class QaRound2RegressionTests : IDisposable
         try { Directory.Delete(_corpus, recursive: true); } catch { }
     }
 
-    private AnalysisEngine BuildEngine(string preset = "light")
+    private AnalysisEngine BuildEngine(string preset = "light", bool skipDuplicates = true)
     {
         var options = new AnalyzerOptions
         {
-            Corpus = { Dir = _corpus },
+            Corpus = { Dir = _corpus, SkipDuplicates = skipDuplicates },
             Output = { Dir = _out },
         };
         // Изоляция от машинного состояния: дефолтный Cache.Dir=".cache"
@@ -92,8 +92,17 @@ public class QaRound2RegressionTests : IDisposable
         var session = BuildEngine().Run(CancellationToken.None);
 
         // N06: пропуски посчитаны (пустой + дубликат содержимого).
-        Assert.True(session.Quality.SkippedEmpty >= 1, "пустой файл должен быть посчитан");
-        Assert.True(session.Quality.SkippedDuplicate >= 1, "дубликат содержимого должен быть посчитан");
+        // Диагностика в тексте ассерта: при редком I/O-пропуске файла в обходе
+        // (молчаливый catch в DiscoverFiles) видно фактический состав корпуса.
+        var walkInfo = string.Join(",", Directory.GetFiles(_corpus).OrderBy(f => f).Select(f =>
+        {
+            var fi = new FileInfo(f);
+            return $"{Path.GetFileName(f)}:{fi.Length}";
+        }));
+        Assert.True(session.Quality.SkippedEmpty >= 1,
+            "пустой файл должен быть посчитан; файлы: " + walkInfo);
+        Assert.True(session.Quality.SkippedDuplicate >= 1,
+            "дубликат содержимого должен быть посчитан; файлы: " + walkInfo);
 
         // N03: группы дубликатов построены.
         Assert.NotEmpty(session.DuplicateGroups);
@@ -121,6 +130,28 @@ public class QaRound2RegressionTests : IDisposable
         Assert.Contains("Пропущено файлов :", report);
     }
 
+
+    /// <summary>
+    /// Дедуп должен срабатывать и на тёплом кэше: иначе второй файл с тем же
+    /// содержимым получает готовый результат из кэша, обходит SkippedDuplicate
+    /// и оба файла попадают в отчёт. Регрессия гонки, вскрытой полным прогоном.
+    /// </summary>
+    [Fact]
+    public void DuplicateContent_IsSkippedEvenWithWarmCache()
+    {
+        const string body = "Хроники храма. Наг и Йеб правили веками. Культ Нага процветал.";
+        File.WriteAllText(Path.Combine(_corpus, "a.txt"), body, new UTF8Encoding(false));
+        File.WriteAllText(Path.Combine(_corpus, "dup.txt"), body, new UTF8Encoding(false));
+
+        var cold = BuildEngine(skipDuplicates: false).Run(CancellationToken.None);
+        Assert.Equal(2, cold.Files.Count);
+
+        var warm = BuildEngine().Run(CancellationToken.None);
+        Assert.True(warm.Quality.SkippedDuplicate >= 1,
+            "дубликат должен быть пропущен и на тёплом кэше");
+        Assert.Single(warm.Files);
+        Assert.NotEmpty(warm.DuplicateGroups);
+    }
 
     /// <summary>QA N07: пустой корпус не печатает прогресс-строку «…0/0».</summary>
     [Fact]

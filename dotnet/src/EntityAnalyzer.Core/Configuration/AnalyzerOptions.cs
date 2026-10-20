@@ -57,6 +57,17 @@ public sealed class CacheOptions
     public string Dir { get; set; } = ".cache";
     public int MaxAgeDays { get; set; } = 30;
     public bool InvalidateOnConfigChange { get; set; } = true;
+
+    /// <summary>Лимит объёма дискового кэша, МБ (0 = без лимита).
+    /// При переполнении вытесняются самые старые записи.</summary>
+    public long MaxSizeMb { get; set; } = 2048;
+
+    /// <summary>L2: оперативный кэш результатов в памяти процесса — повторные
+    /// прогоны в рамках одной сессии не касаются диска.</summary>
+    public bool MemoryEnabled { get; set; } = true;
+
+    /// <summary>Бюджет L2-кэша, МБ (0 = L2 выключен, см. MemoryEnabled).</summary>
+    public int MemoryBudgetMb { get; set; } = 256;
 }
 
 public sealed class ProcessingOptions
@@ -140,6 +151,12 @@ public sealed class ProcessingOptions
 
     public HashSet<string> ToSignalWordSet() =>
         new(MythSignalWords.Where(w => !string.IsNullOrWhiteSpace(w)), StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// R3: выбор сущностей для селективного анализа. Пусто = анализировать все.
+    /// Содержит ID карточек кодекса (EntityCard.Id).
+    /// </summary>
+    public HashSet<string> SelectedEntityIds { get; set; } = [];
 }
 
 /// <summary>A named analysis intensity profile.</summary>

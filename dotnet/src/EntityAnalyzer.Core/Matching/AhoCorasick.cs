@@ -29,6 +29,12 @@ public sealed class AhoCorasick<T>
     public bool IsBuilt => _built;
     public int PatternCount { get; private set; }
 
+    // Плотные переходы по алфавиту паттернов: один array lookup на символ
+    // вместо Dictionary + подъёма по failure-ссылкам.
+    private int[][] _go = [];
+    private int[] _symbolOf = [];
+
+
     /// <summary>Adds a pattern. Empty or null patterns are ignored. Call before <see cref="Build"/>.</summary>
     public void Add(string pattern, T payload)
     {
@@ -90,6 +96,50 @@ public sealed class AhoCorasick<T>
             }
         }
 
+        // Компактный алфавит паттернов и полные goto-переходы.
+        var alphabet = new List<char>();
+        foreach (var node in _nodes)
+            foreach (var ch in node.Children.Keys)
+                if (!alphabet.Contains(ch)) alphabet.Add(ch);
+        alphabet.Sort();
+
+        var symbol = new Dictionary<char, int>(alphabet.Count);
+        for (var i = 0; i < alphabet.Count; i++) symbol[alphabet[i]] = i;
+
+        _go = new int[_nodes.Count][];
+        var rootRow = new int[alphabet.Count];
+        foreach (var (ch, child) in _nodes[0].Children)
+            rootRow[symbol[ch]] = child;
+        _go[0] = rootRow;
+
+        var order = new Queue<int>();
+        foreach (var child in _nodes[0].Children.Values) order.Enqueue(child);
+        while (order.Count > 0)
+        {
+            var current = order.Dequeue();
+            var row = new int[alphabet.Count];
+            for (var sym = 0; sym < alphabet.Count; sym++)
+            {
+                if (_nodes[current].Children.TryGetValue(alphabet[sym], out var child))
+                    row[sym] = child;
+                else
+                    row[sym] = _go[_nodes[current].Fail][sym];
+            }
+            _go[current] = row;
+            foreach (var child in _nodes[current].Children.Values) order.Enqueue(child);
+        }
+
+        // Для обычных символов посимвольный lower совпадает со строковым;
+        // редкие контекстные случаи уходят в точный строковый путь в Find.
+        _symbolOf = new int[char.MaxValue + 1];
+        Array.Fill(_symbolOf, -1);
+        for (var i = 0; i < _symbolOf.Length; i++)
+        {
+            var lower = char.ToLowerInvariant((char)i);
+            if (symbol.TryGetValue(lower, out var sym))
+                _symbolOf[i] = sym;
+        }
+
         _built = true;
     }
 
@@ -99,23 +149,40 @@ public sealed class AhoCorasick<T>
     /// </summary>
     public IEnumerable<AhoMatch<T>> Find(string text)
     {
-        if (!_built) throw new InvalidOperationException("Call Build() before Find().");
-        if (string.IsNullOrEmpty(text)) yield break;
+        var results = new List<AhoMatch<T>>();
+        Find(text, results.Add);
+        return results;
+    }
 
-        var lowered = text.ToLowerInvariant();
+    /// <summary>
+    /// Callback-вариант без итератора: движок сразу складывает совпадения
+    /// в свой список.
+    /// </summary>
+    public void Find(string text, Action<AhoMatch<T>> onMatch)
+    {
+        ArgumentNullException.ThrowIfNull(onMatch);
+        if (!_built) throw new InvalidOperationException("Call Build() before Find().");
+        if (string.IsNullOrEmpty(text)) return;
+
+        // Быстрый путь — посимвольный lower; не-BMP-пары обрабатывает
+        // точный строковый ToLowerInvariant.
+        var fullLower = text.AsSpan().IndexOfAnyInRange('\uD800', '\uDFFF') >= 0;
+        var source = fullLower ? text.ToLowerInvariant() : text;
         var state = 0;
 
-        for (var i = 0; i < lowered.Length; i++)
+        for (var i = 0; i < source.Length; i++)
         {
-            var ch = lowered[i];
-
-            while (state != 0 && !_nodes[state].Children.TryGetValue(ch, out _))
-                state = _nodes[state].Fail;
-
-            if (_nodes[state].Children.TryGetValue(ch, out var next))
-                state = next;
-            else
+            var sym = _symbolOf[source[i]];
+            if (sym < 0)
+            {
+                // Символа нет ни в одном паттерне — из любого состояния
+                // переход ведёт в корень, где выходов нет.
                 state = 0;
+                continue;
+            }
+
+            state = _go[state][sym];
+            if (state == 0) continue;
 
             // Enumerate terminal outputs at this state and every output-bearing suffix state.
             var s = _nodes[state].Outputs is not null ? state : _nodes[state].SuffixOutput;
@@ -126,7 +193,7 @@ public sealed class AhoCorasick<T>
                     var len = original.Length;
                     var start = i - len + 1;
                     if (start >= 0)
-                        yield return new AhoMatch<T>(start, i + 1, original, payload);
+                        onMatch(new AhoMatch<T>(start, i + 1, original, payload));
                 }
                 s = _nodes[s].SuffixOutput;
             }

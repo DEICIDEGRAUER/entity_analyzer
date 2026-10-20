@@ -38,6 +38,19 @@ public sealed class ReportsViewModel : ObservableObject
 
     public ObservableCollection<ReportNode> Roots { get; } = [];
 
+    /// <summary>Item 42: отфильтрованное дерево (Ctrl+F / поле «Фильтр отчётов»).</summary>
+    public ObservableCollection<ReportNode> RootsView { get; } = [];
+
+    private string _filter = "";
+    public string Filter
+    {
+        get => _filter;
+        set { if (Set(ref _filter, value)) ApplyFilter(); }
+    }
+
+    /// <summary>Item 42: включён ли фильтр (для пустого состояния).</summary>
+    public bool IsFilterEmpty => _filter.Trim().Length > 0 && RootsView.Count == 0 && Roots.Count > 0;
+
     private ReportNode? _selected;
     public ReportNode? Selected
     {
@@ -88,6 +101,7 @@ public sealed class ReportsViewModel : ObservableObject
         if (!Directory.Exists(root))
         {
             Status = $"Каталог отчётов пока не создан: {root}";
+            ApplyFilter();
             OnPropertyChanged(nameof(IsDataEmpty));
             return;
         }
@@ -96,7 +110,60 @@ public sealed class ReportsViewModel : ObservableObject
             Roots.Add(child);
 
         Status = root;
+        ApplyFilter();
         OnPropertyChanged(nameof(IsDataEmpty));
+    }
+
+    /// <summary>
+    /// Item 42: перестроить отфильтрованное дерево. Совпавшие по имени папки
+    /// показываются целиком; файлы — по имени; пустые ветки скрываются.
+    /// </summary>
+    private void ApplyFilter()
+    {
+        RootsView.Clear();
+        var q = _filter.Trim();
+        if (q.Length == 0)
+        {
+            foreach (var r in Roots) RootsView.Add(r);
+        }
+        else
+        {
+            foreach (var r in Roots)
+                if (FilterNode(r, q) is { } match)
+                    RootsView.Add(match);
+        }
+        OnPropertyChanged(nameof(IsFilterEmpty));
+    }
+
+    private static ReportNode? FilterNode(ReportNode node, string q)
+    {
+        var nameHit = node.Name.Contains(q, StringComparison.OrdinalIgnoreCase);
+        if (!node.IsFolder)
+            return nameHit ? node : null;
+
+        if (nameHit)
+            return new ReportNode
+            {
+                Name = node.Name,
+                FullPath = node.FullPath,
+                IsFolder = true,
+                Children = new ObservableCollection<ReportNode>(node.Children ?? []),
+            };
+
+        var children = (node.Children ?? [])
+            .Select(c => FilterNode(c, q))
+            .Where(c => c is not null)
+            .Select(c => c!)
+            .ToList();
+        if (children.Count == 0) return null;
+
+        return new ReportNode
+        {
+            Name = node.Name,
+            FullPath = node.FullPath,
+            IsFolder = true,
+            Children = new ObservableCollection<ReportNode>(children),
+        };
     }
 
     private IEnumerable<ReportNode> LoadDir(string dir)
@@ -113,6 +180,7 @@ public sealed class ReportsViewModel : ObservableObject
                      .Where(f => f.EndsWith(".txt", StringComparison.OrdinalIgnoreCase) ||
                                  f.EndsWith(".json", StringComparison.OrdinalIgnoreCase) ||
                                  f.EndsWith(".csv", StringComparison.OrdinalIgnoreCase) ||
+                                 f.EndsWith(".md", StringComparison.OrdinalIgnoreCase) ||
                                  f.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
                      .OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
         {

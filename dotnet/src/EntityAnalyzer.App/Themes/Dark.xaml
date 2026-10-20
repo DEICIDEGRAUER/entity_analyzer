@@ -1,0 +1,40 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         ТЁМНАЯ ТЕМА — «Северный ветер» (item 14)
+         Ночная палитра для работы в тёмное время суток.
+
+         Файл НАМЕРЕННО перекрывает только цветовые кисти палитры из
+         Academic.xaml: типографика, отступы и все стили остаются общими.
+         Словарь подключается поверх Academic.xaml при выборе темы «Тёмная»
+         (см. Services/ThemeManager.cs) — моментальная перерисовка без
+         перезапуска: все стили ссылаются на кисти через DynamicResource.
+         ══════════════════════════════════════════════════════════════════ -->
+
+    <!-- Фоны: графит с синеватым подтоном, без «чёрного по чёрному» -->
+    <SolidColorBrush x:Key="BrushBgMain" Color="#15171C"/>
+    <SolidColorBrush x:Key="BrushBgNav"  Color="#1C1F26"/>
+
+    <!-- Типографика: тёплый светлый текст на графите -->
+    <SolidColorBrush x:Key="BrushTextPrimary"   Color="#E8E6DF"/>
+    <SolidColorBrush x:Key="BrushTextSecondary" Color="#A9A79F"/>
+    <SolidColorBrush x:Key="BrushTextDisabled"  Color="#6F6D67"/>
+
+    <!-- Разделители и выделение -->
+    <SolidColorBrush x:Key="BrushBorderLight"   Color="#2D313A"/>
+    <SolidColorBrush x:Key="BrushTextSelection" Color="#553F9BC9"/>
+
+    <!-- Семантические ветви: светлее, чтобы держать контраст на графите -->
+    <SolidColorBrush x:Key="BrushBranch1" Color="#7FA9C8"/>  <!-- Древние / Божества -->
+    <SolidColorBrush x:Key="BrushBranch2" Color="#8FBFA6"/>  <!-- Локации -->
+    <SolidColorBrush x:Key="BrushBranch3" Color="#B7A3CC"/>  <!-- Артефакты -->
+    <SolidColorBrush x:Key="BrushBranch4" Color="#CE9C92"/>  <!-- Персоналии -->
+    <SolidColorBrush x:Key="BrushBranch5" Color="#9DABB8"/>  <!-- Книги / Культы -->
+    <!-- R3-1 (item 52): слова тем — точечное подчёркивание в цитатах -->
+    <SolidColorBrush x:Key="BrushThemeMark" Color="#C7A44A"/>
+
+    <!-- Статусы журнала -->
+    <SolidColorBrush x:Key="BrushStatusError" Color="#CE8F85"/>
+
+</ResourceDictionary>

@@ -37,6 +37,7 @@ public static class LegacyYamlImporter
             if (TryBool(cache, "enabled", out var en)) options.Cache.Enabled = en;
             if (TryString(cache, "dir", out var dir)) options.Cache.Dir = dir;
             if (TryInt(cache, "max_age_days", out var days)) options.Cache.MaxAgeDays = days;
+            if (TryInt(cache, "max_size_mb", out var maxSizeMb)) options.Cache.MaxSizeMb = maxSizeMb;
             if (TryBool(cache, "invalidate_on_config_change", out var inv)) options.Cache.InvalidateOnConfigChange = inv;
         }
 

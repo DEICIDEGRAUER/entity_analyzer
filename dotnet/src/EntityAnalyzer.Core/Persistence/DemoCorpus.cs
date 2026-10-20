@@ -72,6 +72,5 @@ public static class DemoCorpus
 
     /// <summary>Каталог демо-корпуса по умолчанию (%APPDATA%\EntityAnalyzer\demo_corpus).</summary>
     public static string DefaultDir => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "EntityAnalyzer", "demo_corpus");
+        ProfilePaths.DirectoryPath, "demo_corpus");
 }

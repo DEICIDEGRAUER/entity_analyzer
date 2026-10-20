@@ -11,12 +11,22 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
-        // Структурированный лог: %APPDATA%\EntityAnalyzer\logs\app-YYYYMMDD.log
-        var logDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "EntityAnalyzer", "logs");
+        // Структурированный лог: <профиль>\logs\app-YYYYMMDD.log,
+        // профиль — %APPDATA%\EntityAnalyzer либо ENTITYANALYZER_DATA_DIR.
+        var logDir = Path.Combine(EntityAnalyzer.Core.Persistence.ProfilePaths.DirectoryPath, "logs");
         Log.Init(logDir, LogLevel.Debug);
         Log.Info("app", "Запуск Entity Analyzer ({0})", typeof(App).Assembly.GetName().Version?.ToString() ?? "?");
+
+        // Item 14: тема оформления и пользовательские цвета ветвей из настроек.
+        // Применяем до создания окна, чтобы не было вспышки светлой темы.
+        try
+        {
+            ThemeManager.Apply(SettingsService.Load());
+        }
+        catch (Exception themeEx)
+        {
+            Log.Error("theme", themeEx); // тема не должна ломать старт
+        }
 
         // R2-16 / R1-15: самопроверка релиза — первый запуск новой версии гоняет
         // встроенный мини-корпус со сверкой эталона. Тихий успех — только лог;

@@ -1,0 +1,264 @@
+<UserControl x:Class="EntityAnalyzer.App.Views.FilePassportPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Группа 3 (item 24): «Паспорт файла» — исследование одного файла:
+         сущности, паттерны, темы, плотность упоминаний по главам, связи. -->
+    <Grid Margin="32,32,32,24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Заголовок и инструменты -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="ПАСПОРТ ФАЙЛА" Style="{DynamicResource SectionHeaderStyle}"
+                           VerticalAlignment="Center"/>
+                <Button Content="Экспорт в Markdown" Style="{DynamicResource GhostButtonStyle}" Margin="24,0,0,0"
+                        Command="{Binding ExportCommand}"
+                        ToolTip="Экспортируется весь паспорт: сущности, паттерны, темы, главы и связи"/>
+                <Button Content="В результатах" Style="{DynamicResource GhostButtonStyle}" Margin="8,0,0,0"
+                        Command="{Binding OpenInResultsCommand}"
+                        ToolTip="Открыть этот файл на странице «Результаты»"/>
+            </StackPanel>
+            <TextBlock Style="{DynamicResource MetaStyle}" Margin="0,12,0,0" TextWrapping="Wrap"
+                       Text="Полный паспорт одного файла по данным последнего анализа: какие сущности встречаются, какие паттерны сработали, какие темы преобладают, какова плотность упоминаний по главам и какие связи с другими файлами через общие сущности."/>
+        </StackPanel>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="320" MinWidth="240"/>
+                <ColumnDefinition Width="*" MinWidth="320"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- ─── Список файлов ─── -->
+            <Grid Grid.Column="0" Margin="0,0,24,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <TextBox Grid.Row="0" Text="{Binding Search, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="Фильтр списка файлов по имени или пути"/>
+                <Grid Grid.Row="1" Margin="0,12,0,0">
+                    <TextBlock Text="{Binding EmptyHint}" Style="{DynamicResource BodyStyle}"
+                               Foreground="{DynamicResource BrushTextSecondary}"
+                               TextWrapping="Wrap" VerticalAlignment="Top"
+                               Visibility="{Binding IsDataEmpty, Converter={StaticResource BoolToVis}}"/>
+                    <ListBox ItemsSource="{Binding Files}" SelectedItem="{Binding SelectedFile}"
+                             Visibility="{Binding IsDataEmpty, Converter={StaticResource InverseBoolToVis}}"
+                             Background="Transparent" BorderThickness="0"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             HorizontalContentAlignment="Stretch">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="0,4">
+                                    <TextBlock Text="{Binding FileName}" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource BrushTextPrimary}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{Binding MentionsText}" Style="{DynamicResource MetaStyle}"
+                                               Margin="0,2,0,0"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Grid>
+
+            <!-- ─── Паспорт выбранного файла ─── -->
+            <Grid Grid.Column="1">
+                <TextBlock Text="Выберите файл слева — появится его паспорт: сущности, паттерны, темы, главы и связи."
+                           Style="{DynamicResource BodyStyle}"
+                           Foreground="{DynamicResource BrushTextSecondary}"
+                           TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Visibility="{Binding HasPassport, Converter={StaticResource InverseBoolToVis}}"/>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              Visibility="{Binding HasPassport, Converter={StaticResource BoolToVis}}">
+                    <StackPanel Margin="0,0,12,0">
+                        <TextBlock Text="{Binding Title}" FontSize="18" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource BrushTextPrimary}" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding PathText}" Style="{DynamicResource MetaStyle}"
+                                   TextWrapping="Wrap" Margin="0,4,0,0"/>
+                        <TextBlock Text="{Binding MetricsText}" Style="{DynamicResource MetaStyle}"
+                                   Margin="0,8,0,0" TextWrapping="Wrap"/>
+                        <TextBlock Style="{DynamicResource MetaStyle}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                   Visibility="{Binding HasTags, Converter={StaticResource BoolToVis}}">
+                            <Run Text="Теги: "/><Run Text="{Binding TagsText, Mode=OneWay}"/>
+                        </TextBlock>
+
+                        <Border Background="{DynamicResource BrushBgNav}"
+                                BorderBrush="{DynamicResource BrushBorderLight}" BorderThickness="1"
+                                Padding="12,8" Margin="0,12,0,0" CornerRadius="2"
+                                Visibility="{Binding HasNote, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="{Binding Note}" Style="{DynamicResource MetaStyle}"
+                                       TextWrapping="Wrap"/>
+                        </Border>
+
+                        <!-- Сущности -->
+                        <TextBlock Text="СУЩНОСТИ" Style="{DynamicResource SectionHeaderStyle}" Margin="0,20,0,8"/>
+                        <TextBlock Text="Сущности не найдены." Style="{DynamicResource MetaStyle}"
+                                   Visibility="{Binding HasEntities, Converter={StaticResource InverseBoolToVis}}"/>
+                        <ItemsControl ItemsSource="{Binding Entities}"
+                                      Visibility="{Binding HasEntities, Converter={StaticResource BoolToVis}}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="1.2*" MinWidth="120"/>
+                                            <ColumnDefinition Width="70"/>
+                                            <ColumnDefinition Width="150"/>
+                                            <ColumnDefinition Width="1.6*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding Entity}" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource BrushTextPrimary}"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding CountText}"
+                                                   Style="{DynamicResource MetaStyle}"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding ExactFuzzyText}"
+                                                   Style="{DynamicResource MetaStyle}"/>
+                                        <TextBlock Grid.Column="3" Text="{Binding VariantsText}"
+                                                   Style="{DynamicResource MetaStyle}"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="{Binding MoreEntitiesHint}" Style="{DynamicResource MetaStyle}"
+                                   Margin="0,4,0,0"
+                                   Visibility="{Binding HasMoreEntities, Converter={StaticResource BoolToVis}}"/>
+
+                        <!-- Паттерны -->
+                        <TextBlock Text="ПАТТЕРНЫ" Style="{DynamicResource SectionHeaderStyle}" Margin="0,20,0,8"/>
+                        <TextBlock Text="Семантические паттерны не сработали." Style="{DynamicResource MetaStyle}"
+                                   Visibility="{Binding HasPatterns, Converter={StaticResource InverseBoolToVis}}"/>
+                        <ItemsControl ItemsSource="{Binding Patterns}"
+                                      Visibility="{Binding HasPatterns, Converter={StaticResource BoolToVis}}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="240"/>
+                                            <ColumnDefinition Width="60"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding PatternName}" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource BrushTextPrimary}"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding CountText}"
+                                                   Style="{DynamicResource MetaStyle}"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding Example}"
+                                                   Style="{DynamicResource MetaStyle}"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Темы -->
+                        <TextBlock Text="ТЕМЫ" Style="{DynamicResource SectionHeaderStyle}" Margin="0,20,0,8"/>
+                        <TextBlock Text="Темы не определились." Style="{DynamicResource MetaStyle}"
+                                   Visibility="{Binding HasThemes, Converter={StaticResource InverseBoolToVis}}"/>
+                        <ItemsControl ItemsSource="{Binding Themes}"
+                                      Visibility="{Binding HasThemes, Converter={StaticResource BoolToVis}}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="240"/>
+                                            <ColumnDefinition Width="60"/>
+                                            <ColumnDefinition Width="70"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding Theme}" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource BrushTextPrimary}"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding CountText}"
+                                                   Style="{DynamicResource MetaStyle}"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding ShareText}"
+                                                   Style="{DynamicResource MetaStyle}"/>
+                                        <Border Grid.Column="3" Height="6" CornerRadius="3"
+                                                Background="{DynamicResource BrushBranch3}"
+                                                HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                Width="{Binding BarWidth}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Плотность по главам -->
+                        <TextBlock Text="ПЛОТНОСТЬ ПО ГЛАВАМ" Style="{DynamicResource SectionHeaderStyle}"
+                                   Margin="0,20,0,8"/>
+                        <TextBlock Text="Разбивка недоступна." Style="{DynamicResource MetaStyle}"
+                                   Visibility="{Binding HasChapters, Converter={StaticResource InverseBoolToVis}}"/>
+                        <ItemsControl ItemsSource="{Binding Chapters}"
+                                      Visibility="{Binding HasChapters, Converter={StaticResource BoolToVis}}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="1.4*" MinWidth="140"/>
+                                            <ColumnDefinition Width="80"/>
+                                            <ColumnDefinition Width="90"/>
+                                            <ColumnDefinition Width="80"/>
+                                            <ColumnDefinition Width="150"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding Label}"
+                                                   Foreground="{DynamicResource BrushTextPrimary}"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding MentionsText}"
+                                                   Style="{DynamicResource MetaStyle}"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding CharsText}"
+                                                   Style="{DynamicResource MetaStyle}"/>
+                                        <TextBlock Grid.Column="3" Text="{Binding DensityText}"
+                                                   Style="{DynamicResource MetaStyle}"
+                                                   ToolTip="Упоминаний на 10 тыс. знаков главы"/>
+                                        <Border Grid.Column="4" Height="6" CornerRadius="3"
+                                                Background="{DynamicResource BrushBranch1}"
+                                                HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                Width="{Binding BarWidth}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Связи с другими файлами -->
+                        <TextBlock Text="СВЯЗИ С ДРУГИМИ ФАЙЛАМИ" Style="{DynamicResource SectionHeaderStyle}"
+                                   Margin="0,20,0,8"/>
+                        <TextBlock Text="Общих сущностей с другими файлами не найдено."
+                                   Style="{DynamicResource MetaStyle}"
+                                   Visibility="{Binding HasNeighbors, Converter={StaticResource InverseBoolToVis}}"/>
+                        <ItemsControl ItemsSource="{Binding Neighbors}"
+                                      Visibility="{Binding HasNeighbors, Converter={StaticResource BoolToVis}}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="1.2*" MinWidth="120"/>
+                                            <ColumnDefinition Width="160"/>
+                                            <ColumnDefinition Width="2*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding FileName}" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource BrushTextPrimary}"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding SharedText}"
+                                                   Style="{DynamicResource MetaStyle}"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding EntitiesText}"
+                                                   Style="{DynamicResource MetaStyle}"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <Button Grid.Column="3" Content="Паспорт" Style="{DynamicResource MiniGhostButtonStyle}"
+                                                FontSize="11" Margin="12,0,0,0"
+                                                Command="{Binding DataContext.OpenNeighborCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip="Открыть паспорт этого файла"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

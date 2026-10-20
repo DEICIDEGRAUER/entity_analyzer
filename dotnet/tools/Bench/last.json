@@ -1,7 +1,0 @@
-[{ "name": "transliterate+variants", "medianMs": 0.40, "minMs": 0.35, "maxMs": 0.41 },
-{ "name": "decode utf8", "medianMs": 0.23, "minMs": 0.21, "maxMs": 0.81 },
-{ "name": "normalize", "medianMs": 15.55, "minMs": 14.95, "maxMs": 15.87 },
-{ "name": "sentence split", "medianMs": 0.54, "minMs": 0.52, "maxMs": 0.55 },
-{ "name": "automaton scan", "medianMs": 5.93, "minMs": 5.42, "maxMs": 6.79 },
-{ "name": "context build x50", "medianMs": 1.05, "minMs": 0.94, "maxMs": 1.08 },
-{ "name": "listing filter x200", "medianMs": 8.19, "minMs": 7.69, "maxMs": 8.39 }]

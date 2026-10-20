@@ -28,7 +28,8 @@ public static class FuzzyFilter
         return [.. result.OrderByDescending(m => m.Score).ThenBy(m => m.Item, StringComparer.Ordinal)];
     }
 
-    private static int Score(string target, string query)
+    /// <summary>Оценка совпадения одной строки; 0 — совпадения нет.</summary>
+    public static int Score(string target, string query)
     {
         var t = target;
         var ti = 0; // индекс в target

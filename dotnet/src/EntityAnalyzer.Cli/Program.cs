@@ -605,6 +605,7 @@ public static class Program
 
         AnalyzerOptions options;
         List<EntityDefinition> definitions;
+        Core.Codex.CodexDocument? articleCodex = null; // item 50: статьи — при наличии v2-кодекса
 
         if (!string.IsNullOrEmpty(catalogPath))
         {
@@ -632,6 +633,7 @@ public static class Program
                 {
                     var codex = Core.Codex.CodexDocument.FromJson(raw);
                     definitions = CodexSearchAdapter.ToDefinitions(codex).ToList();
+                    articleCodex = codex;
                     Console.WriteLine($"Кодекс JSON v2: {catalogPath} ({codex.Cards.Count} карточек)");
                 }
                 catch (Exception ex)
@@ -692,6 +694,7 @@ public static class Program
                     return 2;
                 }
                 definitions = CodexSearchAdapter.ToDefinitions(packDoc).ToList();
+                articleCodex = packDoc;
                 Console.WriteLine($"Библиотека паков: «{codexPack}» " +
                                   $"({packDoc.Cards.Count} карточек → {definitions.Count} сущн.).");
             }
@@ -699,6 +702,7 @@ public static class Program
             {
                 var codex = DefaultCodex.Load();
                 definitions = CodexSearchAdapter.ToDefinitions(codex).ToList();
+                articleCodex = codex;
                 Console.WriteLine($"Каталог не задан — работаю со встроенным кодексом " +
                                   $"({codex.Cards.Count} карточек → {definitions.Count} сущн.).");
             }
@@ -706,6 +710,9 @@ public static class Program
 
         options.Corpus.Dir = Path.GetFullPath(corpusDir);
         options.Output.Dir = Path.GetFullPath(outputDir);
+        // Кэш CLI не должен зависеть от текущего каталога запуска и не должен
+        // смешивать прогоны разных корпусов. Держим его рядом с отчётами.
+        options.Cache.Dir = Path.Combine(options.Output.Dir, ".cache");
 
         // QA BUG-004: неизвестное имя пресета молча давало extended.
         var presetDef = Presets.Resolve(presetName, options);
@@ -857,7 +864,8 @@ public static class Program
         clock.Stop();
 
         ReportExporter.ExportAll(session, options.Output.Dir, formats,
-            perEntityFolders: options.Output.PerEntityFolders, catalog: catalog, options: options);
+            perEntityFolders: options.Output.PerEntityFolders, catalog: catalog, options: options,
+            codex: articleCodex);
 
         // R2-22: режим редакции — обезличенные копии файлов корпуса.
         if (redactDir is not null)

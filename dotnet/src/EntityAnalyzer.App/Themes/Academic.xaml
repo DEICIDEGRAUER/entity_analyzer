@@ -47,8 +47,24 @@
     <SolidColorBrush x:Key="BrushBranch3" Color="#70657B"/>  <!-- Артефакты -->
     <SolidColorBrush x:Key="BrushBranch4" Color="#805A54"/>  <!-- Персоналии -->
     <SolidColorBrush x:Key="BrushBranch5" Color="#646F7A"/>  <!-- Книги / Культы -->
+    <!-- R3-1 (item 52): слова тем — точечное подчёркивание в цитатах -->
+    <SolidColorBrush x:Key="BrushThemeMark" Color="#9A7B2F"/>
     <!-- Статусы журнала: ошибка — приглушённый кирпичный Ветви 4 -->
     <SolidColorBrush x:Key="BrushStatusError" Color="#805A54"/>
+
+    <!-- UX/a11y: видимый клавиатурный фокус. Раньше стили кнопок и вкладок
+         глушили системный пунктир — при Tab-навигации было непонятно, где фокус. -->
+    <Style x:Key="KeyboardFocusVisual" TargetType="{x:Type Control}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Rectangle Margin="-3" Stroke="{DynamicResource BrushTextPrimary}"
+                               StrokeThickness="1" StrokeDashArray="2 1"
+                               SnapsToDevicePixels="True"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
 
     <!-- ── Шрифты ── -->
     <!-- Гротеск: UI и навигация -->
@@ -142,7 +158,7 @@
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="Padding" Value="16,8"/>
         <Setter Property="Cursor" Value="Hand"/>
-        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource KeyboardFocusVisual}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type Button}">
@@ -271,7 +287,7 @@
         <Setter Property="FontFamily" Value="{StaticResource UiFontFamily}"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="Cursor" Value="Hand"/>
-        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource KeyboardFocusVisual}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type CheckBox}">
@@ -310,7 +326,7 @@
         <Setter Property="FontFamily" Value="{StaticResource UiFontFamily}"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="Cursor" Value="Hand"/>
-        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource KeyboardFocusVisual}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ComboBox}">
@@ -340,10 +356,23 @@
                                 </ControlTemplate>
                             </ToggleButton.Template>
                         </ToggleButton>
-                        <ContentPresenter Margin="0,0,24,8" VerticalAlignment="Bottom" IsHitTestVisible="False"
+                        <ContentPresenter x:Name="SelectionPresenter" Margin="0,0,24,8" VerticalAlignment="Bottom" IsHitTestVisible="False"
                                           Content="{TemplateBinding SelectionBoxItem}"
                                           ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                          ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
                                           ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"/>
+                        <!-- Режим IsEditable: поле ввода на месте строки выбора.
+                             Без PART_EditableTextBox штатное редактирование ComboBox
+                             невозможно; собственный шаблон TextBox убирает лишнюю линию. -->
+                        <TextBox x:Name="PART_EditableTextBox" Margin="0,0,24,8" VerticalAlignment="Bottom"
+                                 Background="Transparent" BorderThickness="0" Padding="0"
+                                 Visibility="Collapsed" FocusVisualStyle="{x:Null}">
+                            <TextBox.Template>
+                                <ControlTemplate TargetType="{x:Type TextBox}">
+                                    <ScrollViewer x:Name="PART_ContentHost"/>
+                                </ControlTemplate>
+                            </TextBox.Template>
+                        </TextBox>
                         <Popup IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom"
                                AllowsTransparency="True" StaysOpen="False" PopupAnimation="Fade">
                             <!-- Рамка попапа = волосяная линия 1px, без заливки-карточки -->
@@ -357,6 +386,12 @@
                             </Border>
                         </Popup>
                     </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsEditable" Value="True">
+                            <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible"/>
+                            <Setter TargetName="SelectionPresenter" Property="Visibility" Value="Collapsed"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -406,7 +441,7 @@
 
     <Style TargetType="{x:Type ListBoxItem}">
         <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}"/>
-        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource KeyboardFocusVisual}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ListBoxItem}">
@@ -625,7 +660,7 @@
         <Setter Property="FontFamily" Value="{StaticResource UiFontFamily}"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="Cursor" Value="Hand"/>
-        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource KeyboardFocusVisual}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type RadioButton}">
@@ -663,7 +698,7 @@
         <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="Cursor" Value="Hand"/>
-        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource KeyboardFocusVisual}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type TabItem}">

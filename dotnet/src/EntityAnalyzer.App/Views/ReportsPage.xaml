@@ -31,6 +31,26 @@
                     <Button Content="Облако вариантов" Style="{DynamicResource GhostButtonStyle}" Click="OpenCloud_Click"
                             ToolTip="Частоты форм написания имён (в браузере)"/>
                 </StackPanel>
+                <!-- Item 42: Ctrl+F ищет поле с именем *SearchBox и ставит фокус сюда. -->
+                <Grid Margin="0,16,0,0">
+                    <TextBox x:Name="ReportSearchBox"
+                             Text="{Binding Filter, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Фильтр дерева отчётов по имени файла или папки (Ctrl+F)"/>
+                    <TextBlock Text="Фильтр отчётов…" IsHitTestVisible="False"
+                               VerticalAlignment="Center" Margin="8,0,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                <Setter Property="Foreground" Value="{DynamicResource BrushTextDisabled}"/>
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Filter}" Value="">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Grid>
             </StackPanel>
 
             <!-- Empty State -->
@@ -38,8 +58,12 @@
                        Style="{DynamicResource MetaStyle}" TextWrapping="Wrap"
                        VerticalAlignment="Top" Margin="0,24,0,0"
                        Visibility="{Binding IsDataEmpty, Converter={StaticResource BoolToVis}}"/>
+            <TextBlock Text="По фильтру ничего не найдено — очистите поле «Фильтр отчётов»."
+                       Style="{DynamicResource MetaStyle}" TextWrapping="Wrap"
+                       VerticalAlignment="Top" Margin="0,24,0,0"
+                       Visibility="{Binding IsFilterEmpty, Converter={StaticResource BoolToVis}}"/>
 
-            <TreeView ItemsSource="{Binding Roots}" SelectedItemChanged="Tree_SelectedItemChanged"
+            <TreeView ItemsSource="{Binding RootsView}" SelectedItemChanged="Tree_SelectedItemChanged"
                       Background="Transparent" BorderThickness="0"
                       Foreground="{DynamicResource BrushTextSecondary}"
                       ItemContainerStyle="{x:Null}"

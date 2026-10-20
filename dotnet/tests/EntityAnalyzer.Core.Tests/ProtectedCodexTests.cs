@@ -35,15 +35,34 @@ public class ProtectedCodexTests : IDisposable
     }
 
     [Fact]
-    public void Wrong_password_throws()
+    public void Wrong_password_is_rejected()
     {
         Directory.CreateDirectory(_dir);
         var src = Path.Combine(_dir, "codex.json");
         var enc = Path.Combine(_dir, "codex.eacx");
-        File.WriteAllText(src, "{}");
+        const string original = "{\"secret\":\"тайна\"}";
+        File.WriteAllText(src, original);
         ProtectedCodex.EncryptFile(src, enc, "верный");
 
-        Assert.ThrowsAny<CryptographicException>(() => ProtectedCodex.DecryptFile(enc, "неверный"));
+        // AES-CBC проверяет только выравнивание: случайный мусор после
+        // неверного пароля с редкой вероятностью (~1/256) пройдёт проверку
+        // padding и «расшифруется». Поэтому на наборе неверных паролей ждём
+        // ошибку хотя бы один раз, а в остальных случаях — что исходный
+        // JSON не вернулся.
+        var threw = false;
+        foreach (var wrong in new[] { "неверный", "Неверный", "невер", "неверный1", "другой", "Неверный2" })
+        {
+            try
+            {
+                var text = ProtectedCodex.DecryptFile(enc, wrong);
+                Assert.NotEqual(original, text);
+            }
+            catch (CryptographicException)
+            {
+                threw = true;
+            }
+        }
+        Assert.True(threw, "неверный пароль должен давать ошибку расшифровки");
     }
 
     [Fact]

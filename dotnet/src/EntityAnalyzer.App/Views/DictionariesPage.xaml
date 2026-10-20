@@ -1,0 +1,328 @@
+<UserControl x:Class="EntityAnalyzer.App.Views.DictionariesPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Группа 3: «Словари» — языковые инструменты поверх данных прогона.
+         Первая вкладка: эпитеты сущностей (item 23). -->
+    <Grid Margin="32,32,32,24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Заголовок -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,8">
+            <TextBlock Text="СЛОВАРИ" Style="{DynamicResource SectionHeaderStyle}"/>
+            <TextBlock Style="{DynamicResource MetaStyle}" Margin="0,12,0,0" TextWrapping="Wrap"
+                       Text="Языковые инструменты по данным последнего анализа. Эпитеты собираются из слов в окне ±3 вокруг каждого упоминания (эвристика прилагательных), одиночные вхождения отбрасываются; подтверждение и отклонение привязок сохраняются в epithets.jsonl и переживают перезапуск."/>
+        </StackPanel>
+
+        <TabControl Grid.Row="1" Background="Transparent" BorderThickness="0" Margin="0,8,0,0">
+            <TabItem Header="ЭПИТЕТЫ">
+                <Grid Margin="0,16,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Инструменты вкладки -->
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
+                        <TextBox Width="300" VerticalAlignment="Center"
+                                 Text="{Binding Epithets.Search, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Фильтр списка сущностей"/>
+                        <Button Content="Экспорт в Markdown" Style="{DynamicResource GhostButtonStyle}"
+                                Margin="24,0,0,0" Command="{Binding Epithets.ExportCommand}"
+                                ToolTip="Экспортируется текущий список видимых эпитетов (WYSIWYG)"/>
+                        <CheckBox Content="Показывать отклонённые" VerticalAlignment="Center" Margin="24,0,0,0"
+                                  IsChecked="{Binding Epithets.ShowRejected}"/>
+                    </StackPanel>
+
+                    <!-- Пустое состояние -->
+                    <TextBlock Grid.Row="1" Text="{Binding Epithets.EmptyHint}"
+                               Style="{DynamicResource BodyStyle}"
+                               Foreground="{DynamicResource BrushTextSecondary}"
+                               TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Visibility="{Binding Epithets.IsDataEmpty, Converter={StaticResource BoolToVis}}"/>
+
+                    <Grid Grid.Row="1" Visibility="{Binding Epithets.IsDataEmpty, Converter={StaticResource InverseBoolToVis}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="300" MinWidth="220"/>
+                            <ColumnDefinition Width="*" MinWidth="320"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Сущности -->
+                        <ListBox Grid.Column="0" Margin="0,0,24,0"
+                                 ItemsSource="{Binding Epithets.Entities}"
+                                 SelectedItem="{Binding Epithets.SelectedEntity}"
+                                 Background="Transparent" BorderThickness="0"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 HorizontalContentAlignment="Stretch">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,4">
+                                        <TextBlock Text="{Binding Entity}" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource BrushTextPrimary}"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding EpithetsCountText}"
+                                                   Style="{DynamicResource MetaStyle}" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <!-- Эпитеты выбранной сущности -->
+                        <Grid Grid.Column="1">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="{Binding Epithets.SelectedEntity.Entity}"
+                                           FontSize="16" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource BrushTextPrimary}"/>
+                                <TextBlock Text="{Binding Epithets.CountText}"
+                                           Style="{DynamicResource MetaStyle}" Margin="12,0,0,0"
+                                           VerticalAlignment="Bottom"/>
+                            </StackPanel>
+                            <ListBox Grid.Row="1" ItemsSource="{Binding Epithets.Epithets}"
+                                     Background="Transparent" BorderThickness="0"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                     HorizontalContentAlignment="Stretch">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,5">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="1.4*" MinWidth="140"/>
+                                                <ColumnDefinition Width="60"/>
+                                                <ColumnDefinition Width="1.6*"/>
+                                                <ColumnDefinition Width="130"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Word}" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource BrushTextPrimary}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding CountText}"
+                                                       Style="{DynamicResource MetaStyle}"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding UniqueText}"
+                                                       Style="{DynamicResource MetaStyle}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding VerdictText}"
+                                                       Style="{DynamicResource MetaStyle}"
+                                                       Foreground="{DynamicResource BrushBranch1}"/>
+                                            <StackPanel Grid.Column="4" Orientation="Horizontal">
+                                                <Button Content="✔" Style="{DynamicResource MiniGhostButtonStyle}"
+                                                        FontSize="11" Margin="8,0,0,0"
+                                                        Command="{Binding DataContext.Epithets.ConfirmCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                        CommandParameter="{Binding}"
+                                                        ToolTip="Подтвердить привязку эпитета к сущности"/>
+                                                <Button Content="✕" Style="{DynamicResource MiniGhostButtonStyle}"
+                                                        FontSize="11" Margin="4,0,0,0"
+                                                        Command="{Binding DataContext.Epithets.RejectCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                        CommandParameter="{Binding}"
+                                                        ToolTip="Отклонить привязку (эпитет скроется; вернуть можно флажком «Показывать отклонённые»)"/>
+                                                <Button Content="↺" Style="{DynamicResource MiniGhostButtonStyle}"
+                                                        FontSize="11" Margin="4,0,0,0"
+                                                        Command="{Binding DataContext.Epithets.ResetVerdictCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                        CommandParameter="{Binding}"
+                                                        ToolTip="Сбросить вердикт (привязка снова нейтральная)"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </TabItem>
+            <TabItem Header="ГЛОССАРИЙ">
+                <Grid Margin="0,16,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Инструменты вкладки -->
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
+                        <TextBox Width="300" VerticalAlignment="Center"
+                                 Text="{Binding Glossary.Search, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Фильтр списка кандидатов"/>
+                        <Button Content="Экспорт в Markdown" Style="{DynamicResource GhostButtonStyle}"
+                                Margin="24,0,0,0" Command="{Binding Glossary.ExportCommand}"
+                                ToolTip="Подтверждённые термины с определениями и оставшиеся кандидаты"/>
+                        <CheckBox Content="Показывать отклонённые" VerticalAlignment="Center" Margin="24,0,0,0"
+                                  IsChecked="{Binding Glossary.ShowRejected}"/>
+                    </StackPanel>
+
+                    <!-- Пустое состояние -->
+                    <TextBlock Grid.Row="1" Text="{Binding Glossary.EmptyHint}"
+                               Style="{DynamicResource BodyStyle}"
+                               Foreground="{DynamicResource BrushTextSecondary}"
+                               TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Visibility="{Binding Glossary.IsDataEmpty, Converter={StaticResource BoolToVis}}"/>
+
+                    <Grid Grid.Row="1" Visibility="{Binding Glossary.IsDataEmpty, Converter={StaticResource InverseBoolToVis}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="300" MinWidth="220"/>
+                            <ColumnDefinition Width="*" MinWidth="320"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Кандидаты -->
+                        <ListBox Grid.Column="0" Margin="0,0,24,0"
+                                 ItemsSource="{Binding Glossary.Items}"
+                                 SelectedItem="{Binding Glossary.SelectedRow}"
+                                 Background="Transparent" BorderThickness="0"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 HorizontalContentAlignment="Stretch">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,4">
+                                        <TextBlock Text="{Binding Word}" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource BrushTextPrimary}"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding CountText}" Style="{DynamicResource MetaStyle}" Margin="0,2,0,0"/>
+                                            <TextBlock Text="{Binding StatusText}" Style="{DynamicResource MetaStyle}"
+                                                       Margin="8,2,0,0" Foreground="{DynamicResource BrushBranch1}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <!-- Карточка термина -->
+                        <Grid Grid.Column="1">
+                            <TextBlock Text="Выберите термин слева — можно записать определение и сохранить его в глоссарий."
+                                       Style="{DynamicResource BodyStyle}"
+                                       Foreground="{DynamicResource BrushTextSecondary}"
+                                       TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Visibility="{Binding Glossary.HasSelection, Converter={StaticResource InverseBoolToVis}}"/>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                          Visibility="{Binding Glossary.HasSelection, Converter={StaticResource BoolToVis}}">
+                                <StackPanel Margin="0,0,12,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Glossary.SelectedRow.Word}" FontSize="16" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource BrushTextPrimary}"/>
+                                        <TextBlock Text="{Binding Glossary.SelectedRow.StatusText}" Style="{DynamicResource MetaStyle}"
+                                                   Margin="12,0,0,0" VerticalAlignment="Bottom"
+                                                   Foreground="{DynamicResource BrushBranch1}"/>
+                                    </StackPanel>
+                                    <TextBlock Style="{DynamicResource MetaStyle}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                               Text="Определение хранится отдельно от сущностей (glossary.jsonl) и попадает в экспорт глоссария."/>
+                                    <TextBox Margin="0,8,0,0" Height="120" AcceptsReturn="True" TextWrapping="Wrap"
+                                             VerticalScrollBarVisibility="Auto"
+                                             Text="{Binding Glossary.Definition, UpdateSourceTrigger=PropertyChanged}"
+                                             ToolTip="Определение термина"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                        <Button Content="Сохранить в глоссарий" Style="{DynamicResource GhostButtonStyle}"
+                                                Command="{Binding Glossary.SaveCommand}"
+                                                ToolTip="Подтвердить термин и записать определение"/>
+                                        <Button Content="Отклонить" Style="{DynamicResource GhostButtonStyle}" Margin="8,0,0,0"
+                                                Command="{Binding Glossary.RejectCommand}"
+                                                ToolTip="Скрыть кандидата (вернуть можно флажком «Показывать отклонённые»)"/>
+                                        <Button Content="Сбросить вердикт" Style="{DynamicResource GhostButtonStyle}" Margin="8,0,0,0"
+                                                Command="{Binding Glossary.ResetVerdictCommand}"
+                                                ToolTip="Вернуть кандидата в нейтральное состояние"/>
+                                    </StackPanel>
+
+                                    <TextBlock Text="ПРИМЕРЫ КОНТЕКСТОВ" Style="{DynamicResource SectionHeaderStyle}" Margin="0,16,0,6"/>
+                                    <ItemsControl ItemsSource="{Binding Glossary.SelectedRow.Examples}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding}" Style="{DynamicResource MetaStyle}"
+                                                           TextWrapping="Wrap" Margin="0,0,0,6"/>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </TabItem>
+            <TabItem Header="КАТАЛОГ">
+                <Grid Margin="0,16,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Инструменты вкладки -->
+                    <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBox Width="300" VerticalAlignment="Center"
+                                     Text="{Binding Catalog.Search, UpdateSourceTrigger=PropertyChanged}"
+                                     ToolTip="Фильтр по сущности или написанию"/>
+                            <CheckBox Content="Показывать отклонённые" VerticalAlignment="Center" Margin="24,0,0,0"
+                                      IsChecked="{Binding Catalog.ShowIgnored}"/>
+                        </StackPanel>
+                        <TextBlock Style="{DynamicResource MetaStyle}" Margin="0,8,0,0" TextWrapping="Wrap"
+                                   Text="Кандидаты — написания, найденные fuzzy-проходом и отсутствующие в каталоге. Добавление синонима пересобирает индекс: следующий анализ придётся пересчитать полностью (кэш учитывает состав каталога). Отклонённые кандидаты сохраняются в catalog_ignored.jsonl и больше не предлагаются."/>
+                    </StackPanel>
+
+                    <!-- Пустое состояние -->
+                    <TextBlock Grid.Row="1" Text="{Binding Catalog.EmptyHint}"
+                               Style="{DynamicResource BodyStyle}"
+                               Foreground="{DynamicResource BrushTextSecondary}"
+                               TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Visibility="{Binding Catalog.IsDataEmpty, Converter={StaticResource BoolToVis}}"/>
+
+                    <ListBox Grid.Row="1" ItemsSource="{Binding Catalog.Items}"
+                             Visibility="{Binding Catalog.IsDataEmpty, Converter={StaticResource InverseBoolToVis}}"
+                             Background="Transparent" BorderThickness="0"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             HorizontalContentAlignment="Stretch">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="150"/>
+                                        <ColumnDefinition Width="1.2*" MinWidth="120"/>
+                                        <ColumnDefinition Width="60"/>
+                                        <ColumnDefinition Width="2*"/>
+                                        <ColumnDefinition Width="90"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{Binding Entity}" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource BrushTextPrimary}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding Spelling}"
+                                               Foreground="{DynamicResource BrushTextPrimary}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding CountText}"
+                                               Style="{DynamicResource MetaStyle}"/>
+                                    <TextBlock Grid.Column="3" Text="{Binding Example}"
+                                               Style="{DynamicResource MetaStyle}"
+                                               TextTrimming="CharacterEllipsis"
+                                               ToolTip="{Binding Example}"/>
+                                    <TextBlock Grid.Column="4" Text="{Binding VerdictText}"
+                                               Style="{DynamicResource MetaStyle}"
+                                               Foreground="{DynamicResource BrushBranch1}"/>
+                                    <StackPanel Grid.Column="5" Orientation="Horizontal">
+                                        <Button Content="В каталог"
+                                                Style="{DynamicResource MiniGhostButtonStyle}"
+                                                FontSize="11" Margin="12,0,0,0"
+                                                Command="{Binding DataContext.Catalog.AddCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip="Добавить написание синонимом к карточке сущности"/>
+                                        <Button Content="✕" Style="{DynamicResource MiniGhostButtonStyle}"
+                                                FontSize="11" Margin="4,0,0,0"
+                                                Visibility="{Binding Ignored, Converter={StaticResource InverseBoolToVis}}"
+                                                Command="{Binding DataContext.Catalog.RejectCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip="Отклонить кандидата: скроется и не будет предлагаться при следующих входах"/>
+                                        <Button Content="↺" Style="{DynamicResource MiniGhostButtonStyle}"
+                                                FontSize="11" Margin="4,0,0,0"
+                                                Visibility="{Binding Ignored, Converter={StaticResource BoolToVis}}"
+                                                Command="{Binding DataContext.Catalog.RestoreCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip="Вернуть кандидата в список (сброс отклонения)"/>
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>

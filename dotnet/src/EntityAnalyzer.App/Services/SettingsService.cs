@@ -26,9 +26,18 @@ public sealed class AppSettings
     public bool CrossFileDeduplication { get; set; } = true;
 
     // Оформление
-    public string ThemeKey { get; set; } = "grimoire";
+    /// <summary>Item 14: ключ темы — «light» (Академическая) или «dark» (Северный ветер).</summary>
+    public string ThemeKey { get; set; } = "light";
     /// <summary>Масштаб интерфейса (0.8–1.6).</summary>
     public double UiZoom { get; set; } = 1.0;
+
+    // Item 14: пользовательские цвета подсветки сущностей по ветвям
+    // («#RRGGBB»; пусто — цвет из активной темы).
+    public string Branch1Color { get; set; } = "";
+    public string Branch2Color { get; set; } = "";
+    public string Branch3Color { get; set; } = "";
+    public string Branch4Color { get; set; } = "";
+    public string Branch5Color { get; set; } = "";
 
     // Виртуальный корпус: дополнительные папки
     public List<string> ExtraCorpusDirs { get; set; } = [];
@@ -53,6 +62,16 @@ public sealed class AppSettings
 
     // R2-19: показанные контекстные подсказки (одноразовые туры).
     public List<string> ShownHints { get; set; } = [];
+
+    // UX: недавние исследования .eaproj — продолжить работу одним кликом.
+    public List<string> RecentProjects { get; set; } = [];
+
+    // Кэш (страница «Обзор» → раздел «КЭШ»): жизненный цикл + L2.
+    public bool CacheEnabled { get; set; } = true;
+    public int CacheMaxAgeDays { get; set; } = 30;
+    public long CacheMaxSizeMb { get; set; } = 2048;
+    public bool MemoryCacheEnabled { get; set; } = true;
+    public int MemoryCacheBudgetMb { get; set; } = 256;
 }
 
 public static class SettingsService
@@ -63,8 +82,7 @@ public static class SettingsService
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    public static string DirectoryPath =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "EntityAnalyzer");
+    public static string DirectoryPath => EntityAnalyzer.Core.Persistence.ProfilePaths.DirectoryPath;
 
     private static string FilePath => Path.Combine(DirectoryPath, "settings.json");
 

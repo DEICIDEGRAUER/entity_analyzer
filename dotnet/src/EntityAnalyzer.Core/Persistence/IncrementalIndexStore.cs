@@ -27,6 +27,97 @@ public sealed class IncrementalIndexStore
     {
         _path = path;
         Load();
+        PruneVanished();
+    }
+
+    /// <summary>Число записей индекса.</summary>
+    public int Count
+    {
+        get { lock (_gate) return _index.Count; }
+    }
+
+    /// <summary>
+    /// Убирает записи о файлах, которых больше нет на диске (удалены,
+    /// переименованы, корпус отмонтирован). Без этого индекс путей копил бы
+    /// мёртвые записи годами. Проверка существования дешёвая (stat) и одна
+    /// на сессию — на корпусе в десятки тысяч файлов это доли секунды.
+    /// </summary>
+    private void PruneVanished()
+    {
+        lock (_gate)
+        {
+            var stale = _index.Keys.Where(p =>
+            {
+                try { return !File.Exists(p); }
+                catch { return false; }
+            }).ToList();
+            if (stale.Count == 0) return;
+
+            foreach (var p in stale) _index.Remove(p);
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+                var tmp = _path + ".tmp";
+                File.WriteAllText(tmp, JsonSerializer.Serialize(_index, JsonOpts));
+                File.Move(tmp, _path, overwrite: true);
+                _dirty = false;
+            }
+            catch { /* некритично: уборка повторится при следующем открытии */ }
+        }
+    }
+
+    /// <summary>
+    /// Пробует получить хэш из индекса, не читая файл. Проверка размера и mtime
+    /// выполняется вне глобальной блокировки: чтение/хеширование больше не
+    /// сериализуют параллельные файлы.
+    /// </summary>
+    public bool TryGetHash(string file, out string hash)
+    {
+        FileInfo info;
+        try
+        {
+            info = new FileInfo(file);
+            if (!info.Exists)
+            {
+                hash = "";
+                return false;
+            }
+        }
+        catch (IOException)
+        {
+            hash = "";
+            return false;
+        }
+
+        lock (_gate)
+        {
+            if (_index.TryGetValue(file, out var e) &&
+                e.Size == info.Length &&
+                Math.Abs((e.MtimeUtc - info.LastWriteTimeUtc).TotalMilliseconds) < 2)
+            {
+                hash = e.Hash;
+                return true;
+            }
+        }
+
+        hash = "";
+        return false;
+    }
+
+    /// <summary>Запоминает хэш прочитанного файла; stat берётся после чтения.</summary>
+    public void StoreHash(string file, string hash)
+    {
+        try
+        {
+            var info = new FileInfo(file);
+            if (!info.Exists) return;
+            lock (_gate)
+            {
+                _index[file] = new Entry(info.Length, info.LastWriteTimeUtc, hash);
+                _dirty = true;
+            }
+        }
+        catch { /* файл мог исчезнуть между чтением и записью */ }
     }
 
     /// <summary>
@@ -35,35 +126,11 @@ public sealed class IncrementalIndexStore
     /// </summary>
     public string GetOrComputeHash(string file, Func<string> compute)
     {
-        lock (_gate)
-        {
-            try
-            {
-                var info = new FileInfo(file);
-                if (!info.Exists) return compute();
+        if (TryGetHash(file, out var hash)) return hash;
 
-                if (_index.TryGetValue(file, out var e) &&
-                    e.Size == info.Length &&
-                    Math.Abs((e.MtimeUtc - info.LastWriteTimeUtc).TotalMilliseconds) < 2)
-                {
-                    return e.Hash;
-                }
-            }
-            catch (IOException)
-            {
-                return compute();
-            }
-
-            var hash = compute();
-            try
-            {
-                var info = new FileInfo(file);
-                _index[file] = new Entry(info.Length, info.LastWriteTimeUtc, hash);
-                _dirty = true;
-            }
-            catch { /* файл мог исчезнуть между чтением и записью */ }
-            return hash;
-        }
+        var computed = compute();
+        StoreHash(file, computed);
+        return computed;
     }
 
     public void Flush()

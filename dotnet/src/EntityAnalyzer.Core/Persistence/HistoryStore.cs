@@ -55,8 +55,7 @@ public sealed class HistoryStore
     /// берут его отсюда, поэтому модуль работает сам по себе без внешних знаний.
     /// </summary>
     public static string DefaultPath { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "EntityAnalyzer", "history.jsonl");
+        ProfilePaths.DirectoryPath, "history.jsonl");
 
     private readonly string _path;
     private string? _lastHash;

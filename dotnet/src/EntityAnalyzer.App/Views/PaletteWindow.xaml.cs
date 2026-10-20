@@ -11,8 +11,20 @@ namespace EntityAnalyzer.App.Views;
 /// </summary>
 public partial class PaletteWindow : Window
 {
-    /// <summary>Команда палитры: название, подсказка и действие.</summary>
-    public sealed record PaletteCommand(string Title, string Hint, Action Run);
+    /// <summary>
+    /// Элемент палитры: команда, страница, карточка кодекса, упоминание или файл.
+    /// <paramref name="Keywords"/> расширяет поиск, не засоряя видимую подпись.
+    /// </summary>
+    public sealed record PaletteCommand(
+        string Title,
+        string Hint,
+        Action Run,
+        string Kind = "команда",
+        string Keywords = "",
+        int Priority = 0)
+    {
+        public string SearchText => $"{Title} {Hint} {Keywords}";
+    }
 
     private readonly List<PaletteCommand> _all;
     private List<PaletteCommand> _current = [];
@@ -27,14 +39,47 @@ public partial class PaletteWindow : Window
 
     private void ApplyFilter(string query)
     {
-        var ranked = FuzzyFilter.Rank(_all.Select(c => c.Title), query);
-        if (query.Length == 0)
+        if (string.IsNullOrWhiteSpace(query))
+        {
             _current = _all; // пустой запрос — исходный порядок
+        }
         else
-            _current = ranked
-                .Select(m => _all.First(c => c.Title == m.Item))
-                .Distinct()
+        {
+            var q = query.Trim();
+            var texts = _all.Select(c => c.SearchText).ToList();
+            var ranked = FuzzyFilter.Rank(texts, q);
+            var used = new bool[_all.Count];
+            var scored = new List<(PaletteCommand Command, int Score, int Order, bool TitleMatch)>();
+            var order = 0;
+            foreach (var match in ranked)
+            {
+                for (var i = 0; i < texts.Count; i++)
+                {
+                    if (used[i] || texts[i] != match.Item) continue;
+                    used[i] = true;
+                    var command = _all[i];
+                    // Совпадение в заголовке важнее совпадения в длинном
+                    // контексте: иначе файлы с коротким путём вытесняют
+                    // упоминания сущности из первых 200 строк.
+                    var titleScore = FuzzyFilter.Score(command.Title, q);
+                    var titleMatch = titleScore > 0;
+                    var rankScore = titleMatch
+                        ? titleScore + command.Priority
+                        : match.Score;
+                    scored.Add((command, rankScore, order++, titleMatch));
+                    break;
+                }
+            }
+
+            _current = scored
+                .OrderByDescending(x => x.TitleMatch)
+                .ThenByDescending(x => x.Score)
+                .ThenBy(x => x.Command.Title, StringComparer.Ordinal)
+                .ThenBy(x => x.Order)
+                .Take(200) // палитра — быстрый переход, не отчёт
+                .Select(x => x.Command)
                 .ToList();
+        }
 
         ResultList.ItemsSource = _current;
         if (ResultList.Items.Count > 0) ResultList.SelectedIndex = 0;

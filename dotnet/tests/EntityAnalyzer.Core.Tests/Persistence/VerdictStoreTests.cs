@@ -104,11 +104,83 @@ public class VerdictStoreTests : IDisposable
     }
 
     [Fact]
-    public void Default_path_lives_in_appdata()
+    public void Remove_restores_unreviewed_state_and_survives_reopen()
     {
-        // Канонический путь стабилен: %APPDATA%\EntityAnalyzer\verdicts.jsonl.
-        Assert.EndsWith(Path.Combine("EntityAnalyzer", "verdicts.jsonl"),
-            VerdictStore.DefaultPath, StringComparison.OrdinalIgnoreCase);
+        var store = new VerdictStore(_path);
+        store.Append(Sample(hash: "keep", offset: 1));
+        store.Append(Sample(hash: "undo", offset: 2));
+
+        Assert.True(store.Remove("undo", 2, "Наг"));
+        Assert.Null(store.Find("undo", 2, "Наг"));
+        Assert.NotNull(store.Find("keep", 1, "Наг"));
+
+        var reopened = new VerdictStore(_path);
+        Assert.Single(reopened.All);
+        Assert.Null(reopened.Find("undo", 2, "Наг"));
+        Assert.NotNull(reopened.Find("keep", 1, "Наг"));
+    }
+
+    [Fact]
+    public void RemoveRange_removes_batch_atomically_and_survives_reopen()
+    {
+        var store = new VerdictStore(_path);
+        store.Append(Sample(hash: "keep", offset: 1));
+        store.Append(Sample(hash: "undo1", offset: 2));
+        store.Append(Sample(hash: "undo2", offset: 3));
+
+        var removed = store.RemoveRange([
+            ("undo1", 2L, "Наг"),
+            ("undo2", 3L, "Наг"),
+            ("missing", 4L, "Наг"),
+        ]);
+
+        Assert.Equal(2, removed);
+        Assert.Single(store.All);
+        Assert.Null(store.Find("undo1", 2, "Наг"));
+        Assert.Null(store.Find("undo2", 3, "Наг"));
+        Assert.NotNull(store.Find("keep", 1, "Наг"));
+
+        var reopened = new VerdictStore(_path);
+        Assert.Single(reopened.All);
+        Assert.Null(reopened.Find("undo1", 2, "Наг"));
+        Assert.NotNull(reopened.Find("keep", 1, "Наг"));
+    }
+
+    [Fact]
+    public void Remove_missing_key_is_noop()
+    {
+        var store = new VerdictStore(_path);
+        store.Append(Sample());
+
+        Assert.False(store.Remove("missing", 42, "Наг"));
+        Assert.Single(store.All);
+    }
+
+    [Fact]
+    public void AppendRange_writes_one_batch_and_latest_wins()
+    {
+        var store = new VerdictStore(_path);
+        store.AppendRange([
+            Sample(hash: "h1", kind: VerdictKind.Confirmed),
+            Sample(hash: "h2", kind: VerdictKind.Rejected),
+            Sample(hash: "h1", kind: VerdictKind.Uncertain),
+        ]);
+
+        Assert.Equal(2, store.All.Count);
+        Assert.Equal(VerdictKind.Uncertain, store.Find("h1", 42, "Наг")!.Verdict);
+        Assert.Equal(VerdictKind.Rejected, store.Find("h2", 42, "Наг")!.Verdict);
+        Assert.Equal(3, File.ReadAllLines(_path).Length);
+    }
+
+    [Fact]
+    public void Default_path_lives_in_profile_directory()
+    {
+        // Канонический путь: <каталог профиля>\verdicts.jsonl. Каталог профиля —
+        // %APPDATA%\EntityAnalyzer, а на изолированном профиле (смоук, верификация,
+        // тесты) — значение ENTITYANALYZER_DATA_DIR (см. ProfilePaths).
+        Assert.Equal(
+            Path.Combine(ProfilePaths.DirectoryPath, "verdicts.jsonl"),
+            VerdictStore.DefaultPath);
     }
 
     [Fact]

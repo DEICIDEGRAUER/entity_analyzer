@@ -1,3 +1,7 @@
+using System.ComponentModel;
+using System.Text.Json.Serialization;
+using EntityAnalyzer.Core.Persistence;
+
 namespace EntityAnalyzer.Core.Analysis;
 
 /// <summary>A validated mention of an entity inside a file.</summary>
@@ -10,7 +14,81 @@ public sealed record Mention(
     string Theme = "",
     bool IsFuzzy = false,
     int Repeats = 1,
-    long Offset = 0);   // R2-13: позиция совпадения в нормализованном тексте — ключ вердикта
+    long Offset = 0) : INotifyPropertyChanged   // R2-13: позиция совпадения в нормализованном тексте — ключ вердикта
+{
+    private bool _starred;
+
+    /// <summary>
+    /// Issue 39: цитата отмечена звёздочкой (цитатник). Состояние интерфейса:
+    /// в JSON-кэш файлов не пишется, при смене уведомляет привязки WPF.
+    /// </summary>
+    [JsonIgnore]
+    public bool Starred
+    {
+        get => _starred;
+        set
+        {
+            if (_starred == value) return;
+            _starred = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Starred)));
+        }
+    }
+
+    private VerdictKind? _verdict;
+
+    /// <summary>
+    /// Действующий экспертный вердикт по этой находке. UI-состояние:
+    /// источник истины — VerdictStore, значение восстанавливается при выборе
+    /// файла и обновляется сразу после нажатия кнопки.
+    /// </summary>
+    [JsonIgnore]
+    public VerdictKind? Verdict
+    {
+        get => _verdict;
+        set
+        {
+            if (_verdict == value) return;
+            _verdict = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Verdict)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasVerdict)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(VerdictLabel)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(VerdictGlyph)));
+        }
+    }
+
+    [JsonIgnore]
+    public bool HasVerdict => _verdict.HasValue;
+
+    [JsonIgnore]
+    public string VerdictLabel => _verdict switch
+    {
+        VerdictKind.Confirmed => "подтверждено",
+        VerdictKind.Rejected => "ложное срабатывание",
+        VerdictKind.Uncertain => "спорно",
+        _ => "",
+    };
+
+    [JsonIgnore]
+    public string VerdictGlyph => _verdict switch
+    {
+        VerdictKind.Confirmed => "✓",
+        VerdictKind.Rejected => "✗",
+        VerdictKind.Uncertain => "?",
+        _ => "",
+    };
+
+    /// <summary>Человеческое объяснение правила, по которому найдено упоминание.</summary>
+    [JsonIgnore]
+    public string MatchRule => IsFuzzy
+        ? "нечёткое совпадение по словарю вариантов"
+        : "точное совпадение по словарю вариантов";
+
+    /// <summary>Все причины оценки достоверности — для карточки «Почему найдено?».</summary>
+    [JsonIgnore]
+    public string ConfidenceDetails => string.Join(" · ", ConfidenceBadge.From(this).Reasons);
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+}
 
 /// <summary>Per-file analysis outcome.</summary>
 public sealed record FileResult(
@@ -83,6 +161,12 @@ public sealed record QualityReport(
 
     /// <summary>Совпадения, схлопнутые резолвером перекрытий вариантов (QA N04).</summary>
     public int OverlapsResolved { get; init; }
+
+    /// <summary>L2-кэш (память): попадания за прогон (0 — слой не использовался).</summary>
+    public int L2Hits { get; init; }
+
+    /// <summary>L2-кэш (память): промахи (запросы, ушедшие на диск), за прогон.</summary>
+    public int L2Misses { get; init; }
 
     /// <summary>Тихие пропуски файлов — сводка в отчёте и консоли (QA N06).</summary>
     public int SkippedTooLarge { get; init; }

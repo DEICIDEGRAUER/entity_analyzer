@@ -94,6 +94,10 @@ public class SemanticPatternStoreTests : IDisposable
 
     public void Dispose()
     {
+        // Item 46: тесты словарей пишут semantic_lexicons.json в общий каталог
+        // фикстуры LogSequential — убираем за собой, иначе порядок тестов
+        // влияет друг на друга (файл переживает отдельные тесты).
+        try { System.IO.File.Delete(SemanticPatternStore.UserLexiconsPath); } catch { }
         Environment.SetEnvironmentVariable("EA_SEMANTIC_USER_DIR", null);
         try { Directory.Delete(_userDir, recursive: true); } catch { }
     }
@@ -108,6 +112,51 @@ public class SemanticPatternStoreTests : IDisposable
         Assert.True(store.Lexicons.Contains("epithets", "запретный"));
         Assert.True(store.Lexicons.Contains("books", "фолиант"));
         Assert.True(store.Lexicons.Contains("titles", "жрец"));
+    }
+
+    /// <summary>Item 46: «!слово» в пользовательских словарях удаляет слово из встроенного.</summary>
+    [Fact]
+    public void Merge_RemovesWords_WithBangSentinel()
+    {
+        var baseSet = new LexiconSet();
+        baseSet.Add("epithets", ["древний", "запретный"]);
+        var overrides = new LexiconSet();
+        overrides.Add("epithets", ["!запретный", "студёный"]);
+
+        var merged = LexiconSet.Merge(baseSet, overrides);
+
+        Assert.True(merged.Contains("epithets", "древний"));
+        Assert.False(merged.Contains("epithets", "запретный"));
+        Assert.True(merged.Contains("epithets", "студёный"));
+    }
+
+    /// <summary>Item 46/48: пользовательский файл словарей переживает round-trip, удаление действует.</summary>
+    [Fact]
+    public void Store_UserLexiconEdits_RoundTrip_AndApply()
+    {
+        SemanticPatternStore.SaveUserLexiconEdits(new Dictionary<string, List<string>>
+        {
+            ["epithets"] = ["!запретный", "студёный"],
+        });
+
+        var reloaded = SemanticPatternStore.LoadUserLexiconEdits();
+        Assert.True(reloaded.TryGetValue("epithets", out var edits));
+        Assert.Contains("!запретный", edits);
+
+        var store = SemanticPatternStore.Load();
+        Assert.False(store.Lexicons.Contains("epithets", "запретный"));
+        Assert.True(store.Lexicons.Contains("epithets", "студёный"));
+        Assert.True(store.Lexicons.Contains("epithets", "древний")); // остальные встроенные слова на месте
+    }
+
+    /// <summary>Item 46: удаление через «!слово» не ломает битый пользовательский файл.</summary>
+    [Fact]
+    public void Store_BrokenUserLexiconsFile_FallsBackToEmbedded()
+    {
+        var path = System.IO.Path.Combine(_userDir, "semantic_lexicons.json");
+        System.IO.File.WriteAllText(path, "{ это не json");
+        var store = SemanticPatternStore.Load();
+        Assert.True(store.Lexicons.Contains("epithets", "запретный"));
     }
 }
 

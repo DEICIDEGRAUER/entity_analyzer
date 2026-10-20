@@ -157,6 +157,24 @@ public class AnalysisEngineTests : IDisposable
         Assert.Contains("empty.txt", seen);
     }
 
+    [Fact]
+    public void Cache_restamp_updates_nested_semantic_paths()
+    {
+        var cached = new FileResult(
+            "old.txt", @"C:\old\old.txt", [], 0, 0, 0, 0,
+            SemanticMatches:
+            [
+                new SemanticMatch("era-period", "Эпохи", @"C:\old\old.txt", 7, "сниппет"),
+                new SemanticMatch("forbidden-book", "Книги", @"C:\old\old.txt", 9, "сниппет"),
+            ]);
+
+        var stamped = AnalysisEngine.StampFileIdentity(cached, @"C:\new\renamed.txt");
+
+        Assert.Equal("renamed.txt", stamped.FileName);
+        Assert.Equal(@"C:\new\renamed.txt", stamped.FullPath);
+        Assert.All(stamped.SemanticMatches, s => Assert.Equal(@"C:\new\renamed.txt", s.FilePath));
+    }
+
     private sealed class SynchronousProgress(Action<AnalysisProgress> sink) : IProgress<AnalysisProgress>
     {
         public void Report(AnalysisProgress value) => sink(value);

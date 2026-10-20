@@ -1,17 +1,30 @@
-﻿# ─── prepare: mini corpus + fresh codex ───
+﻿# ─── prepare: mini corpus + ИЗОЛИРОВАННЫЙ профиль ───
+# Смоук НИКОГДА не трогает реальный %APPDATA%\EntityAnalyzer: он обязан
+# работать через ENTITYANALYZER_DATA_DIR (изолированный каталог профиля).
+# Без переменной — отказ: цена ошибки — потеря данных пользователя.
+if ([string]::IsNullOrWhiteSpace($env:ENTITYANALYZER_DATA_DIR)) {
+    Write-Output "FAIL: ENTITYANALYZER_DATA_DIR не задан — смоук отказывается работать на реальном профиле"
+    exit 1
+}
+$profileDir = [System.IO.Path]::GetFullPath($env:ENTITYANALYZER_DATA_DIR)
+$realProfile = [System.IO.Path]::GetFullPath((Join-Path $env:APPDATA "EntityAnalyzer"))
+if ($profileDir.TrimEnd('\') -ieq $realProfile.TrimEnd('\')) {
+    Write-Output "FAIL: ENTITYANALYZER_DATA_DIR указывает на реальный профиль: $profileDir"
+    exit 1
+}
+
 $corpus = Join-Path $env:TEMP "ea_smoke_corpus"
 New-Item -ItemType Directory -Force -Path $corpus | Out-Null
 Set-Content -Path "$corpus\a.txt" -Encoding UTF8 -Value "Жрец Наг и Йеб шептал в подземелье. Йеб отвечал из тьмы."
 Set-Content -Path "$corpus\b.txt" -Encoding UTF8 -Value "Культ Нага процветал. Никто не смел произнести имя Йеб вслух."
-$settingsPath = Join-Path $env:APPDATA "EntityAnalyzer\settings.json"
-New-Item -ItemType Directory -Force -Path (Split-Path $settingsPath) | Out-Null
+Remove-Item $profileDir -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force -Path $profileDir | Out-Null
+$settingsPath = Join-Path $profileDir "settings.json"
 @{ corpusDir = $corpus; outputDir = (Join-Path $env:TEMP "ea_smoke_reports"); preset = "light"; fuzzy = $false; deepCorrupt = $false; contextWords = 30; mentionsPerFile = 5; formats = @("txt","json","md") } | ConvertTo-Json | Set-Content $settingsPath -Encoding UTF8
 Remove-Item (Join-Path $env:TEMP "ea_smoke_reports") -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item (Join-Path $env:APPDATA "EntityAnalyzer\user_catalog.json") -ErrorAction SilentlyContinue
-Remove-Item (Join-Path $env:APPDATA "EntityAnalyzer\codex.json") -ErrorAction SilentlyContinue
-Write-Output "prepared"
+Write-Output "prepared (изолированный профиль: $profileDir)"
 
-Set-Location C:\Users\malin\Desktop\entity_analyzer\dotnet
+Set-Location $PSScriptRoot
 $p = Start-Process -FilePath ".\publish\EntityAnalyzer.exe" -PassThru
 Start-Sleep -Seconds 7
 Add-Type -AssemblyName UIAutomationClient
@@ -38,11 +51,11 @@ function Select-Radio($win, [int]$idx) {
 }
 function Find-Button($win, $substr) {
     $cond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)
-    for ($try = 0; $try -lt 5; $try++) {
+    for ($try = 0; $try -lt 8; $try++) {
         foreach ($b in $win.FindAll([System.Windows.Automation.TreeScope]::Descendants, $cond)) {
             if ($b.Current.IsEnabled -and $b.Current.Name -like ("*" + $substr + "*")) { return $b }
         }
-        Start-Sleep -Milliseconds 600
+        Start-Sleep -Milliseconds 700
     }
     return $null
 }
@@ -147,7 +160,7 @@ if (-not $linkOk) { Fail "link row not shown" }
 Write-Output "OK typed link created"
 
 # 5 ── Схемы: категории на месте
-Select-Radio $win 3
+Select-Radio $win 4
 $schemaOk = $false
 foreach ($li in (Get-AllOf $win ([System.Windows.Automation.ControlType]::ListItem))) {
     if ($li.Current.Name -like "*Божество*" -or $li.Current.Name -like "*Артефакт*") { $schemaOk = $true }
@@ -156,7 +169,7 @@ if (-not $schemaOk) { Fail "schema categories missing" }
 Write-Output "OK schema categories"
 
 # 6 ── История: страница открывается без ошибок (ранее падала на EmptyToVis)
-Select-Radio $win 5
+Select-Radio $win 6
 Start-Sleep -Milliseconds 800
 $historyOk = $false
 foreach ($tx in (Get-AllOf $win ([System.Windows.Automation.ControlType]::Text))) {
@@ -165,7 +178,41 @@ foreach ($tx in (Get-AllOf $win ([System.Windows.Automation.ControlType]::Text))
 if (-not $historyOk) { Fail "history page not rendered" }
 Write-Output "OK history page renders"
 
+# 7 ── Паспорт файла: раздел открывается, пустое состояние с подсказкой (Группа 3, item 24)
+Select-Radio $win 9
+$passportOk = $false
+foreach ($tx in (Get-AllOf $win ([System.Windows.Automation.ControlType]::Text))) {
+    if ($tx.Current.Name -like "*Анализ ещё не запускался*") { $passportOk = $true }
+}
+if (-not $passportOk) { Fail "passport page not rendered" }
+Write-Output "OK passport page renders"
+
+# 8 ── Словари: раздел открывается, вкладка «Эпитеты» с пустым состоянием (Группа 3, item 23)
+Select-Radio $win 10
+$dictOk = $false
+foreach ($tx in (Get-AllOf $win ([System.Windows.Automation.ControlType]::Text))) {
+    if ($tx.Current.Name -like "*словарю эпитетов*") { $dictOk = $true }
+}
+if (-not $dictOk) { Fail "dictionaries page not rendered" }
+Write-Output "OK dictionaries page renders"
+
+# 9 ── Корпус: раздел открывается, пустой поиск с подсказкой (Группа 3, item 31)
+Select-Radio $win 11
+$corpusOk = $false
+foreach ($tx in (Get-AllOf $win ([System.Windows.Automation.ControlType]::Text))) {
+    if ($tx.Current.Name -like "*вернитесь к поиску*") { $corpusOk = $true }
+}
+if (-not $corpusOk) { Fail "corpus page not rendered" }
+Write-Output "OK corpus page renders"
+
+# 10 ── Мир: страница Группы 4 открывается, вкладки на месте (items 5/6/19)
+Select-Radio $win 3
+$worldTabs = @{}
+foreach ($tb in (Get-AllOf $win ([System.Windows.Automation.ControlType]::TabItem))) { $worldTabs[$tb.Current.Name] = $true }
+if (-not ($worldTabs.ContainsKey("Древо") -and $worldTabs.ContainsKey("Иерархия") -and $worldTabs.ContainsKey("Хронология") -and $worldTabs.ContainsKey("География"))) { Fail "world tabs missing" }
+Write-Output "OK world page renders"
+
 Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
-Write-Output "SMOKE V10 PASSED"
+Write-Output "SMOKE V13 PASSED"
 
 

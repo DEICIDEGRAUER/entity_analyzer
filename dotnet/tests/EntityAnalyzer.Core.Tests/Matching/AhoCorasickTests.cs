@@ -60,6 +60,18 @@ public class AhoCorasickTests
     }
 
     [Fact]
+    public void Non_bmp_case_mapping_uses_string_lowercase()
+    {
+        var ac = new AhoCorasick<int>();
+        ac.Add("\U00010428", 1); // дезеретская строчная
+        ac.Build();
+        var ms = ac.Find("\U00010400").ToList(); // заглавная
+        Assert.Single(ms);
+        Assert.Equal(1, ms[0].Payload);
+        Assert.Equal(0, ms[0].Start);
+    }
+
+    [Fact]
     public void Empty_text_yields_no_matches()
     {
         Assert.Empty(Find(new[] { "ab" }, ""));

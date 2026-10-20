@@ -3,7 +3,9 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using EntityAnalyzer.Core.Analysis;
+using EntityAnalyzer.Core.Codex;
 using EntityAnalyzer.Core.Configuration;
+using EntityAnalyzer.Core.Exporting;
 using EntityAnalyzer.Core.Variants;
 
 namespace EntityAnalyzer.Core.Persistence;
@@ -19,7 +21,7 @@ public static partial class ReportExporter
 
     public static string ExportAll(AnalysisSession session, string outputDir, IReadOnlySet<string> formats,
         bool perEntityFolders = false, EntityCatalog? catalog = null,
-        AnalyzerOptions? options = null)
+        AnalyzerOptions? options = null, CodexDocument? codex = null)
     {
         Directory.CreateDirectory(outputDir);
 
@@ -28,8 +30,13 @@ public static partial class ReportExporter
         if (formats.Contains("csv")) WriteCsv(session, outputDir);
         if (formats.Contains("html") || formats.Contains("htm")) WriteHtml(session, outputDir);
         if (formats.Contains("md") || formats.Contains("markdown")) WriteMarkdown(session, outputDir);
-        if (perEntityFolders) WritePerEntityFolders(session, Path.Combine(outputDir, "by_entity"));
+        if (perEntityFolders) WritePerEntityFolders(session, Path.Combine(outputDir, "by_entity"), codex);
         if (catalog is not null) WriteVariantsIndex(catalog, Path.Combine(outputDir, "variants"));
+
+        // Item 50: энциклопедические статьи о сущностях — articles/<сущность>.md + index.md.
+        if (codex is not null)
+            try { EntityArticle.WriteAll(session, codex, Path.Combine(outputDir, "articles")); }
+            catch { /* некритично */ }
 
         // Собственные папки паттернов: by_pattern/<id>/matches.* — как у сущностей.
         try { WritePerPatternFolders(session.SemanticMatches, Path.Combine(outputDir, "by_pattern"), formats); }
@@ -192,6 +199,8 @@ public static partial class ReportExporter
         sb.AppendLine($"Сверка воронки               : остаток {q.FunnelLeftover:N0} (должно быть 0)");
         sb.AppendLine($"Эффективность границ         : {q.FilterEfficiency}");
         sb.AppendLine($"Кэш                          : попаданий {q.CacheHits:N0}, промахов {q.CacheMisses:N0}");
+        if (q.L2Hits + q.L2Misses > 0)
+            sb.AppendLine($"Кэш L2 (память)              : попаданий {q.L2Hits:N0}, обращений к диску {q.L2Misses:N0}");
         sb.AppendLine();
 
         sb.AppendLine("── ТАЙМИНГИ СТАДИЙ " + new string('─', 37));
@@ -735,7 +744,7 @@ for(const it of items){
 
     // ---------- per-entity folders ----------
 
-    public static string WritePerEntityFolders(AnalysisSession session, string baseDir)
+    public static string WritePerEntityFolders(AnalysisSession session, string baseDir, CodexDocument? codex = null)
     {
         Directory.CreateDirectory(baseDir);
 
@@ -766,6 +775,11 @@ for(const it of items){
                 sb.AppendLine();
             }
             File.WriteAllText(Path.Combine(entityDir, safe + "_mentions.txt"), sb.ToString(), new UTF8Encoding(false));
+
+            // Item 50: энциклопедическая статья о сущности — рядом с упоминаниями.
+            if (codex is not null)
+                File.WriteAllText(Path.Combine(entityDir, safe + "_article.md"),
+                    EntityArticle.Build(group.Key, session, codex), new UTF8Encoding(false));
 
             // Theme subfolders.
             foreach (var themeGroup in group.GroupBy(x => x.Mention.Theme, StringComparer.Ordinal))

@@ -18,6 +18,12 @@ public sealed class PatternRowVM : ObservableObject
     public string Description => Pattern.Description;
     public string TokensText => string.Join("  ·  ", Pattern.Tokens.Select(Describe));
 
+    /// <summary>True для встроенных паттернов (period-*, ritual-*, title-*, epithet-*).</summary>
+    public bool IsEmbedded => Id.StartsWith("period-", StringComparison.OrdinalIgnoreCase)
+        || Id.StartsWith("ritual-", StringComparison.OrdinalIgnoreCase)
+        || Id.StartsWith("title-", StringComparison.OrdinalIgnoreCase)
+        || Id.StartsWith("epithet-", StringComparison.OrdinalIgnoreCase);
+
     private bool _enabled;
     public bool Enabled
     {
@@ -171,7 +177,7 @@ public sealed class AdvancedSearchViewModel : ObservableObject
     private string? _entityB;
     public string? EntityB { get => _entityB; set => Set(ref _entityB, value); }
 
-    private string? _selectedMode;
+    private string? _selectedMode = "Вместе в одном файле";
     public string? SelectedMode { get => _selectedMode; set => Set(ref _selectedMode, value); }
 
     private int _gapLines = 5;
@@ -184,7 +190,15 @@ public sealed class AdvancedSearchViewModel : ObservableObject
 
     public bool HasCoOccurResults => CoOccurResults.Count > 0;
 
+    /// <summary>Item 41: кнопка «Найти» всегда активна — причина отказа видна в подсказке.</summary>
     public RelayCommand FindCommand { get; }
+
+    /// <summary>Item 41: показывать кнопку перехода к запуску анализа (нет сессии).</summary>
+    private bool _showRunHint;
+    public bool ShowRunHint { get => _showRunHint; private set => Set(ref _showRunHint, value); }
+
+    /// <summary>Item 41: переход на «Обзор» к запуску анализа.</summary>
+    public RelayCommand GoRunAnalysisCommand { get; }
 
     // ─── Паттерны ───
 
@@ -247,6 +261,38 @@ public sealed class AdvancedSearchViewModel : ObservableObject
     public RelayCommand ReloadPatternsCommand { get; }
     public RelayCommand ResetPatternsCommand { get; }
 
+    // ─── Item 46/48: редактор словарей ───
+
+    /// <summary>Имена словарей (встроенные + пользовательские) после слияния.</summary>
+    public ObservableCollection<string> LexiconNames { get; } = [];
+
+    /// <summary>Эффективные слова выбранного словаря.</summary>
+    public ObservableCollection<string> LexiconWords { get; } = [];
+
+    private Dictionary<string, List<string>> _userLexiconEdits = new(StringComparer.OrdinalIgnoreCase);
+    private LexiconSet _mergedLexicons = new();
+
+    private string? _selectedLexicon;
+    public string? SelectedLexicon
+    {
+        get => _selectedLexicon;
+        set { if (Set(ref _selectedLexicon, value)) LoadLexiconWords(); }
+    }
+
+    private string _newWord = "";
+    public string NewWord { get => _newWord; set => Set(ref _newWord, value); }
+
+    private string _lexiconSummary = "";
+    public string LexiconSummary { get => _lexiconSummary; private set => Set(ref _lexiconSummary, value); }
+
+    private string _lexiconValidation = "";
+    public string LexiconValidation { get => _lexiconValidation; private set => Set(ref _lexiconValidation, value); }
+
+    public RelayCommand AddLexiconWordCommand { get; }
+    public RelayCommand RemoveLexiconWordCommand { get; }
+    public RelayCommand OpenLexiconsFileCommand { get; }
+    public RelayCommand ResetLexiconCommand { get; }
+
     public ObservableCollection<SemanticMatch> SemanticResults { get; } = [];
 
     private string _semanticSummary = "";
@@ -264,13 +310,21 @@ public sealed class AdvancedSearchViewModel : ObservableObject
     /// <summary>Обособленный скан паттернов (без анализа сущностей).</summary>
     public AsyncRelayCommand ScanPatternsOnlyCommand { get; }
 
+    /// <summary>Группа 2 (item 30): кнопка «✎» у паттерна — заметка с привязкой к паттерну.</summary>
+    public RelayCommand AddPatternNoteCommand { get; }
+
     public AdvancedSearchViewModel(MainViewModel main)
     {
         _main = main;
 
-        FindCommand = new RelayCommand(_ => Find(), _ => _main.Session is not null);
+        FindCommand = new RelayCommand(_ => Find()); // item 41: всегда активна, причина — в подсказке
+        GoRunAnalysisCommand = new RelayCommand(_ =>
+        {
+            _main.DashboardTabIndex = 0;
+            _main.Navigate(_main.Dashboard);
+        });
         OpenPatternsFileCommand = new RelayCommand(_ => OpenPatternsFile());
-        ReloadPatternsCommand = new RelayCommand(_ => ReloadPatterns());
+        ReloadPatternsCommand = new RelayCommand(_ => ReloadSemanticConfig());
         ResetPatternsCommand = new RelayCommand(_ => ResetToEmbedded());
         AddPatternCommand = new RelayCommand(_ => AddPattern());
         DuplicatePatternCommand = new RelayCommand(_ => DuplicatePattern(), _ => SelectedPatternRow is not null);
@@ -284,6 +338,23 @@ public sealed class AdvancedSearchViewModel : ObservableObject
         ApplyJsonCommand = new RelayCommand(_ => ApplyJson());
         FillExampleCommand = new RelayCommand(_ => FillPeriodExample());
 
+        // Item 46/48: редактор словарей.
+        AddLexiconWordCommand = new RelayCommand(_ => AddLexiconWord(), _ => SelectedLexicon is not null);
+        RemoveLexiconWordCommand = new RelayCommand(p =>
+        {
+            if (p is string word) RemoveLexiconWord(word);
+        }, p => p is string && SelectedLexicon is not null);
+
+        // Группа 2 (item 30): заметка дневника с привязкой к паттерну.
+        AddPatternNoteCommand = new RelayCommand(p =>
+        {
+            if (p is not PatternRowVM row) return;
+            _main.Diary.StartNewNote(NoteBindingKind.Pattern, row.Id, row.Name);
+            _main.Navigate(_main.Diary);
+        }, p => p is PatternRowVM);
+        OpenLexiconsFileCommand = new RelayCommand(_ => OpenLexiconsFile());
+        ResetLexiconCommand = new RelayCommand(_ => ResetLexicon(), _ => SelectedLexicon is not null);
+
         ScanPatternsOnlyCommand = new AsyncRelayCommand(
             () => ScanPatternsOnlyAsync(), () => !IsScanning && _main.Dashboard.CanStart);
 
@@ -291,6 +362,7 @@ public sealed class AdvancedSearchViewModel : ObservableObject
         PatternsView.Filter = FilterPattern;
 
         LoadPatterns();
+        ReloadLexiconEditor();
         LoadEntityNames();
     }
 
@@ -388,7 +460,35 @@ public sealed class AdvancedSearchViewModel : ObservableObject
 
     private void Find()
     {
-        if (_main.Session is not { } session) return;
+        CoOccurResults.Clear();
+        OnPropertyChanged(nameof(HasCoOccurResults));
+        ShowRunHint = false;
+
+        // Item 41: вместо заблокированной кнопки — понятная причина отказа.
+        if (EntityNames.Count == 0)
+        {
+            CoOccurSummary = "Кодекс пуст: сначала добавьте карточки сущностей на странице «Кодекс».";
+            return;
+        }
+
+        var needsBoth = SelectedMode != "Первый без второго";
+        if (EntityA is null || (needsBoth && EntityB is null))
+        {
+            CoOccurSummary = needsBoth ? "Выберите оба объекта." : "Выберите первый объект.";
+            return;
+        }
+        if (needsBoth && string.Equals(EntityA, EntityB, StringComparison.Ordinal))
+        {
+            CoOccurSummary = "Объекты должны различаться — выберите другую пару.";
+            return;
+        }
+
+        if (_main.Session is not { } session)
+        {
+            CoOccurSummary = "Нет данных анализа: сначала выполните прогон корпуса на странице «Обзор».";
+            ShowRunHint = true;
+            return;
+        }
 
         var mode = SelectedMode switch
         {
@@ -398,12 +498,138 @@ public sealed class AdvancedSearchViewModel : ObservableObject
             _ => CoOccurMode.SameFile,
         };
 
-        var rows = CoOccurrenceQuery.Run(session, EntityA ?? "", EntityB, mode, GapLines);
+        var rows = CoOccurrenceQuery.Run(session, EntityA, EntityB, mode, GapLines);
 
-        CoOccurResults.Clear();
         foreach (var r in rows) CoOccurResults.Add(r);
-        CoOccurSummary = $"Найдено файлов: {rows.Count}";
+        CoOccurSummary = rows.Count == 0
+            ? "Совместных упоминаний не найдено — измените пару или условие."
+            : $"Найдено файлов: {rows.Count}";
         OnPropertyChanged(nameof(HasCoOccurResults));
+    }
+
+    // ─── Item 46/48: редактор словарей ───
+
+    /// <summary>Перечитать паттерны и словари (кнопка «Перечитать» и первичная загрузка).</summary>
+    private void ReloadSemanticConfig()
+    {
+        LoadPatterns();
+        ReloadLexiconEditor();
+    }
+
+    /// <summary>
+    /// Item 48: перечитать эффективные словари (встроенные + пользовательские
+    /// правки) и показать их в редакторе.
+    /// </summary>
+    private void ReloadLexiconEditor()
+    {
+        _userLexiconEdits = new Dictionary<string, List<string>>(
+            SemanticPatternStore.LoadUserLexiconEdits(), StringComparer.OrdinalIgnoreCase);
+        var store = SemanticPatternStore.Load();
+        _mergedLexicons = store.Lexicons;
+
+        var current = SelectedLexicon;
+        LexiconNames.Clear();
+        foreach (var n in store.Lexicons.Names.OrderBy(n => n, StringComparer.OrdinalIgnoreCase))
+            LexiconNames.Add(n);
+        SelectedLexicon = current is not null && LexiconNames.Contains(current) ? current : LexiconNames.FirstOrDefault();
+        LoadLexiconWords();
+        CommandManager.InvalidateRequerySuggested();
+    }
+
+    private void LoadLexiconWords()
+    {
+        LexiconWords.Clear();
+        if (SelectedLexicon is not { } name) { LexiconSummary = ""; return; }
+        foreach (var w in _mergedLexicons.WordsOf(name).OrderBy(w => w, StringComparer.OrdinalIgnoreCase))
+            LexiconWords.Add(w);
+        var edits = _userLexiconEdits.TryGetValue(name, out var list) ? list.Count : 0;
+        LexiconSummary = $"Слов: {LexiconWords.Count} · пользовательских правок: {edits}";
+    }
+
+    private List<string> GetLexiconEdits(string name)
+    {
+        if (!_userLexiconEdits.TryGetValue(name, out var list))
+            _userLexiconEdits[name] = list = [];
+        return list;
+    }
+
+    private void AddLexiconWord()
+    {
+        if (SelectedLexicon is not { } name) return;
+        var word = NewWord.Trim().ToLowerInvariant();
+        if (word.Length == 0)
+        {
+            LexiconValidation = "Введите слово для добавления.";
+            return;
+        }
+
+        var edits = GetLexiconEdits(name);
+        // Повторное добавление снимает пометку «!слово» (слово снова видно).
+        edits.RemoveAll(w => w.Equals(word, StringComparison.OrdinalIgnoreCase)
+                          || w.Equals("!" + word, StringComparison.OrdinalIgnoreCase));
+        edits.Add(word);
+        NewWord = "";
+        PersistLexicons($"✓ «{word}» добавлено в словарь «{name}».");
+    }
+
+    private void RemoveLexiconWord(string word)
+    {
+        if (SelectedLexicon is not { } name) return;
+        var w = word.Trim().ToLowerInvariant();
+        if (w.Length == 0) return;
+
+        var edits = GetLexiconEdits(name);
+        edits.RemoveAll(e => e.Equals(w, StringComparison.OrdinalIgnoreCase));
+        if (!edits.Any(e => e.Equals("!" + w, StringComparison.OrdinalIgnoreCase)))
+            edits.Add("!" + w);
+        PersistLexicons($"✓ «{w}» исключено из словаря «{name}». Вернуть слово — добавьте его снова.");
+    }
+
+    private void ResetLexicon()
+    {
+        if (SelectedLexicon is not { } name) return;
+        var removed = _userLexiconEdits.Remove(name);
+        if (removed)
+            PersistLexicons($"✓ Правки словаря «{name}» сброшены — словарь как встроенный.");
+        else
+            LexiconValidation = $"Для словаря «{name}» пользовательских правок нет.";
+    }
+
+    private void PersistLexicons(string successMessage)
+    {
+        foreach (var key in _userLexiconEdits.Keys.ToList())
+            if (_userLexiconEdits[key].Count == 0)
+                _userLexiconEdits.Remove(key);
+        try
+        {
+            SemanticPatternStore.SaveUserLexiconEdits(_userLexiconEdits);
+        }
+        catch (Exception ex)
+        {
+            LexiconValidation = "Не сохранено: " + ex.Message;
+            return;
+        }
+        ReloadLexiconEditor();
+        LexiconValidation = successMessage;
+    }
+
+    private void OpenLexiconsFile()
+    {
+        try
+        {
+            if (!File.Exists(SemanticPatternStore.UserLexiconsPath))
+                SemanticPatternStore.SaveUserLexiconEdits(_userLexiconEdits);
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = SemanticPatternStore.UserLexiconsPath,
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show("Не удалось открыть файл словарей: " + ex.Message,
+                "Семантические словари");
+        }
     }
 
     // ─── Обособленный скан паттернов ───
@@ -619,14 +845,30 @@ public sealed class AdvancedSearchViewModel : ObservableObject
     private void DeletePattern()
     {
         if (SelectedPatternRow is not { } row) return;
+        var isEmbedded = row.Id.StartsWith("period-") || row.Id.StartsWith("ritual-") || row.Id.StartsWith("title-") || row.Id.StartsWith("epithet-");
+        var msg = isEmbedded
+            ? $"Удалить паттерн «{row.Name}» ({row.Id})?\nЭто встроенный паттерн — он будет скрыт навсегда. Вернуть можно кнопкой «Сбросить к встроенным»."
+            : $"Удалить паттерн «{row.Name}» ({row.Id})?";
         var answer = System.Windows.MessageBox.Show(
-            $"Удалить паттерн «{row.Name}» ({row.Id})?\nВстроенный паттерн можно вернуть сбросом к встроенным.",
-            "Удаление паттерна", System.Windows.MessageBoxButton.YesNo,
+            msg, "Удаление паттерна", System.Windows.MessageBoxButton.YesNo,
             System.Windows.MessageBoxImage.Question, System.Windows.MessageBoxResult.No);
         if (answer != System.Windows.MessageBoxResult.Yes) return;
 
-        Patterns.Remove(row);
-        SelectedPatternRow = null;
+        // Если это встроенный паттерн — сохраняем «могильник» (tombstone) с Enabled=false и спец. именем,
+        // чтобы SemanticPatternStore.Load() исключил его при слиянии.
+        if (isEmbedded)
+        {
+            var tombstone = row.Pattern with { Enabled = false, Name = "[DELETED] " + row.Name };
+            var tombstoneRow = new PatternRowVM(tombstone, SavePatternFlags);
+            var idx = Patterns.IndexOf(row);
+            Patterns[idx] = tombstoneRow;
+            SelectedPatternRow = null;
+        }
+        else
+        {
+            Patterns.Remove(row);
+            SelectedPatternRow = null;
+        }
         PersistAll();
     }
 
@@ -695,8 +937,6 @@ public sealed class AdvancedSearchViewModel : ObservableObject
                 "Семантические паттерны");
         }
     }
-
-    private void ReloadPatterns() => LoadPatterns();
 
     private void ResetToEmbedded()
     {
