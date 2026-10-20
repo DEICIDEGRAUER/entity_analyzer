@@ -6,6 +6,7 @@ using EntityAnalyzer.App.Services;
 using EntityAnalyzer.Core.Analysis;
 using EntityAnalyzer.Core.Configuration;
 using EntityAnalyzer.Core.Persistence;
+using EntityAnalyzer.Core.Text;
 using EntityAnalyzer.Core.Variants;
 using Microsoft.Win32;
 
@@ -72,6 +73,18 @@ public sealed class MainViewModel : ObservableObject
     {
         if (direction > 0) Zoom += 0.1;
         else if (direction < 0) Zoom -= 0.1;
+    }
+
+    /// <summary>R1-7: ключи недавно выполненных команд — новые сверху.</summary>
+    public IReadOnlyList<string> RecentPaletteCommands =>
+        _settings.RecentPaletteCommands ?? [];
+
+    /// <summary>Запомнить выполненную команду палитры и сохранить настройки.</summary>
+    public void RememberPaletteCommand(string key)
+    {
+        _settings.RecentPaletteCommands = RecentCommandHistory.Touch(
+            _settings.RecentPaletteCommands, key);
+        SettingsService.Save(_settings);
     }
 
     private void RestoreZoom(AppSettings settings) => _zoom = Math.Clamp(settings.UiZoom, 0.8, 1.6);

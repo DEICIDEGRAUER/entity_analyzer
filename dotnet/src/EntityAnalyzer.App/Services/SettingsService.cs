@@ -66,6 +66,9 @@ public sealed class AppSettings
     // UX: недавние исследования .eaproj — продолжить работу одним кликом.
     public List<string> RecentProjects { get; set; } = [];
 
+    // R1-7: недавно выполненные команды палитры (устойчивые ключи, новые сверху).
+    public List<string> RecentPaletteCommands { get; set; } = [];
+
     // Кэш (страница «Обзор» → раздел «КЭШ»): жизненный цикл + L2.
     public bool CacheEnabled { get; set; } = true;
     public int CacheMaxAgeDays { get; set; } = 30;

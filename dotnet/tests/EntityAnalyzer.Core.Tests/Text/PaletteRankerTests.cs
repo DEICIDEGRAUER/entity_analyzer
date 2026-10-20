@@ -67,6 +67,58 @@ public class PaletteRankerTests
     }
 
     [Fact]
+    public void Recent_keys_move_items_to_front_in_history_order()
+    {
+        Candidate[] items =
+        [
+            new("Обзор", "Обзор"),
+            new("Кодекс", "Кодекс"),
+            new("Отчёты", "Отчёты"),
+        ];
+
+        var ordered = PaletteRanker.OrderByRecent(
+            items, item => item.Title, ["Отчёты", "Обзор"]);
+
+        Assert.Equal(["Отчёты", "Обзор", "Кодекс"], ordered.Select(item => item.Title));
+    }
+
+    [Fact]
+    public void Unknown_recent_keys_are_ignored_and_other_order_is_preserved()
+    {
+        Candidate[] items =
+        [
+            new("Обзор", "Обзор"),
+            new("Кодекс", "Кодекс"),
+            new("Отчёты", "Отчёты"),
+        ];
+
+        var ordered = PaletteRanker.OrderByRecent(
+            items, item => item.Title, ["удалённый ключ", "Отчёты"]);
+
+        Assert.Equal(["Отчёты", "Обзор", "Кодекс"], ordered.Select(item => item.Title));
+    }
+
+    [Fact]
+    public void Recent_keys_are_case_insensitive()
+    {
+        Candidate[] items = [new("Отчёты", "Отчёты"), new("Обзор", "Обзор")];
+
+        var ordered = PaletteRanker.OrderByRecent(
+            items, item => item.Title, ["ОТЧЁТЫ"]);
+
+        Assert.Equal("Отчёты", ordered[0].Title);
+    }
+
+    [Fact]
+    public void Empty_recent_history_keeps_source_order()
+    {
+        Candidate[] items = [new("Обзор", "Обзор"), new("Кодекс", "Кодекс")];
+
+        Assert.Same(items, PaletteRanker.OrderByRecent(items, item => item.Title, []));
+        Assert.Same(items, PaletteRanker.OrderByRecent(items, item => item.Title, null));
+    }
+
+    [Fact]
     public void Nonempty_query_limits_to_200_after_ranking()
     {
         var items = Enumerable.Range(0, 205)

@@ -32,6 +32,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The command palette now shows a localized empty state and a live result
   count, labels its search field and result list for UIA, and restores keyboard
   focus after closing without executing a command.
+- The palette footer has an explicit «Выполнить» button with a UIA name for
+  mouse, touch, and screen-reader users; Enter remains the keyboard shortcut.
+- The command palette remembers the eight most recent commands in
+  `settings.json` and shows them first when the query is empty. Keys are stable
+  for pages, codex cards, quotes, reports, files, and mentions.
 - The results filter can now select unreviewed, confirmed, rejected, or
   uncertain mentions by verdict; a changed verdict immediately removes rows
   that no longer match the active filter. Bulk verdict actions and undo rebuild
@@ -40,15 +45,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The CI culture matrix now forces English dotnet CLI output, reports exact
   passed/failed/total counts for every culture, restores its environment in a
   `finally` block, and prints a summary table.
-- README updated to the current 818-test baseline.
+- README updated to the current 827-test baseline.
 
 ### Verified
-- 818/818 Core tests, including palette ranking (title priority, context
-  fallback, long alias lists, 200-item limit, duplicate search text) and
-  verdict filtering for review modes.
+- 827/827 Core tests, including palette ranking (title priority, context
+  fallback, long alias lists, 200-item limit, duplicate search text), recent
+  ordering, command history, and verdict filtering for review modes.
 - `verify.ps1 -WithGuiSmoke`: build, tests, GUI/CLI publish, CLI smoke with an
   explicit `<output>/.cache` location check, performance gate, GUI smoke
-  (including the palette empty state, ranking, and focus return), and
+  (including the palette empty state, ranking, execute button, and focus return), and
   real-profile-untouched check.
 - Isolated GUI smokes: bulk verdict undo, recent-project pruning.
 

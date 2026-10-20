@@ -22,6 +22,38 @@ public interface IPaletteSearchItem
 public static class PaletteRanker
 {
     /// <summary>
+    /// Поднять недавние элементы наверх в порядке истории. Неизвестные ключи
+    /// игнорируются, остальные элементы сохраняют исходный порядок. Сравнение
+    /// ключей — без учёта регистра, чтобы пути Windows не дублировались.
+    /// </summary>
+    public static IReadOnlyList<T> OrderByRecent<T>(
+        IReadOnlyList<T> items,
+        Func<T, string?> keySelector,
+        IReadOnlyList<string>? recentKeys)
+    {
+        ArgumentNullException.ThrowIfNull(items);
+        ArgumentNullException.ThrowIfNull(keySelector);
+        if (recentKeys is not { Count: > 0 }) return items;
+
+        var rank = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < recentKeys.Count; i++)
+        {
+            if (!string.IsNullOrWhiteSpace(recentKeys[i]))
+                rank.TryAdd(recentKeys[i], i);
+        }
+        if (rank.Count == 0) return items;
+
+        // OrderBy стабилен: недавние идут по свежести, остальные — как пришли.
+        return
+        [
+            .. items.OrderBy(item =>
+                rank.TryGetValue(keySelector(item) ?? "", out var index)
+                    ? index
+                    : recentKeys.Count)
+        ];
+    }
+
+    /// <summary>
     /// Возвращает элементы в порядке палитры. Пустой запрос сохраняет
     /// исходный порядок без ограничения; непустой — не более
     /// <paramref name="limit"/> лучших совпадений.

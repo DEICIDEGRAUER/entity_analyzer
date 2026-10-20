@@ -21,8 +21,12 @@ public partial class PaletteWindow : Window
         Action Run,
         string Kind = "команда",
         string Keywords = "",
-        int Priority = 0) : IPaletteSearchItem
+        int Priority = 0,
+        string? Id = null) : IPaletteSearchItem
     {
+        /// <summary>Устойчивый ключ для истории недавних команд.</summary>
+        public string Key => Id ?? $"{Kind}|{Title}|{Hint}";
+
         public string SearchText => $"{Title} {Hint} {Keywords}";
     }
 
@@ -32,10 +36,16 @@ public partial class PaletteWindow : Window
     /// <summary>Признак того, что пользователь выполнил команду, а не просто закрыл палитру.</summary>
     public bool Executed { get; private set; }
 
-    public PaletteWindow(IEnumerable<PaletteCommand> commands)
+    /// <summary>Ключ выполненной команды — для истории недавних.</summary>
+    public string? LastExecutedKey { get; private set; }
+
+    public PaletteWindow(
+        IEnumerable<PaletteCommand> commands,
+        IReadOnlyList<string>? recentKeys = null)
     {
         InitializeComponent();
-        _all = [.. commands];
+        var all = commands.ToList();
+        _all = [.. PaletteRanker.OrderByRecent(all, c => c.Key, recentKeys)];
         ApplyFilter("");
         Loaded += (_, _) => { QueryBox.Focus(); QueryBox.SelectAll(); };
     }
@@ -54,6 +64,7 @@ public partial class PaletteWindow : Window
 
         ResultList.ItemsSource = _current;
         EmptyState.Visibility = _current.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        ExecuteButton.IsEnabled = _current.Count > 0;
         ResultStatus.Text = $"Найдено: {_current.Count}";
         if (ResultList.Items.Count > 0) ResultList.SelectedIndex = 0;
     }
@@ -61,6 +72,7 @@ public partial class PaletteWindow : Window
     private void Execute(PaletteCommand? command)
     {
         if (command is null) return;
+        LastExecutedKey = command.Key;
         Executed = true;
         Close();
         command.Run();
@@ -98,6 +110,9 @@ public partial class PaletteWindow : Window
         if (ResultList.SelectedItem is PaletteCommand cmd && IsMouseOverSelectedItem())
             Execute(cmd);
     }
+
+    private void ExecuteSelected_Click(object sender, RoutedEventArgs e) =>
+        Execute(ResultList.SelectedItem as PaletteCommand);
 
     private bool IsMouseOverSelectedItem() => ResultList.SelectedIndex >= 0;
 

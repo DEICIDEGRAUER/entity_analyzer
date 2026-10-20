@@ -35,6 +35,16 @@ function Get-MainWindow([int]$procId) {
     $cond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ProcessIdProperty, $procId)
     return $root.FindFirst([System.Windows.Automation.TreeScope]::Children, $cond)
 }
+function Find-Palette([int]$procId) {
+    $procCond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ProcessIdProperty, $procId)
+    $titleCond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "Поиск и команды")
+    $andCond = New-Object System.Windows.Automation.AndCondition($procCond, $titleCond)
+    # Owned modal windows are not always direct children of the UIA root.
+    foreach ($w in [System.Windows.Automation.AutomationElement]::RootElement.FindAll([System.Windows.Automation.TreeScope]::Descendants, $andCond)) {
+        if ($w.Current.ControlType -eq [System.Windows.Automation.ControlType]::Window) { return $w }
+    }
+    return $null
+}
 function Get-AllOf($win, $type) {
     $cond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, $type)
     return @($win.FindAll([System.Windows.Automation.TreeScope]::Descendants, $cond) | ForEach-Object { $_ })
@@ -246,18 +256,9 @@ Start-Sleep -Milliseconds 200
 if (-not (Invoke-One $paletteButton)) { Fail "palette button has no invoke pattern" }
 Start-Sleep -Seconds 3
 
-$palette = $null
-$procCond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ProcessIdProperty, $p.Id)
-$titleCond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "Поиск и команды")
-$andCond = New-Object System.Windows.Automation.AndCondition($procCond, $titleCond)
-# Owned modal windows are not always direct children of the UIA root.
-$paletteMatches = @([System.Windows.Automation.AutomationElement]::RootElement.FindAll([System.Windows.Automation.TreeScope]::Descendants, $andCond))
-foreach ($w in $paletteMatches) {
-    if ($w.Current.ControlType -eq [System.Windows.Automation.ControlType]::Window) { $palette = $w; break }
-}
+$palette = Find-Palette $p.Id
 if (-not $palette) {
-    $windowNames = ($paletteMatches | ForEach-Object { $_.Current.ControlType.ProgrammaticName + ":" + $_.Current.Name }) -join "; "
-    Fail ("command palette did not open; matches=" + $windowNames)
+    Fail "command palette did not open"
 }
 
 $queryBox = $null
@@ -289,6 +290,9 @@ if ($paletteItems[0].Current.Name -notlike "Кодекс · Наг*") {
     Fail ("palette top item=" + $paletteItems[0].Current.Name)
 }
 Write-Output "OK palette ranks codex first"
+$executeButton = Find-Button $palette "Выполнить выбранную команду"
+if (-not $executeButton -or -not $executeButton.Current.IsEnabled) { Fail "palette execute button missing or disabled" }
+Write-Output "OK palette execute button"
 
 $palettePattern = $null
 if ($palette.TryGetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern, [ref]$palettePattern)) {

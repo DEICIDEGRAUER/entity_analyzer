@@ -113,7 +113,8 @@ public partial class MainWindow : Window
                 },
                 "кодекс",
                 $"{card.Canonical} {string.Join(' ', card.Aliases)} {string.Join(' ', card.Tags)}",
-                Priority: 40));
+                Priority: 40,
+                Id: $"codex:{cardName}"));
         }
 
         // Цитатник — тоже данные, а не только страница: по звёздочке можно
@@ -132,7 +133,8 @@ public partial class MainWindow : Window
                 },
                 "цитата",
                 row.Context,
-                Priority: 20));
+                Priority: 20,
+                Id: $"quote:{row.Rec.Key}"));
         }
 
         // Отчёты: быстрый доступ к уже сгенерированным файлам.
@@ -151,7 +153,8 @@ public partial class MainWindow : Window
                 },
                 "отчёт",
                 node.FullPath,
-                Priority: 5));
+                Priority: 5,
+                Id: $"report:{node.FullPath}"));
         }
 
         if (vm.Session is { } session)
@@ -171,7 +174,8 @@ public partial class MainWindow : Window
                         vm.Results.IsolateFileByPath(filePath);
                     },
                     "файл",
-                    file.FileName));
+                    file.FileName,
+                    Id: $"file:{file.FullPath}"));
 
                 foreach (var mention in file.Mentions)
                 {
@@ -186,13 +190,16 @@ public partial class MainWindow : Window
                         },
                         "упоминание",
                         $"{m.Variant} {m.Theme} {m.Context}",
-                        Priority: 35));
+                        Priority: 35,
+                        Id: $"mention:{file.FullPath}:{m.Offset}:{m.Line}:{m.Variant}"));
                 }
             }
         }
 
-        var win = new PaletteWindow(commands) { Owner = this };
+        var win = new PaletteWindow(commands, vm.RecentPaletteCommands) { Owner = this };
         win.ShowDialog();
+        if (win.Executed && win.LastExecutedKey is { } executedKey)
+            vm.RememberPaletteCommand(executedKey);
         // Возвращаем фокус туда, откуда палитру открыли, если команда не
         // сменила страницу. Это важно для клавиатуры и экранных дикторов.
         if (!win.Executed
