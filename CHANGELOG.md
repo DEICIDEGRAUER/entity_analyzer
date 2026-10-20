@@ -34,8 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   focus after closing without executing a command.
 - The results filter can now select unreviewed, confirmed, rejected, or
   uncertain mentions by verdict; a changed verdict immediately removes rows
-  that no longer match the active filter. The review progress text is a polite
-  live region, and the filter toolbar wraps on narrow windows.
+  that no longer match the active filter. Bulk verdict actions and undo rebuild
+  the visible selection in every verdict mode, and the review progress text is
+  a polite live region. The filter toolbar wraps on narrow windows.
 - README updated to the current 818-test baseline.
 
 ### Verified

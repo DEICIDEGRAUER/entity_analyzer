@@ -783,7 +783,7 @@ public sealed class ResultsViewModel : ObservableObject
             SelectedMention = candidate;
             return;
         }
-        _main.StatusText = $"Все цитаты в выборке проверены · {ReviewProgressText}";
+        _main.StatusText = $"Нет непроверенных цитат в выборке · {ReviewProgressText}";
     }
 
     private void UndoLastVerdict()
@@ -826,7 +826,11 @@ public sealed class ResultsViewModel : ObservableObject
                 SelectedFile = focus.File;
             else
                 ReloadSelectedFileMentions();
-            SelectedMention = focus.Mention;
+            // После отмены карточка может не проходить активный фильтр
+            // (например, снят вердикт в выборке «Подтверждённые»).
+            SelectedMention = Mentions.Contains(focus.Mention)
+                ? focus.Mention
+                : Mentions.FirstOrDefault();
             if (undo.Items.Count == 1)
             {
                 _main.StatusText = focus.Previous is null
@@ -889,7 +893,7 @@ public sealed class ResultsViewModel : ObservableObject
         foreach (var m in targets) m.Verdict = kind;
         _main.StatusText = $"Массовый вердикт «{VerdictName(kind)}»: {targets.Count} цитат";
         Log.Info("verdicts", "bulk {0}: {1} цитат в {2}", kind, targets.Count, file.FileName);
-        if (SelectedMode == "Непроверенные")
+        if (VerdictFilter.IsVerdictMode(SelectedMode))
         {
             ReloadSelectedFileMentions();
             SelectedMention = Mentions.FirstOrDefault();
