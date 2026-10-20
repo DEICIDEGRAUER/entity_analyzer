@@ -29,6 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and the 200-result limit/duplicate handling are unchanged.
 - The rail now has a visible “Поиск и команды” button with a UIA name, so the
   palette is discoverable without knowing `Ctrl+K`.
+- The command palette now shows a localized empty state and a live result
+  count, labels its search field and result list for UIA, and restores keyboard
+  focus after closing without executing a command.
 - README updated to the current 815-test baseline.
 
 ### Verified
@@ -36,7 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fallback, long alias lists, 200-item limit, duplicate search text).
 - `verify.ps1 -WithGuiSmoke`: build, tests, GUI/CLI publish, CLI smoke with an
   explicit `<output>/.cache` location check, performance gate, GUI smoke
-  (including the command palette), and real-profile-untouched check.
+  (including the palette empty state, ranking, and focus return), and
+  real-profile-untouched check.
 - Isolated GUI smokes: bulk verdict undo, recent-project pruning.
 
 ## [18.1.0] - 2026-08-29

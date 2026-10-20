@@ -21,12 +21,15 @@
                      TextChanged="QueryBox_TextChanged"
                      KeyDown="QueryBox_KeyDown"
                      AutomationProperties.Name="Поиск по командам и данным"
+                     AutomationProperties.HelpText="Введите команду, сущность, вариант или имя файла"
                      ToolTip="Введите команду, сущность, вариант или имя файла (Ctrl+K)"/>
         </StackPanel>
 
         <ListBox Grid.Row="1" x:Name="ResultList" Margin="0,12,0,0"
                  MouseLeftButtonDown="ResultList_Click"
-                 KeyDown="QueryBox_KeyDown">
+                 KeyDown="QueryBox_KeyDown"
+                 AutomationProperties.Name="Результаты поиска"
+                 AutomationProperties.HelpText="Стрелки — выбор, Enter — выполнить">
             <ListBox.ItemContainerStyle>
                 <Style TargetType="ListBoxItem">
                     <!-- Для экранных дикторов: иначе UIA отдаёт ToString() записи,
@@ -52,7 +55,24 @@
             </ListBox.ItemTemplate>
         </ListBox>
 
-        <TextBlock Grid.Row="2" Style="{DynamicResource MetaStyle}" Margin="0,10,0,0"
-                   Text="↑↓ — выбор · Enter — выполнить · Esc — закрыть · Ctrl+K — открыть"/>
+        <TextBlock x:Name="EmptyState" Grid.Row="1"
+                   Text="Ничего не найдено — измените запрос."
+                   Style="{DynamicResource MetaStyle}"
+                   Foreground="{DynamicResource BrushTextSecondary}"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                   TextWrapping="Wrap" IsHitTestVisible="False" Visibility="Collapsed"
+                   AutomationProperties.Name="Ничего не найдено — измените запрос"
+                   AutomationProperties.LiveSetting="Polite"/>
+
+        <Grid Grid.Row="2" Margin="0,10,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="ResultStatus" Style="{DynamicResource MetaStyle}"
+                       AutomationProperties.LiveSetting="Polite"/>
+            <TextBlock Grid.Column="1" Style="{DynamicResource MetaStyle}" Margin="16,0,0,0"
+                       Text="↑↓ — выбор · Enter — выполнить · Esc — закрыть · Ctrl+K — открыть"/>
+        </Grid>
     </Grid>
 </Window>

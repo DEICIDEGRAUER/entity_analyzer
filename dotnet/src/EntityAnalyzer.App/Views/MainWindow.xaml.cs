@@ -69,6 +69,7 @@ public partial class MainWindow : Window
     /// <summary>R1-7: палитра команд — навигация и ключевые действия.</summary>
     private void OpenPalette(MainViewModel vm)
     {
+        var previousFocus = System.Windows.Input.Keyboard.FocusedElement;
         var commands = new List<PaletteWindow.PaletteCommand>
         {
             new("Обзор", "страница", () => vm.Navigate(vm.Dashboard), "страница", Priority: 10),
@@ -192,6 +193,11 @@ public partial class MainWindow : Window
 
         var win = new PaletteWindow(commands) { Owner = this };
         win.ShowDialog();
+        // Возвращаем фокус туда, откуда палитру открыли, если команда не
+        // сменила страницу. Это важно для клавиатуры и экранных дикторов.
+        if (!win.Executed
+            && previousFocus is UIElement { IsVisible: true, IsEnabled: true } target)
+            System.Windows.Input.Keyboard.Focus(target);
     }
 
     private static IEnumerable<ReportNode> FlattenReports(IEnumerable<ReportNode> nodes)

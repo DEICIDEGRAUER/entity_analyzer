@@ -29,6 +29,9 @@ public partial class PaletteWindow : Window
     private readonly List<PaletteCommand> _all;
     private List<PaletteCommand> _current = [];
 
+    /// <summary>Признак того, что пользователь выполнил команду, а не просто закрыл палитру.</summary>
+    public bool Executed { get; private set; }
+
     public PaletteWindow(IEnumerable<PaletteCommand> commands)
     {
         InitializeComponent();
@@ -50,12 +53,15 @@ public partial class PaletteWindow : Window
         }
 
         ResultList.ItemsSource = _current;
+        EmptyState.Visibility = _current.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        ResultStatus.Text = $"Найдено: {_current.Count}";
         if (ResultList.Items.Count > 0) ResultList.SelectedIndex = 0;
     }
 
     private void Execute(PaletteCommand? command)
     {
         if (command is null) return;
+        Executed = true;
         Close();
         command.Run();
     }

@@ -217,6 +217,8 @@ Write-Output "OK world page renders"
 $paletteButton = Find-Button $win "Поиск и команды"
 if (-not $paletteButton) { Fail "palette button missing" }
 Write-Output ("palette button: " + $paletteButton.Current.Name)
+$paletteButton.SetFocus()
+Start-Sleep -Milliseconds 200
 if (-not (Invoke-One $paletteButton)) { Fail "palette button has no invoke pattern" }
 Start-Sleep -Seconds 3
 
@@ -239,6 +241,15 @@ foreach ($e in (Get-AllOf $palette ([System.Windows.Automation.ControlType]::Edi
     if ($e.Current.Name -eq "Поиск по командам и данным") { $queryBox = $e; break }
 }
 if (-not $queryBox) { Fail "palette search box missing" }
+if (-not (Set-Text $queryBox "zzzzqqq")) { Fail "palette search box is not editable" }
+Start-Sleep -Milliseconds 700
+
+$emptyItems = Get-AllOf $palette ([System.Windows.Automation.ControlType]::ListItem)
+if ($emptyItems.Count -ne 0) { Fail ("palette should be empty; items=" + $emptyItems.Count) }
+if (-not (Find-Text $palette "Ничего не найдено")) { Fail "palette empty state missing" }
+if (-not (Find-Text $palette "Найдено: 0")) { Fail "palette empty status missing" }
+Write-Output "OK palette empty state"
+
 if (-not (Set-Text $queryBox "наг")) { Fail "palette search box is not editable" }
 Start-Sleep -Milliseconds 700
 
@@ -249,6 +260,7 @@ if ($paletteItems.Count -eq 0) {
     if ($queryBox.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]$vp)) { $value = $vp.Current.Value }
     Fail ("palette returned no matches; value=" + $value)
 }
+if (Find-Text $palette "Ничего не найдено") { Fail "palette empty state stuck after matches" }
 if ($paletteItems[0].Current.Name -notlike "Кодекс · Наг*") {
     Fail ("palette top item=" + $paletteItems[0].Current.Name)
 }
@@ -258,7 +270,12 @@ $palettePattern = $null
 if ($palette.TryGetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern, [ref]$palettePattern)) {
     $palettePattern.Close()
 }
-Start-Sleep -Milliseconds 300
+Start-Sleep -Milliseconds 500
+$paletteButtonAfter = Find-Button $win "Поиск и команды"
+if (-not $paletteButtonAfter -or -not $paletteButtonAfter.Current.HasKeyboardFocus) {
+    Fail "palette did not restore focus to opener"
+}
+Write-Output "OK palette restores focus"
 
 Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
 Write-Output "SMOKE V13 PASSED"
