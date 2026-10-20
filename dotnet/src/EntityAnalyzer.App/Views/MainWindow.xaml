@@ -89,6 +89,16 @@
                     </DockPanel>
                     <TextBlock Text="поиск сущностей в корпусе"
                                Style="{DynamicResource MetaStyle}" Margin="0,8,0,0"/>
+                    <!-- R1-7: палитра не должна быть секретом для тех, кто не знает Ctrl+K. -->
+                    <Button x:Name="OpenPaletteButton" Style="{DynamicResource GhostButtonStyle}"
+                            Click="OpenPalette_Click" HorizontalAlignment="Left"
+                            Margin="0,14,0,0" Padding="0,4"
+                            AutomationProperties.Name="Поиск и команды"
+                            ToolTip="Открыть палитру команд (Ctrl+K)">
+                        <TextBlock Text="⌕ ПОИСК И КОМАНДЫ"
+                                   Style="{DynamicResource SectionHeaderStyle}"
+                                   Foreground="{DynamicResource BrushTextSecondary}"/>
+                    </Button>
                 </StackPanel>
 
                 <StackPanel DockPanel.Dock="Bottom" Margin="24,16">

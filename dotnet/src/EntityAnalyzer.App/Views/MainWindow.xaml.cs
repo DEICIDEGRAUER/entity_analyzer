@@ -61,6 +61,11 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OpenPalette_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm) OpenPalette(vm);
+    }
+
     /// <summary>R1-7: палитра команд — навигация и ключевые действия.</summary>
     private void OpenPalette(MainViewModel vm)
     {

@@ -126,12 +126,19 @@ $sample = Join-Path $tmpCorpus "sample.txt"
 $tmpOut = Join-Path $tmpCorpus "_out"
 $cliExe = Join-Path $root "publish-cli\EntityAnalyzer.Cli.exe"
 $cliArgs = @('--corpus', $tmpCorpus, '--out', $tmpOut, '--preset', 'light')
-$code = Run-Detached $cliExe $cliArgs $root (Join-Path $scratch "verify_cli.log") (Join-Path $scratch "verify_cli.err.log")
+# Рабочий каталог намеренно отдельный: кэш обязан жить в <output>\.cache,
+# а не в текущем каталоге процесса (регрессия старого поведения).
+$cliWork = Join-Path $env:TEMP ("ea_verify_cwd_" + [guid]::NewGuid().ToString("N"))
+New-Item -ItemType Directory -Path $cliWork | Out-Null
+$code = Run-Detached $cliExe $cliArgs $cliWork (Join-Path $scratch "verify_cli.log") (Join-Path $scratch "verify_cli.err.log")
 $t.Stop()
 $reportExists = Test-Path (Join-Path $tmpOut "entities_report.txt")
-$ok = ($code -eq 0) -and $reportExists
-Add-Step "cli" $(if ($ok) { 0 } else { 4 }) "exit=$code; отчёт создан=$reportExists; корпус=$tmpCorpus" $t.Elapsed.TotalSeconds
+$cacheInOutput = Test-Path (Join-Path $tmpOut ".cache")
+$cacheInCwd = Test-Path (Join-Path $cliWork ".cache")
+$ok = ($code -eq 0) -and $reportExists -and $cacheInOutput -and (-not $cacheInCwd)
+Add-Step "cli" $(if ($ok) { 0 } else { 4 }) "exit=$code; отчёт создан=$reportExists; кэш в output=$cacheInOutput; кэш в cwd=$cacheInCwd; корпус=$tmpCorpus" $t.Elapsed.TotalSeconds
 try { Remove-Item $tmpCorpus -Recurse -Force } catch { }
+try { Remove-Item $cliWork -Recurse -Force } catch { }
 
 # ── 4b. Performance-gate (R1-14): замедление стадии > порога = провал ──
 # Эталон bench/baseline.json; при его отсутствии первый прогон фиксирует

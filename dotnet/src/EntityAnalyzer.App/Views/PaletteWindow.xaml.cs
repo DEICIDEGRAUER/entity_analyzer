@@ -7,7 +7,7 @@ namespace EntityAnalyzer.App.Views;
 
 /// <summary>
 /// R1-7 «Command Palette» (Ctrl+K): нечёткий поиск по командам приложения
-/// с выполнением выбранной. Ранжирование — FuzzyFilter из ядра.
+/// с выполнением выбранной. Ранжирование — PaletteRanker из ядра.
 /// </summary>
 public partial class PaletteWindow : Window
 {
@@ -21,7 +21,7 @@ public partial class PaletteWindow : Window
         Action Run,
         string Kind = "команда",
         string Keywords = "",
-        int Priority = 0)
+        int Priority = 0) : IPaletteSearchItem
     {
         public string SearchText => $"{Title} {Hint} {Keywords}";
     }
@@ -45,40 +45,8 @@ public partial class PaletteWindow : Window
         }
         else
         {
-            var q = query.Trim();
-            var texts = _all.Select(c => c.SearchText).ToList();
-            var ranked = FuzzyFilter.Rank(texts, q);
-            var used = new bool[_all.Count];
-            var scored = new List<(PaletteCommand Command, int Score, int Order, bool TitleMatch)>();
-            var order = 0;
-            foreach (var match in ranked)
-            {
-                for (var i = 0; i < texts.Count; i++)
-                {
-                    if (used[i] || texts[i] != match.Item) continue;
-                    used[i] = true;
-                    var command = _all[i];
-                    // Совпадение в заголовке важнее совпадения в длинном
-                    // контексте: иначе файлы с коротким путём вытесняют
-                    // упоминания сущности из первых 200 строк.
-                    var titleScore = FuzzyFilter.Score(command.Title, q);
-                    var titleMatch = titleScore > 0;
-                    var rankScore = titleMatch
-                        ? titleScore + command.Priority
-                        : match.Score;
-                    scored.Add((command, rankScore, order++, titleMatch));
-                    break;
-                }
-            }
-
-            _current = scored
-                .OrderByDescending(x => x.TitleMatch)
-                .ThenByDescending(x => x.Score)
-                .ThenBy(x => x.Command.Title, StringComparer.Ordinal)
-                .ThenBy(x => x.Order)
-                .Take(200) // палитра — быстрый переход, не отчёт
-                .Select(x => x.Command)
-                .ToList();
+            // 200 — палитра для быстрого перехода, а не полный отчёт.
+            _current = [.. PaletteRanker.Rank(_all, query, limit: 200)];
         }
 
         ResultList.ItemsSource = _current;

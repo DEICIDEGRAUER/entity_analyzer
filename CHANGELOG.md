@@ -16,16 +16,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `SkippedDuplicate`; a regression test covers the cold/warm pair.
 - Recent-project settings are pruned from missing or invalid paths at startup
   and after removal; invalid legacy entries can no longer break project opening.
+- The command palette no longer drops long codex cards. Their `SearchText`
+  contains hundreds of aliases, and the length penalty in `FuzzyFilter.Score`
+  made the context score negative; a title match is now considered even when
+  the full context does not score.
 
 ### Changed
 - Review and quote-book toolbars use `WrapPanel`, so controls wrap instead of
   being clipped on narrow windows.
-- README updated to the current 806-test baseline.
+- Command-palette ranking moved from the WPF window to
+  `Core/Text/PaletteRanker`; title matches still outrank context-only matches,
+  and the 200-result limit/duplicate handling are unchanged.
+- The rail now has a visible “Поиск и команды” button with a UIA name, so the
+  palette is discoverable without knowing `Ctrl+K`.
+- README updated to the current 815-test baseline.
 
 ### Verified
-- 806/806 Core tests.
-- `verify.ps1 -WithGuiSmoke`: build, tests, GUI/CLI publish, CLI smoke,
-  performance gate, GUI smoke, and real-profile-untouched check.
+- 815/815 Core tests, including palette ranking (title priority, context
+  fallback, long alias lists, 200-item limit, duplicate search text).
+- `verify.ps1 -WithGuiSmoke`: build, tests, GUI/CLI publish, CLI smoke with an
+  explicit `<output>/.cache` location check, performance gate, GUI smoke
+  (including the command palette), and real-profile-untouched check.
 - Isolated GUI smokes: bulk verdict undo, recent-project pruning.
 
 ## [18.1.0] - 2026-08-29

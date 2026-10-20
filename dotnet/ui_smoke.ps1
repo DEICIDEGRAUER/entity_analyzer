@@ -41,7 +41,8 @@ function Get-AllOf($win, $type) {
 }
 function Invoke-One($el) {
     $pat = $null
-    if ($el.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$pat)) { $pat.Invoke() }
+    if ($el.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$pat)) { $pat.Invoke(); return $true }
+    return $false
 }
 function Select-Radio($win, [int]$idx) {
     $radios = Get-AllOf $win ([System.Windows.Automation.ControlType]::RadioButton)
@@ -108,7 +109,7 @@ Write-Output "OK Наг и Йеб in gallery"
 # 3 ── создать карточку и применить
 $addBtn = Find-Button $win "Новая карточка"
 if (-not $addBtn) { Fail "no add button" }
-Invoke-One $addBtn
+[void](Invoke-One $addBtn)
 Start-Sleep -Milliseconds 2000
 
 # найти редактор имени (Edit со значением «Новая карточка …»)
@@ -125,7 +126,7 @@ Start-Sleep -Milliseconds 500
 
 $applyBtn = Find-Button $win "Применить"
 if (-not $applyBtn) { Fail "apply button missing" }
-Invoke-One $applyBtn
+[void](Invoke-One $applyBtn)
 Start-Sleep -Seconds 3
 
 if (-not (Find-Text $win "Тестовая Карточка")) { Fail "card not created" }
@@ -148,7 +149,7 @@ $r1 = Select-ComboItem $tabCombos[0] "Наг и Йеб"
 $r2 = Select-ComboItem $tabCombos[1] "владеет"
 $linkBtn = Find-Button $win "Связать"
 if (-not $linkBtn) { Fail "link button missing" }
-Invoke-One $linkBtn
+[void](Invoke-One $linkBtn)
 Start-Sleep -Milliseconds 1200
 
 $linkOk = $false
@@ -211,6 +212,53 @@ $worldTabs = @{}
 foreach ($tb in (Get-AllOf $win ([System.Windows.Automation.ControlType]::TabItem))) { $worldTabs[$tb.Current.Name] = $true }
 if (-not ($worldTabs.ContainsKey("Древо") -and $worldTabs.ContainsKey("Иерархия") -and $worldTabs.ContainsKey("Хронология") -and $worldTabs.ContainsKey("География"))) { Fail "world tabs missing" }
 Write-Output "OK world page renders"
+
+# 11 ── Командная палитра: доступная кнопка, поиск карточки кодекса, UIA-имена строк
+$paletteButton = Find-Button $win "Поиск и команды"
+if (-not $paletteButton) { Fail "palette button missing" }
+Write-Output ("palette button: " + $paletteButton.Current.Name)
+if (-not (Invoke-One $paletteButton)) { Fail "palette button has no invoke pattern" }
+Start-Sleep -Seconds 3
+
+$palette = $null
+$procCond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ProcessIdProperty, $p.Id)
+$titleCond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "Поиск и команды")
+$andCond = New-Object System.Windows.Automation.AndCondition($procCond, $titleCond)
+# Owned modal windows are not always direct children of the UIA root.
+$paletteMatches = @([System.Windows.Automation.AutomationElement]::RootElement.FindAll([System.Windows.Automation.TreeScope]::Descendants, $andCond))
+foreach ($w in $paletteMatches) {
+    if ($w.Current.ControlType -eq [System.Windows.Automation.ControlType]::Window) { $palette = $w; break }
+}
+if (-not $palette) {
+    $windowNames = ($paletteMatches | ForEach-Object { $_.Current.ControlType.ProgrammaticName + ":" + $_.Current.Name }) -join "; "
+    Fail ("command palette did not open; matches=" + $windowNames)
+}
+
+$queryBox = $null
+foreach ($e in (Get-AllOf $palette ([System.Windows.Automation.ControlType]::Edit))) {
+    if ($e.Current.Name -eq "Поиск по командам и данным") { $queryBox = $e; break }
+}
+if (-not $queryBox) { Fail "palette search box missing" }
+if (-not (Set-Text $queryBox "наг")) { Fail "palette search box is not editable" }
+Start-Sleep -Milliseconds 700
+
+$paletteItems = Get-AllOf $palette ([System.Windows.Automation.ControlType]::ListItem)
+if ($paletteItems.Count -eq 0) {
+    $value = $null
+    $vp = $null
+    if ($queryBox.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]$vp)) { $value = $vp.Current.Value }
+    Fail ("palette returned no matches; value=" + $value)
+}
+if ($paletteItems[0].Current.Name -notlike "Кодекс · Наг*") {
+    Fail ("palette top item=" + $paletteItems[0].Current.Name)
+}
+Write-Output "OK palette ranks codex first"
+
+$palettePattern = $null
+if ($palette.TryGetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern, [ref]$palettePattern)) {
+    $palettePattern.Close()
+}
+Start-Sleep -Milliseconds 300
 
 Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
 Write-Output "SMOKE V13 PASSED"
