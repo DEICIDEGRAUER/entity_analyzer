@@ -32,11 +32,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The command palette now shows a localized empty state and a live result
   count, labels its search field and result list for UIA, and restores keyboard
   focus after closing without executing a command.
-- README updated to the current 815-test baseline.
+- The results filter can now select unreviewed, confirmed, rejected, or
+  uncertain mentions by verdict; the review progress text is a polite live
+  region, and the filter toolbar wraps on narrow windows.
+- README updated to the current 817-test baseline.
 
 ### Verified
-- 815/815 Core tests, including palette ranking (title priority, context
-  fallback, long alias lists, 200-item limit, duplicate search text).
+- 817/817 Core tests, including palette ranking (title priority, context
+  fallback, long alias lists, 200-item limit, duplicate search text) and
+  verdict filtering for review modes.
 - `verify.ps1 -WithGuiSmoke`: build, tests, GUI/CLI publish, CLI smoke with an
   explicit `<output>/.cache` location check, performance gate, GUI smoke
   (including the palette empty state, ranking, and focus return), and

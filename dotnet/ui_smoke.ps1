@@ -106,6 +106,30 @@ Select-Radio $win 2
 if (-not (Find-Text $win "Наг и Йеб")) { Fail "Наг и Йеб not in gallery" }
 Write-Output "OK Наг и Йеб in gallery"
 
+# 2b ── Результаты: доступный фильтр по вердиктам
+Select-Radio $win 1
+$modeBox = $null
+foreach ($cb in (Get-AllOf $win ([System.Windows.Automation.ControlType]::ComboBox))) {
+    if ($cb.Current.Name -eq "Фильтр цитат") { $modeBox = $cb; break }
+}
+if (-not $modeBox) { Fail "verdict filter combo missing" }
+$exp = $null
+if (-not $modeBox.TryGetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern, [ref]$exp)) {
+    Fail "verdict filter combo cannot expand"
+}
+$exp.Expand()
+Start-Sleep -Milliseconds 500
+$modes = @{}
+foreach ($it in (Get-AllOf $modeBox ([System.Windows.Automation.ControlType]::ListItem))) {
+    $modes[$it.Current.Name] = $true
+}
+$exp.Collapse()
+foreach ($mode in @("Непроверенные", "Подтверждённые", "Ложные", "Спорные")) {
+    if (-not $modes.ContainsKey($mode)) { Fail ("verdict filter missing: " + $mode) }
+}
+Write-Output "OK review verdict filters"
+
+Select-Radio $win 2
 # 3 ── создать карточку и применить
 $addBtn = Find-Button $win "Новая карточка"
 if (-not $addBtn) { Fail "no add button" }

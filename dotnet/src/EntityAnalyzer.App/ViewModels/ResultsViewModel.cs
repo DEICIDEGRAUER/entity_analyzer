@@ -139,10 +139,20 @@ public sealed class ResultsViewModel : ObservableObject
     /// <summary>Открыть исходный файл на выбранной находке.</summary>
     public RelayCommand OpenMentionSourceCommand { get; }
 
-    /// <summary>Режим фильтра упоминаний: все / непроверенные / точные / fuzzy / по теме.</summary>
-    public IReadOnlyList<string> FilterModes { get; } = ["Все", "Непроверенные", "Точные", "Fuzzy", "Тема…"];
+    /// <summary>Режим фильтра упоминаний: вердикт, точность совпадения или тема.</summary>
+    public IReadOnlyList<string> FilterModes { get; } =
+    [
+        VerdictFilter.All,
+        VerdictFilter.Unreviewed,
+        VerdictFilter.Confirmed,
+        VerdictFilter.Rejected,
+        VerdictFilter.Uncertain,
+        "Точные",
+        "Fuzzy",
+        "Тема…",
+    ];
 
-    private string _selectedMode = "Все";
+    private string _selectedMode = VerdictFilter.All;
     public string SelectedMode
     {
         get => _selectedMode;
@@ -476,7 +486,7 @@ public sealed class ResultsViewModel : ObservableObject
     /// <summary>Проходит ли упоминание сквозь фильтры поиска, режима, темы и сущности (R3-1).</summary>
     private bool MentionPasses(Mention m, string q)
     {
-        if (SelectedMode == "Непроверенные" && m.HasVerdict) return false;
+        if (!VerdictFilter.Matches(m.Verdict, SelectedMode)) return false;
         if (SelectedMode == "Точные" && m.IsFuzzy) return false;
         if (SelectedMode == "Fuzzy" && !m.IsFuzzy) return false;
         if (SelectedMode == "Тема…" && string.IsNullOrEmpty(m.Theme)) return false;

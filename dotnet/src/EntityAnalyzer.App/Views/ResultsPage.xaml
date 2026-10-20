@@ -58,16 +58,17 @@
                         </TextBlock.Style>
                     </TextBlock>
                 </Grid>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <WrapPanel Grid.Column="1" VerticalAlignment="Center">
                     <!-- UX: у фильтра появилась видимая подпись вместо безымянного комбобокса -->
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <TextBlock Text="ПОКАЗ" Style="{DynamicResource SectionHeaderStyle}"
                                    VerticalAlignment="Center" Margin="16,0,8,0"
-                                   ToolTip="Все — показанные цитаты; Точные — только точные совпадения вариантов; Fuzzy — найденные по опечаткам"/>
+                                   ToolTip="Все / без вердикта / подтверждённые / ложные / спорные; Точные и Fuzzy — по типу совпадения"/>
                         <ComboBox ItemsSource="{Binding FilterModes}" SelectedItem="{Binding SelectedMode}"
-                                  MinWidth="120" VerticalAlignment="Center"
+                                  MinWidth="140" VerticalAlignment="Center"
                                   AutomationProperties.Name="Фильтр цитат"
-                                  ToolTip="Фильтр упоминаний: все / только точные / только fuzzy"/>
+                                  AutomationProperties.HelpText="Фильтр по вердикту, точности совпадения или теме"
+                                  ToolTip="Фильтр упоминаний по вердикту, точности совпадения или теме"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <TextBlock Text="ТЕГ" Style="{DynamicResource SectionHeaderStyle}"
@@ -85,7 +86,7 @@
                     <Button Content="Полный текст файла" Style="{DynamicResource GhostButtonStyle}"
                             Command="{Binding OpenFullText}" VerticalAlignment="Center"
                             ToolTip="Открывает исходный файл ВЫБРАННОЙ цитаты с подчёркнутыми упоминаниями"/>
-                </StackPanel>
+                </WrapPanel>
             </Grid>
 
             <!-- R3-1 (item 52): фильтр по теме (словари с морфологией) и сущности -->
@@ -239,7 +240,8 @@
                             <TextBlock Text="{Binding ReviewProgressText}"
                                        Style="{DynamicResource MetaStyle}"
                                        Foreground="{DynamicResource BrushBranch2}"
-                                       VerticalAlignment="Center" Margin="12,0,0,0"/>
+                                       VerticalAlignment="Center" Margin="12,0,0,0"
+                                       AutomationProperties.LiveSetting="Polite"/>
                             <Button Content="✓ Все видимые"
                                     Style="{DynamicResource GhostButtonStyle}"
                                     FontSize="11" Margin="16,0,0,0"
@@ -345,16 +347,19 @@
                                             Margin="16,0,0,0"
                                             Command="{Binding DataContext.ConfirmMentionCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                             CommandParameter="{Binding}"
+                                            AutomationProperties.HelpText="Сохранить вердикт «подтверждено» и перейти к следующей цитате"
                                             ToolTip="Вердикт: находка корректна (Y) — сохраняется в вердикты"/>
                                     <Button Content="✗ ложное" Style="{DynamicResource GhostButtonStyle}" FontSize="11"
                                             Margin="8,0,0,0"
                                             Command="{Binding DataContext.RejectMentionCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                             CommandParameter="{Binding}"
+                                            AutomationProperties.HelpText="Сохранить вердикт «ложное срабатывание» и перейти к следующей цитате"
                                             ToolTip="Вердикт: ложное срабатывание (N) — сохраняется в вердикты"/>
                                     <Button Content="? спорно" Style="{DynamicResource GhostButtonStyle}" FontSize="11"
                                             Margin="8,0,0,0"
                                             Command="{Binding DataContext.UncertainMentionCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                             CommandParameter="{Binding}"
+                                            AutomationProperties.HelpText="Сохранить вердикт «спорно» и перейти к следующей цитате"
                                             ToolTip="Вердикт: требуется проверка (U) — сохраняется в вердикты"/>
                                     <!-- ⭐ Цитатник (Issue 26): звёздочка для отметки лучших цитат -->
                                     <Button Content="★" FontSize="14" FontWeight="Bold"
