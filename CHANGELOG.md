@@ -37,6 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that no longer match the active filter. Bulk verdict actions and undo rebuild
   the visible selection in every verdict mode, and the review progress text is
   a polite live region. The filter toolbar wraps on narrow windows.
+- The CI culture matrix now forces English dotnet CLI output, reports exact
+  passed/failed/total counts for every culture, restores its environment in a
+  `finally` block, and prints a summary table.
 - README updated to the current 818-test baseline.
 
 ### Verified
