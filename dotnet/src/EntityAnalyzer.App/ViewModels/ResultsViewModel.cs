@@ -740,9 +740,12 @@ public sealed class ResultsViewModel : ObservableObject
             _main.StatusText = $"{m.Entity}: {m.VerdictLabel} · {ReviewProgressText}";
             NotifyReviewProgress();
             if (advance) AdvanceToNextUnreviewed(m);
-            // В режиме «Непроверенные» отмеченная карточка должна исчезнуть
-            // сразу, а не после ручного переключения фильтра.
-            if (SelectedMode == "Непроверенные" && Mentions.Remove(m))
+            // В режиме вердикта карточка должна исчезнуть сразу, если новый
+            // вердикт больше не проходит фильтр (например, подтверждённая
+            // цитата в выборке «Ложные»), а не после ручного переключения.
+            if (VerdictFilter.IsVerdictMode(SelectedMode)
+                && !VerdictFilter.Matches(m.Verdict, SelectedMode)
+                && Mentions.Remove(m))
             {
                 if (ReferenceEquals(SelectedMention, m))
                     SelectedMention = Mentions.FirstOrDefault();

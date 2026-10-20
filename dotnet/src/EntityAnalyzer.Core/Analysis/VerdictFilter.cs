@@ -15,6 +15,10 @@ public static class VerdictFilter
     public const string Rejected = "Ложные";
     public const string Uncertain = "Спорные";
 
+    /// <summary>Режим ограничивает выборку именно вердиктом (не «Все» и не тип совпадения).</summary>
+    public static bool IsVerdictMode(string mode) =>
+        mode is Unreviewed or Confirmed or Rejected or Uncertain;
+
     /// <summary>
     /// Пропускает ли вердикт выбранный режим. Не-вердиктные режимы
     /// («Точные», «Fuzzy», «Тема…») не фильтруются здесь.

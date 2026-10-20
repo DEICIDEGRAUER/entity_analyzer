@@ -60,4 +60,19 @@ public class VerdictFilterTests
             Assert.True(VerdictFilter.Matches(VerdictKind.Uncertain, mode));
         }
     }
+
+    [Fact]
+    public void Only_verdict_modes_are_reported_as_verdict_modes()
+    {
+        Assert.True(VerdictFilter.IsVerdictMode(VerdictFilter.Unreviewed));
+        Assert.True(VerdictFilter.IsVerdictMode(VerdictFilter.Confirmed));
+        Assert.True(VerdictFilter.IsVerdictMode(VerdictFilter.Rejected));
+        Assert.True(VerdictFilter.IsVerdictMode(VerdictFilter.Uncertain));
+
+        Assert.False(VerdictFilter.IsVerdictMode(VerdictFilter.All));
+        Assert.False(VerdictFilter.IsVerdictMode("Точные"));
+        Assert.False(VerdictFilter.IsVerdictMode("Fuzzy"));
+        Assert.False(VerdictFilter.IsVerdictMode("Тема…"));
+        Assert.False(VerdictFilter.IsVerdictMode(""));
+    }
 }
