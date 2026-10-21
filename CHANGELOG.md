@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- The results page can jump to the next file with unreviewed mentions and
+  shows corpus-wide review progress. Navigation respects the current file
+  filters first; if they contain no work, it resets them and continues across
+  the whole corpus, switching the verdict filter to «Непроверенные».
+- Saved verdicts are restored for every mention when a session loads, using
+  SHA-256 from the incremental index when available, so the corpus counter and
+  the next-file action start from the same state as the per-file list.
+
 ### Fixed
 - Bulk verdicts are now undone as one action: `Ctrl+Z` restores the whole
   selection instead of only the last card. Batch storage uses a single
@@ -45,12 +54,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The CI culture matrix now forces English dotnet CLI output, reports exact
   passed/failed/total counts for every culture, restores its environment in a
   `finally` block, and prints a summary table.
-- README updated to the current 827-test baseline.
+- File hashes used by verdicts and stars are taken from the incremental index
+  before falling back to reading the file; the hash cache is cleared for every
+  new session.
+- README updated to the current 835-test baseline.
 
 ### Verified
-- 827/827 Core tests, including palette ranking (title priority, context
+- 835/835 Core tests, including palette ranking (title priority, context
   fallback, long alias lists, 200-item limit, duplicate search text), recent
   ordering, command history, and verdict filtering for review modes.
+- Review navigation and verdict restoration are covered by 8 focused tests.
+- Local CI culture matrix: 835/835 tests pass in ru-RU, en-US, and tr-TR.
 - `verify.ps1 -WithGuiSmoke`: build, tests, GUI/CLI publish, CLI smoke with an
   explicit `<output>/.cache` location check, performance gate, GUI smoke
   (including the palette empty state, ranking, execute button, and focus return), and

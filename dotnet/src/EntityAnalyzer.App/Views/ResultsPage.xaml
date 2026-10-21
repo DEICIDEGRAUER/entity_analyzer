@@ -242,6 +242,17 @@
                                        Foreground="{DynamicResource BrushBranch2}"
                                        VerticalAlignment="Center" Margin="12,0,0,0"
                                        AutomationProperties.LiveSetting="Polite"/>
+                            <TextBlock Text="{Binding CorpusReviewProgressText}"
+                                       Style="{DynamicResource MetaStyle}"
+                                       Foreground="{DynamicResource BrushTextSecondary}"
+                                       VerticalAlignment="Center" Margin="12,0,0,0"
+                                       ToolTip="Прогресс по всем файлам корпуса; учитываются сохранённые вердикты"/>
+                            <Button Content="Следующий файл →"
+                                    Style="{DynamicResource GhostButtonStyle}"
+                                    FontSize="11" Margin="16,0,0,0"
+                                    Command="{Binding NextUnreviewedFileCommand}"
+                                    AutomationProperties.Name="Следующий файл с непроверенными цитатами"
+                                    ToolTip="Перейти к следующему файлу с непроверенными цитатами; при необходимости включает режим «Непроверенные» и сбрасывает скрывающие фильтры"/>
                             <Button Content="✓ Все видимые"
                                     Style="{DynamicResource GhostButtonStyle}"
                                     FontSize="11" Margin="16,0,0,0"

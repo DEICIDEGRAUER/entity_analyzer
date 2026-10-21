@@ -87,6 +87,10 @@ public sealed class MainViewModel : ObservableObject
         SettingsService.Save(_settings);
     }
 
+    /// <summary>Хэш файла из инкрементального индекса текущего прогона.</summary>
+    internal bool TryGetIndexedHash(string fullPath, out string hash) =>
+        Dashboard.TryGetIndexedHash(fullPath, out hash);
+
     private void RestoreZoom(AppSettings settings) => _zoom = Math.Clamp(settings.UiZoom, 0.8, 1.6);
 
     private object _currentPage;
@@ -808,6 +812,40 @@ public sealed class DashboardViewModel : ObservableObject
 
     /// <summary>Каталог кэша: совпадает с движковым — &lt;выход&gt;\.cache.</summary>
     private string ResolveCacheDir() => Path.Combine(ResolveOutputDir(), ".cache");
+
+    private IncrementalIndexStore? _incrementalIndex;
+    private string _incrementalIndexDir = "";
+
+    /// <summary>
+    /// Хэш файла из инкрементального индекса текущего кэша. Индекс сам
+    /// проверяет размер и mtime, поэтому устаревшая запись не будет
+    /// использована после изменения файла.
+    /// </summary>
+    internal bool TryGetIndexedHash(string fullPath, out string hash)
+    {
+        var cacheDir = ResolveCacheDir();
+        if (!string.Equals(_incrementalIndexDir, cacheDir, StringComparison.OrdinalIgnoreCase))
+        {
+            _incrementalIndex = null;
+            _incrementalIndexDir = cacheDir;
+            try
+            {
+                var indexPath = Path.Combine(cacheDir, "incremental.json");
+                if (File.Exists(indexPath))
+                    _incrementalIndex = new IncrementalIndexStore(indexPath);
+            }
+            catch
+            {
+                _incrementalIndex = null;
+            }
+        }
+
+        if (_incrementalIndex is not null)
+            return _incrementalIndex.TryGetHash(fullPath, out hash);
+
+        hash = "";
+        return false;
+    }
 
     /// <summary>Обновить сводку кэша (диск + L2). Никогда не бросает.</summary>
     public void RefreshCacheStats()

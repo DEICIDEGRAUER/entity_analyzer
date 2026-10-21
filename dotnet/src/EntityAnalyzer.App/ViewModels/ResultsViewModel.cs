@@ -20,6 +20,7 @@ public sealed class ResultsViewModel : ObservableObject
     private readonly MainViewModel _main;
     private readonly Dictionary<string, string> _hashByPath = new(StringComparer.OrdinalIgnoreCase);
     private readonly VerdictStore _verdicts = VerdictStore.Default;
+    private ReviewSummary _corpusReview = new(0, 0, 0);
 
     // Отмена последних вердиктов: храним предыдущее состояние, а не только
     // тип — иначе после «подтверждено → ложное → отмена» терялся бы первый вердикт.
@@ -72,6 +73,25 @@ public sealed class ResultsViewModel : ObservableObject
     public bool HasReviewWork => ReviewableInFile > 0;
     public bool CanUndoVerdict => _verdictUndo.Count > 0;
 
+    /// <summary>Сколько цитат всего корпуса уже размечено.</summary>
+    public int ReviewedInCorpus => _corpusReview.Reviewed;
+
+    /// <summary>Сколько всего цитат в корпусе.</summary>
+    public int ReviewableInCorpus => _corpusReview.Total;
+
+    /// <summary>Сколько файлов ещё содержат непроверенные цитаты.</summary>
+    public int FilesWithUnreviewedMentions => _corpusReview.FilesWithUnreviewed;
+
+    public bool HasUnreviewedFiles => _corpusReview.FilesWithUnreviewed > 0;
+
+    public string CorpusReviewProgressText => _corpusReview.Total == 0
+        ? "В корпусе нет цитат"
+        : _corpusReview.IsComplete
+            ? $"Корпус проверен: {_corpusReview.Reviewed} из {_corpusReview.Total}"
+            : $"По корпусу: {_corpusReview.Reviewed} из {_corpusReview.Total} · осталось файлов: {_corpusReview.FilesWithUnreviewed}";
+
+    private void RefreshCorpusReview() => _corpusReview = ReviewNavigator.Summarize(Files);
+
     private void NotifyReviewProgress()
     {
         OnPropertyChanged(nameof(ReviewedInFile));
@@ -79,6 +99,11 @@ public sealed class ResultsViewModel : ObservableObject
         OnPropertyChanged(nameof(ReviewProgressText));
         OnPropertyChanged(nameof(HasReviewWork));
         OnPropertyChanged(nameof(CanUndoVerdict));
+        OnPropertyChanged(nameof(ReviewedInCorpus));
+        OnPropertyChanged(nameof(ReviewableInCorpus));
+        OnPropertyChanged(nameof(FilesWithUnreviewedMentions));
+        OnPropertyChanged(nameof(HasUnreviewedFiles));
+        OnPropertyChanged(nameof(CorpusReviewProgressText));
         CommandManager.InvalidateRequerySuggested();
     }
 
@@ -135,6 +160,9 @@ public sealed class ResultsViewModel : ObservableObject
     /// <summary>Массовые вердикты по видимой (отфильтрованной) выборке.</summary>
     public RelayCommand BulkConfirmCommand { get; }
     public RelayCommand BulkRejectCommand { get; }
+
+    /// <summary>Перейти к следующему файлу, в котором ещё есть непроверенные цитаты.</summary>
+    public RelayCommand NextUnreviewedFileCommand { get; }
 
     /// <summary>Открыть исходный файл на выбранной находке.</summary>
     public RelayCommand OpenMentionSourceCommand { get; }
@@ -300,6 +328,8 @@ public sealed class ResultsViewModel : ObservableObject
             _ => Mentions.Count > 0 && SelectedFile is not null);
         BulkRejectCommand = new RelayCommand(_ => ApplyBulkVerdict(VerdictKind.Rejected),
             _ => Mentions.Count > 0 && SelectedFile is not null);
+        NextUnreviewedFileCommand = new RelayCommand(_ => GoToNextUnreviewedFile(),
+            _ => HasUnreviewedFiles);
         OpenMentionSourceCommand = new RelayCommand(
             p => OpenMentionSource(p as Mention), p => p is Mention && SelectedFile is not null);
 
@@ -349,10 +379,20 @@ public sealed class ResultsViewModel : ObservableObject
         Files.Clear();
         Mentions.Clear();
         _verdictUndo.Clear();
+        _hashByPath.Clear();
         IsolatedFile = null; // новая сессия — старые фильтры не имеют смысла
         foreach (var f in session.Files) Files.Add(f);
+
+        // Восстанавливаем всю разметку сразу: без этого прогресс по корпусу
+        // и переход к следующему непроверенному файлу видели бы только
+        // текущий файл. Хэши берутся из инкрементального индекса, если он есть.
+        foreach (var m in session.Files.SelectMany(f => f.Mentions)) m.Verdict = null;
+        VerdictResolver.ApplyTo(session.Files, _verdicts, GetFileHash);
+
         SelectedFile = session.Files.FirstOrDefault(f => f.Mentions.Count > 0) ?? session.Files.FirstOrDefault();
         RefreshFileFilter();
+        RefreshCorpusReview();
+        NotifyReviewProgress();
         OnPropertyChanged(nameof(IsDataEmpty));
 
         // Группа 2 (item 26): вернуть звёздочки книги (quotes.jsonl) на цитаты сессии.
@@ -452,7 +492,7 @@ public sealed class ResultsViewModel : ObservableObject
     private void ReloadSelectedFileMentions()
     {
         var file = _selectedFile;
-        LoadStoredVerdicts(file);
+        if (LoadStoredVerdicts(file)) RefreshCorpusReview();
         Mentions.Clear();
         var q = Search?.Trim() ?? "";
         foreach (var m in file?.Mentions ?? [])
@@ -464,23 +504,34 @@ public sealed class ResultsViewModel : ObservableObject
     /// <summary>
     /// Вернуть вердикты из verdicts.jsonl на цитаты выбранного файла.
     /// Хеш считается один раз на файл и кэшируется; если журнал пуст,
-    /// диск вообще не читается.
+    /// диск вообще не читается. Возвращает true, если состояние изменилось.
     /// </summary>
-    private void LoadStoredVerdicts(FileResult? file)
+    private bool LoadStoredVerdicts(FileResult? file)
     {
-        if (file is null) return;
+        if (file is null) return false;
+
+        var changed = false;
         if (_verdicts.All.Count == 0)
         {
-            foreach (var m in file.Mentions) m.Verdict = null;
-            return;
+            foreach (var m in file.Mentions)
+            {
+                if (m.Verdict is null) continue;
+                m.Verdict = null;
+                changed = true;
+            }
+            return changed;
         }
 
         var hash = GetFileHash(file.FullPath);
         foreach (var m in file.Mentions)
         {
             var offset = m.Offset > 0 ? m.Offset : m.Line;
-            m.Verdict = _verdicts.Find(hash, offset, m.Variant)?.Verdict;
+            var verdict = _verdicts.Find(hash, offset, m.Variant)?.Verdict;
+            if (m.Verdict == verdict) continue;
+            m.Verdict = verdict;
+            changed = true;
         }
+        return changed;
     }
 
     /// <summary>Проходит ли упоминание сквозь фильтры поиска, режима, темы и сущности (R3-1).</summary>
@@ -737,6 +788,7 @@ public sealed class ResultsViewModel : ObservableObject
                 DateTimeOffset.Now, hash, offset, m.Variant, m.Entity, kind));
             m.Verdict = kind;
             Log.Info("verdicts", "{0}: {1} ({2}) строка {3}", kind, m.Entity, m.Variant, m.Line);
+            RefreshCorpusReview();
             _main.StatusText = $"{m.Entity}: {m.VerdictLabel} · {ReviewProgressText}";
             NotifyReviewProgress();
             if (advance) AdvanceToNextUnreviewed(m);
@@ -786,6 +838,67 @@ public sealed class ResultsViewModel : ObservableObject
         _main.StatusText = $"Нет непроверенных цитат в выборке · {ReviewProgressText}";
     }
 
+    /// <summary>
+    /// Перейти к следующему файлу с непроверенными цитатами. Сначала ищем
+    /// в текущей файловой выборке; если там работы нет, сбрасываем фильтры
+    /// и продолжаем по всему корпусу. Режим проверки переключается на
+    /// «Непроверенные», чтобы карточки были сразу видны.
+    /// </summary>
+    private void GoToNextUnreviewedFile()
+    {
+        if (!HasUnreviewedFiles)
+        {
+            _main.StatusText = _corpusReview.Total == 0
+                ? "В корпусе нет цитат для проверки"
+                : $"Все цитаты проверены: {ReviewedInCorpus} из {ReviewableInCorpus}";
+            return;
+        }
+
+        var visible = FilesView.Cast<FileResult>().ToList();
+        var next = ReviewNavigator.NextFileWithUnreviewed(visible, SelectedFile);
+        var scopeReset = false;
+        if (next is null && visible.Count < Files.Count)
+        {
+            next = ReviewNavigator.NextFileWithUnreviewed(Files, SelectedFile);
+            scopeReset = next is not null;
+        }
+        if (next is null)
+        {
+            _main.StatusText = "В текущей выборке нет файлов с непроверенными цитатами";
+            return;
+        }
+
+        if (scopeReset) ResetReviewScopeFilters();
+        if (SelectedMode != VerdictFilter.Unreviewed)
+            SelectedMode = VerdictFilter.Unreviewed;
+
+        SelectedFile = next;
+
+        // Файл мог пройти по имени, но все его карточки скрыты поиском,
+        // темой или сущностью — тогда снимаем и эти фильтры.
+        if (Mentions.Count == 0 && next.Mentions.Any(m => !m.HasVerdict))
+        {
+            ResetReviewScopeFilters();
+            if (SelectedMode != VerdictFilter.Unreviewed)
+                SelectedMode = VerdictFilter.Unreviewed;
+            ReloadSelectedFileMentions();
+        }
+
+        SelectedMention = Mentions.FirstOrDefault(m => !m.HasVerdict) ?? Mentions.FirstOrDefault();
+        _main.StatusText = scopeReset
+            ? $"Фильтры сброшены · {next.FileName}: {ReviewProgressText}"
+            : $"{next.FileName}: {ReviewProgressText}";
+    }
+
+    private void ResetReviewScopeFilters()
+    {
+        IsolatedFile = null;
+        if (!string.IsNullOrEmpty(Search)) Search = "";
+        if (_tagFilter != AllTagsKey) TagFilter = AllTagsKey;
+        if (_themeFilter != AllThemesKey) ThemeFilter = AllThemesKey;
+        if (_entityFilter != AllEntitiesKey) EntityFilter = AllEntitiesKey;
+    }
+
     private void UndoLastVerdict()
     {
         if (_verdictUndo.Count == 0)
@@ -819,6 +932,7 @@ public sealed class ResultsViewModel : ObservableObject
                 }
             }
             if (previousRecords.Count > 0) _verdicts.AppendRange(previousRecords);
+            RefreshCorpusReview();
 
             // Возвращаемся к файлу последней отменённой цитаты и пересобираем
             // видимую выборку: в режиме «Непроверенные» карточка должна вернуться.
@@ -891,6 +1005,7 @@ public sealed class ResultsViewModel : ObservableObject
 
         _verdicts.AppendRange(records);
         foreach (var m in targets) m.Verdict = kind;
+        RefreshCorpusReview();
         _main.StatusText = $"Массовый вердикт «{VerdictName(kind)}»: {targets.Count} цитат";
         Log.Info("verdicts", "bulk {0}: {1} цитат в {2}", kind, targets.Count, file.FileName);
         if (VerdictFilter.IsVerdictMode(SelectedMode))
@@ -915,6 +1030,23 @@ public sealed class ResultsViewModel : ObservableObject
     private string GetFileHash(string fullPath)
     {
         if (_hashByPath.TryGetValue(fullPath, out var hash)) return hash;
+
+        // После анализа хэш уже лежит в инкрементальном индексе: не читаем
+        // корпус повторно только ради восстановления вердиктов и звёздочек.
+        try
+        {
+            if (_main.TryGetIndexedHash(fullPath, out var indexed) &&
+                !string.IsNullOrEmpty(indexed))
+            {
+                _hashByPath[fullPath] = indexed;
+                return indexed;
+            }
+        }
+        catch
+        {
+            // Индекс недоступен — ниже обычное чтение файла.
+        }
+
         try
         {
             using var fs = File.OpenRead(fullPath);
