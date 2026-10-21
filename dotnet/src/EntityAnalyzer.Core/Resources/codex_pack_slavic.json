@@ -1,0 +1,169 @@
+{
+  "id": "slavic",
+  "title": "Славянская мифология",
+  "description": "Боги, существа и места славянского пантеона — для корпусов фольклора, былин и исторических текстов.",
+  "codex": {
+    "version": 2,
+    "types": [
+      {
+        "id": "deity",
+        "name": "Божество",
+        "icon": "🜏",
+        "color": "#C9A227",
+        "fields": []
+      },
+      {
+        "id": "creature",
+        "name": "Существо",
+        "icon": "🧬",
+        "color": "#7FD9A5",
+        "fields": []
+      },
+      {
+        "id": "location",
+        "name": "Локация",
+        "icon": "🏛",
+        "color": "#7FB2D9",
+        "fields": []
+      }
+    ],
+    "relations": [],
+    "cards": [
+      {
+        "id": "s_01",
+        "typeId": "deity",
+        "name": "Перун",
+        "canonical": "Perun",
+        "aliases": [
+          "Перун",
+          "Perun",
+          "громовержец"
+        ],
+        "enabled": true,
+        "tags": []
+      },
+      {
+        "id": "s_02",
+        "typeId": "deity",
+        "name": "Велес",
+        "canonical": "Veles",
+        "aliases": [
+          "Велес",
+          "Veles",
+          "Волос",
+          "Volos"
+        ],
+        "enabled": true,
+        "tags": []
+      },
+      {
+        "id": "s_03",
+        "typeId": "deity",
+        "name": "Мокошь",
+        "canonical": "Mokosh",
+        "aliases": [
+          "Мокошь",
+          "Mokosh",
+          "Мокоша"
+        ],
+        "enabled": true,
+        "tags": []
+      },
+      {
+        "id": "s_04",
+        "typeId": "deity",
+        "name": "Сварог",
+        "canonical": "Svarog",
+        "aliases": [
+          "Сварог",
+          "Svarog"
+        ],
+        "enabled": true,
+        "tags": []
+      },
+      {
+        "id": "s_05",
+        "typeId": "deity",
+        "name": "Даждьбог",
+        "canonical": "Dazhbog",
+        "aliases": [
+          "Даждьбог",
+          "Dazhbog",
+          "Дажьбог",
+          "Дабъ"
+        ],
+        "enabled": true,
+        "tags": []
+      },
+      {
+        "id": "s_06",
+        "typeId": "creature",
+        "name": "Домовой",
+        "canonical": "Domovoy",
+        "aliases": [
+          "домовой",
+          "Domovoy",
+          "доможил",
+          "суседко"
+        ],
+        "enabled": true,
+        "tags": []
+      },
+      {
+        "id": "s_07",
+        "typeId": "creature",
+        "name": "Леший",
+        "canonical": "Leshy",
+        "aliases": [
+          "леший",
+          "Leshy",
+          "лесовик"
+        ],
+        "enabled": true,
+        "tags": []
+      },
+      {
+        "id": "s_08",
+        "typeId": "creature",
+        "name": "Русалка",
+        "canonical": "Rusalka",
+        "aliases": [
+          "русалка",
+          "Rusalka",
+          "русалки"
+        ],
+        "enabled": true,
+        "tags": []
+      },
+      {
+        "id": "s_09",
+        "typeId": "location",
+        "name": "Ирий",
+        "canonical": "Iriy",
+        "aliases": [
+          "Ирий",
+          "Iriy",
+          "вырий",
+          "Вырий"
+        ],
+        "enabled": true,
+        "tags": []
+      },
+      {
+        "id": "s_10",
+        "typeId": "location",
+        "name": "Пекло",
+        "canonical": "Peklo",
+        "aliases": [
+          "пекло",
+          "Peklo",
+          "навь",
+          "Навь"
+        ],
+        "enabled": true,
+        "tags": []
+      }
+    ],
+    "links": []
+  }
+}

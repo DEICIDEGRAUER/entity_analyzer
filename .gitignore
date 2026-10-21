@@ -1,0 +1,74 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+ENV/
+
+# Build
+build/
+dist/
+*.egg-info/
+
+# Cache
+.cache/
+output/.cache/
+*.cache
+
+# Output
+output/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Corpus (large files)
+ТЕКСТЫ/
+ТЕКСТЫ.zip
+dotnet/corpus/
+test_corpus/
+.venv_test/
+
+# Large data files
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary
+_scratch/
+*.tmp
+*.temp
+
+# Distribution
+*.whl
+*.tar.gz
+
+# Nested dotnet repository metadata
+dotnet/.github/
+
+# Local/user artifacts (never publish)
+output_dotnet/
+reports/
+.tessera/
+.mcp.json
+*.earepro
+dotnet/publish/output/
+dotnet/tests/**/TestResults/
+dotnet/cli_pid.txt
+dotnet/publish/*.pdb
+dotnet/publish-cli/*.pdb
+
+# Sanitized snapshot: source-only
+dotnet/publish/
+dotnet/publish-cli/

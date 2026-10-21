@@ -1,0 +1,16 @@
+{
+  "name": "entity-analyzer-sync",
+  "version": "1.0.0",
+  "description": "Obsidian plugin for Entity Analyzer integration",
+  "main": "main.js",
+  "scripts": {
+    "dev": "esbuild main.ts --bundle --outfile=main.js --watch --external:obsidian",
+    "build": "esbuild main.ts --bundle --outfile=main.js --external:obsidian --minify"
+  },
+  "devDependencies": {
+    "esbuild": "^0.20.0",
+    "typescript": "^5.4.0",
+    "@types/node": "^20.0.0"
+  },
+  "dependencies": {}
+}

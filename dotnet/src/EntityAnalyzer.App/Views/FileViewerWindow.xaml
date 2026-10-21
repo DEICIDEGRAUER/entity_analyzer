@@ -1,0 +1,45 @@
+<Window x:Class="EntityAnalyzer.App.Views.FileViewerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Просмотр файла" Width="1000" Height="720"
+        Background="{DynamicResource BrushBgMain}">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Тулбар: волосяной разделитель снизу -->
+        <Border Grid.Row="0" Background="{DynamicResource BrushBgNav}"
+                BorderBrush="{DynamicResource BrushBorderLight}" BorderThickness="0,0,0,1"
+                Padding="24,16">
+            <StackPanel Orientation="Horizontal">
+                <Button Content="Показать в папке" Style="{DynamicResource GhostButtonStyle}" Click="OpenInExplorer"/>
+                <!-- R1-18 «Режим вычитки»: переход между находками -->
+                <Button Content="↑" Style="{DynamicResource GhostButtonStyle}" Margin="8,0,0,0"
+                        Click="GoPrevMatch" ToolTip="Предыдущее совпадение (↑)"/>
+                <Button Content="↓" Style="{DynamicResource GhostButtonStyle}" Margin="8,0,0,0"
+                        Click="GoNextMatch" ToolTip="Следующее совпадение (↓)"/>
+                <TextBlock x:Name="NavCounter" Text="0 / 0" VerticalAlignment="Center"
+                           Style="{DynamicResource MetaStyle}" Margin="8,0,0,0"/>
+                <TextBlock Text="Подчёркивание цветом ветви · стрелки ↑↓ — переход между находками" VerticalAlignment="Center"
+                           Style="{DynamicResource MetaStyle}" Margin="24,0,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- R2-8: текст + мини-карта файла справа (компаньон режима вычитки) -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <FlowDocumentScrollViewer Grid.Column="0" x:Name="Viewer"/>
+            <Border Grid.Column="1" Width="72"
+                    BorderBrush="{DynamicResource BrushBorderLight}" BorderThickness="1,0,0,0">
+                <Canvas x:Name="Minimap" Margin="8" Cursor="Hand"
+                        MouseLeftButtonDown="Minimap_Click"
+                        SizeChanged="Minimap_SizeChanged"/>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

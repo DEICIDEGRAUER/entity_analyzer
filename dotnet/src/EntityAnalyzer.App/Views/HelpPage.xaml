@@ -1,0 +1,197 @@
+<UserControl x:Class="EntityAnalyzer.App.Views.HelpPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:EntityAnalyzer.App.Views">
+
+    <!-- Экран «Справка»: обучение работе с приложением, туториал по
+         конфигурации семантических паттернов и FAQ. Только текст,
+         академическая типографика; разделы — Expander'ы. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="48,40,64,32" MaxWidth="980" HorizontalAlignment="Left">
+
+            <TextBlock Text="Справка" Style="{DynamicResource H1Style}"/>
+            <TextBlock Text="Как устроен Entity Analyzer: от первого анализа до собственных категорий поиска."
+                       Style="{DynamicResource BodyStyle}"
+                       Foreground="{DynamicResource BrushTextSecondary}" Margin="0,16,0,0"/>
+
+            <!-- ═══ Быстрый старт ═══ -->
+            <Expander Margin="0,40,0,0">
+                <Expander.Header>
+                    <TextBlock Text="БЫСТРЫЙ СТАРТ" Style="{DynamicResource SectionHeaderStyle}"/>
+                </Expander.Header>
+                <StackPanel Margin="24,16,0,0">
+                    <TextBlock Text="1 · Выберите папку с текстами на «Обзоре» — подойдут .txt, .fb2, .epub, .docx, .pdf и другие форматы (см. раздел «Форматы файлов»)."
+                               Style="{DynamicResource BodyStyle}" TextWrapping="Wrap"/>
+                    <TextBlock Text="2 · Выберите профиль поиска. Профиль задаёт размер контекста, число цитат на файл и строгость проверки опечаток; сводка под списком объясняет выбор."
+                               Style="{DynamicResource BodyStyle}" TextWrapping="Wrap" Margin="0,16,0,0"/>
+                    <TextBlock Text="3 · Нажмите «Запустить анализ». Прогресс покажет скорость и оставшееся время; повторные прогоны быстрее — неизменённые файлы берутся из кэша."
+                               Style="{DynamicResource BodyStyle}" TextWrapping="Wrap" Margin="0,16,0,0"/>
+                    <TextBlock Text="4 · Результаты откроются автоматически: слева файлы со статистикой «цитат · найдено · плотность», справа цитаты с подчёркнутым словом-триггером. Кнопка «Полный текст файла» открывает книгу в месте находки."
+                               Style="{DynamicResource BodyStyle}" TextWrapping="Wrap" Margin="0,16,0,0"/>
+                    <TextBlock Text="5 · Отчёты пишутся на диск сразу: txt/json/csv/html/md + папки by_entity (по сущностям) и by_pattern (по паттернам). Всё это — во вкладках «Просмотр» и «Выгрузка» раздела «Отчёты»."
+                               Style="{DynamicResource BodyStyle}" TextWrapping="Wrap" Margin="0,16,0,0"/>
+                </StackPanel>
+            </Expander>
+
+            <!-- ═══ Кодекс ═══ -->
+            <Expander Margin="0,24,0,0">
+                <Expander.Header>
+                    <TextBlock Text="КОДЕКС И СУЩНОСТИ" Style="{DynamicResource SectionHeaderStyle}"/>
+                </Expander.Header>
+                <StackPanel Margin="24,16,0,0">
+                    <TextBlock Text="Кодекс — справочник сущностей мира: карточки с именем, алиасами, категорией и связями. Поиск идёт по всем вариантам имени: канонической форме, алиасам, морфологии (падежи добавляются автоматически), транслитерации и порче имён для fuzzy-режима."
+                               Style="{DynamicResource BodyStyle}" TextWrapping="Wrap"/>
+                    <TextBlock Text="Свою сущность создать просто: «Новая карточка» → имя и алиасы (по одному в строке) → «Применить». Имя карточки само попадает в поиск вместе с алиасами. Связи между сущностями задаются на вкладке «Связи» и строят граф на странице «Схемы»."
+                               Style="{DynamicResource BodyStyle}" TextWrapping="Wrap" Margin="0,16,0,0"/>
+                    <TextBlock Text="«Объединить…» склеивает дубликаты карточек, «Предложить связи» находит пары, часто упоминающиеся вместе. Экспорт MD даёт Obsidian-заметки по всему кодексу."
+                               Style="{DynamicResource BodyStyle}" TextWrapping="Wrap" Margin="0,16,0,0"/>
+                </StackPanel>
+            </Expander>
+
+            <!-- ═══ Форматы файлов ═══ -->
+            <Expander Margin="0,24,0,0">
+                <Expander.Header>
+                    <TextBlock Text="ФОРМАТЫ ФАЙЛОВ" Style="{DynamicResource SectionHeaderStyle}"/>
+                </Expander.Header>
+                <StackPanel Margin="24,16,0,0">
+                    <TextBlock Text="Полный список включается на «Обзоре» → «Форматы файлов». Поддерживаются:"
+                               Style="{DynamicResource BodyStyle}" TextWrapping="Wrap"/>
+                    <TextBlock Text=".txt .md — текст (UTF-8, CP1251, UTF-16)&#10;.html .htm — страницы, теги вычищаются&#10;.rtf — Rich Text Format&#10;.fb2 — FictionBook&#10;.epub — электронные книги&#10;.docx — Word 2007+&#10;.odt — OpenDocument&#10;.pdf — best-effort: текстовые PDF; сканы без OCR не извлекаются&#10;.doc — Word 97–2003 best-effort: эвристика, возможен шум&#10;.mobi .prc .azw — Kindle PalmDOC (LZ77)&#10;.azw3 — KF8: обычно требует конвертации в EPUB&#10;.cbz — только ComicInfo.xml (картинки без текста)&#10;.cbr .djvu .lit — не поддерживаются, см. подсказки в чекбоксах"
+                               Style="{DynamicResource TechStyle}" TextWrapping="Wrap" LineHeight="20" Margin="0,12,0,0"/>
+                    <TextBlock Text="Границы форматов: PDF со сканированными страницами и AZW3 со сжатием HUFF/CDIC не содержат извлекаемого текста — приложение честно предупредит в журнале. Для таких файлов сначала прогоните OCR или конвертируйте в EPUB/FB2."
+                               Style="{DynamicResource MetaStyle}" TextWrapping="Wrap" Margin="0,16,0,0"/>
+                </StackPanel>
+            </Expander>
+
+            <!-- ═══ Семантические паттерны: туториал ═══ -->
+            <Expander Margin="0,24,0,0" IsExpanded="True">
+                <Expander.Header>
+                    <TextBlock Text="СЕМАНТИЧЕСКИЕ ПАТТЕРНЫ — ПОЛНЫЙ ТУТОРИАЛ" Style="{DynamicResource SectionHeaderStyle}"/>
+                </Expander.Header>
+                <StackPanel Margin="24,16,0,0">
+
+                    <TextBlock Text="Что это такое"
+                               FontWeight="SemiBold" FontSize="18" FontFamily="{DynamicResource SerifFontFamily}"/>
+                    <TextBlock Text="Паттерн находит не конкретное имя, а конструкцию — последовательность грамматических классов. Например, «Год Красной Луны», «Час Воющей Собаки», «Тысячный Год Сарната» — это головное слово периода (год/час/эра/век), за которым следуют 1–3 слова с заглавной буквы. Ни одно из этих названий нельзя найти простым поиском строки, но все их находит один паттерн."
+                               Style="{DynamicResource BodyStyle}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+
+                    <TextBlock Text="Где настраивать"
+                               FontWeight="SemiBold" FontSize="18" FontFamily="{DynamicResource SerifFontFamily}" Margin="0,24,0,0"/>
+                    <TextBlock Text="Вкладка «Поиск и паттерны» на «Обзоре». Слева — список всех паттернов с фильтром и чекбоксом включённости; справа — форма редактирования выбранного. Кнопка «Пример „Год Красной Луны“» заполняет форму учебным паттерном. Изменения сохраняются кнопкой «Сохранить в конфиг» в файл %APPDATA%\EntityAnalyzer\semantic_patterns.json и переживают обновления приложения. Для тонкой настройки кнопку «Открыть конфигурацию» — тот же файл в текстовом редакторе."
+                               Style="{DynamicResource BodyStyle}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+
+                    <TextBlock Text="Виды токенов"
+                               FontWeight="SemiBold" FontSize="18" FontFamily="{DynamicResource SerifFontFamily}" Margin="0,24,0,0"/>
+                    <TextBlock Text="literal — точное слово: «год» совпадёт с «Год», «года», «ГОД» (регистр не важен)&#10;lexicon — слово из именованного словаря: epithets (эпитеты), titles (титулы), ritual (ритуалы), kin (родство), books (книги), periods (периоды), abstract (абстракции), negations (отрицания)&#10;capitalized — слово с заглавной буквы в любом месте предложения: «Красной», «Луны»&#10;proper — имя собственное: известная кодексу сущность или заглавное слово НЕ в начале предложения&#10;regex — регулярное выражение по слову: ^(18|19|20)\d{2}$ найдёт годы 1800–2099&#10;anyword — любое слово&#10;any_of — любой из вложенных вариантов (в Options)&#10;not — страж нулевой ширины: слово ПЕРЕД следующим токеном не должно соответствовать Options («не фолиант» отсечёт «фолиант»)"
+                               Style="{DynamicResource TechStyle}" TextWrapping="Wrap" LineHeight="20" Margin="0,12,0,0"/>
+
+                    <TextBlock Text="Параметры паттерна и токенов"
+                               FontWeight="SemiBold" FontSize="18" FontFamily="{DynamicResource SerifFontFamily}" Margin="0,24,0,0"/>
+                    <TextBlock Text="window — сколько «пустых» слов допускается между соседними токенами. window=2 значит «в пределах двух слов друг от друга».&#10;total_window — ограничение размаха всей цепочки в словах (защита от растянутых ложных совпадений).&#10;required=false — токен может отсутствовать.&#10;min / max — повторы токена подряд: capitalized {min:1, max:3} = от одного до трёх капитализированных слов подряд."
+                               Style="{DynamicResource TechStyle}" TextWrapping="Wrap" LineHeight="20" Margin="0,12,0,0"/>
+
+                    <TextBlock Text="Пример: названия периодов"
+                               FontWeight="SemiBold" FontSize="18" FontFamily="{DynamicResource SerifFontFamily}" Margin="0,24,0,0"/>
+                    <TextBox IsReadOnly="True" Background="Transparent" BorderThickness="0,0,0,1"
+                             Style="{DynamicResource BareTextBoxStyle}"
+                             FontFamily="{DynamicResource MonoFontFamily}" FontSize="12"
+                             TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto"
+                             Text="{x:Static views:HelpPage.PeriodExampleJson}"/>
+                    <TextBlock Text="Эта цепочка найдёт: «Год Красной Луны», «Час Воющей Собаки», «Эры Великой Расы», «Год Падения Сарната», «Тысячный Год Сарната» (по части «Год Сарната») — и не сработает на «год назад» или «в году 1926», потому что после головного слова требуется заглавная буква."
+                               Style="{DynamicResource MetaStyle}" TextWrapping="Wrap" Margin="0,12,0,0"/>
+
+                    <TextBlock Text="Как добиться точности"
+                               FontWeight="SemiBold" FontSize="18" FontFamily="{DynamicResource SerifFontFamily}" Margin="0,24,0,0"/>
+                    <TextBlock Text="· Начинайте с узкого окна (window 1–2): меньше лишних совпадений.&#10;· Ставьте total_window, чтобы ограничить размах всей конструкции.&#10;· Добавляйте страж not перед словами-обманками: «не», «без», «назад».&#10;· Проверяйте находки в таблице «Находки» здесь же — правьте паттерн до нужной чистоты.&#10;· Увеличьте max у capitalized, если встречаются длинные титулы из трёх слов."
+                               Style="{DynamicResource MetaStyle}" TextWrapping="Wrap" LineHeight="22" Margin="0,12,0,0"/>
+
+                    <TextBlock Text="Обособленный скан"
+                               FontWeight="SemiBold" FontSize="18" FontFamily="{DynamicResource SerifFontFamily}" Margin="0,24,0,0"/>
+                    <TextBlock Text="Кнопка «Сканировать паттерны» ищет только конструкции по всему корпусу — быстро, без полного анализа. Результаты сохраняются в собственные папки: by_pattern/&lt;id-паттерна&gt;/matches.txt|csv|json внутри папки отчётов — так же, как отчёты по сущностям складываются в by_entity/&lt;сущность&gt;/."
+                               Style="{DynamicResource BodyStyle}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                </StackPanel>
+            </Expander>
+
+            <!-- ═══ Гибкий поиск ═══ -->
+            <Expander Margin="0,24,0,0">
+                <Expander.Header>
+                    <TextBlock Text="ГИБКИЙ ПОИСК (СОВМЕСТНЫЕ УПОМИНАНИЯ)" Style="{DynamicResource SectionHeaderStyle}"/>
+                </Expander.Header>
+                <StackPanel Margin="24,16,0,0">
+                    <TextBlock Text="Четыре режима на вкладке «Поиск и паттерны»:&#10;· Вместе в одном файле — обе сущности упоминаются в одном документе;&#10;· Рядом — не далее N строк — упоминания стоят близко друг к другу;&#10;· Разнесены ≥ N строк — есть в одном файле, но далеко друг от друга;&#10;· Первый без второго — файлы, где есть первая сущность и нет второй (например, Наг без Йеб)."
+                               Style="{DynamicResource BodyStyle}" TextWrapping="Wrap" LineHeight="26"/>
+                </StackPanel>
+            </Expander>
+
+            <!-- ═══ Горячие клавиши и границы панелей ═══ -->
+            <Expander Margin="0,24,0,0">
+                <Expander.Header>
+                    <TextBlock Text="МАСШТАБ И ГРАНИЦЫ ПАНЕЛЕЙ" Style="{DynamicResource SectionHeaderStyle}"/>
+                </Expander.Header>
+                <StackPanel Margin="24,16,0,0">
+                    <TextBlock Text="Ctrl + колесо мыши — масштаб интерфейса (0.8×–1.6×), сохраняется между сеансами.&#10;Ctrl + F — перейти к полю поиска текущей страницы («Результаты», «Кодекс»).&#10;F5 — обновить отчёты или историю.&#10;Кнопка ‹ в шапке рейки сворачивает навигацию; › возвращает её.&#10;Вертикальные линии-разделители между колонками тянутся мышью: ширина настроек на «Обзоре», колонок «Результатов» и «Кодекса», дерева отчётов — всё регулируется под ваш экран."
+                               Style="{DynamicResource BodyStyle}" TextWrapping="Wrap" LineHeight="26"/>
+                </StackPanel>
+            </Expander>
+
+            <!-- ═══ FAQ ═══ -->
+            <Expander Margin="0,24,0,0">
+                <Expander.Header>
+                    <TextBlock Text="ЧАСТЫЕ ВОПРОСЫ" Style="{DynamicResource SectionHeaderStyle}"/>
+                </Expander.Header>
+                <StackPanel Margin="24,16,0,0">
+                    <TextBlock Text="Поддерживается ли Word и PDF?"
+                               FontWeight="SemiBold" FontFamily="{DynamicResource SerifFontFamily}"/>
+                    <TextBlock Text="Да: .docx полностью, .pdf — если в файле есть текстовый слой (сканы не извлекаются). Старый .doc читается эвристикой — при странностях пересохраните в .docx."
+                               Style="{DynamicResource MetaStyle}" TextWrapping="Wrap" Margin="0,4,0,16"/>
+
+                    <TextBlock Text="Почему цитат меньше, чем найдено?"
+                               FontWeight="SemiBold" FontFamily="{DynamicResource SerifFontFamily}"/>
+                    <TextBlock Text="Действует лимит отображения цитат на файл (профиль или поле «Цитат на файл»). Все совпадения учтены в статистике; сколько скрыто лимитом — плитка «СКРЫТО ЛИМИТОМ» на «Обзоре»."
+                               Style="{DynamicResource MetaStyle}" TextWrapping="Wrap" Margin="0,4,0,16"/>
+
+                    <TextBlock Text="Почему «тяжёлый» профиль иногда даёт меньше цитат, чем быстрый? (QA N12)"
+                               FontWeight="SemiBold" FontFamily="{DynamicResource SerifFontFamily}"/>
+                    <TextBlock Text="Это осознанное поведение дедупликации: тяжёлые профили строят более широкие контексты, соседние цитаты перекрываются и схлопываются в одну (одинаковый текст контекста). Совпадения при этом не теряются — они учтены в статистике и воронке; уникальных блоков текста просто меньше. Если важен охват по позициям, а не уникальность цитат, уменьшите окно контекста или лимит цитат."
+                               Style="{DynamicResource MetaStyle}" TextWrapping="Wrap" Margin="0,4,0,16"/>
+
+                    <TextBlock Text="Что такое «кодекс» и кого программа ищет?"
+                               FontWeight="SemiBold" FontFamily="{DynamicResource SerifFontFamily}"/>
+                    <TextBlock Text="Поиск идёт по справочнику сущностей — кодексу. При первом запуске работает встроенный кодекс (одна карточка «Наг и Йеб»). Своих существ заводят на странице «Кодекс»; сводка над кнопкой запуска всегда показывает, по скольким карточкам идёт поиск."
+                               Style="{DynamicResource MetaStyle}" TextWrapping="Wrap" Margin="0,4,0,16"/>
+
+                    <TextBlock Text="Добавил свою сущность, а находок нет. Что проверить?"
+                               FontWeight="SemiBold" FontFamily="{DynamicResource SerifFontFamily}"/>
+                    <TextBlock Text="1) Карточка применена (статус черновика исчез); 2) анализ перезапущен после создания карточки; 3) в корпусе действительно есть формы этого имени — проверьте вкладку «Упоминания» карточки; 4) фильтры не отсекли находку — плитка «СКРЫТО ЛИМИТОМ» и журнал покажут воронку."
+                               Style="{DynamicResource MetaStyle}" TextWrapping="Wrap" Margin="0,4,0,16"/>
+
+                    <TextBlock Text="Паттерн не находит очевидные конструкции. Что делать?"
+                               FontWeight="SemiBold" FontFamily="{DynamicResource SerifFontFamily}"/>
+                    <TextBlock Text="Проверьте: паттерн включён (чекбокс в списке); окно window не слишком тесное; регистр классов capitalized/proper соответствует тексту (заглавная внутри предложения); стражи not не отсекают валидные случаи. Запустите обособленный скан — он быстрее полного анализа для отладки паттернов."
+                               Style="{DynamicResource MetaStyle}" TextWrapping="Wrap" Margin="0,4,0,16"/>
+
+                    <TextBlock Text="Где лежат отчёты и настройки?"
+                               FontWeight="SemiBold" FontFamily="{DynamicResource SerifFontFamily}"/>
+                    <TextBlock Text="Отчёты — в папке вывода (по умолчанию output рядом с программой; меняется во вкладке «Выгрузка»). Настройки, кодекс, история и конфиг паттернов — в %APPDATA%\EntityAnalyzer."
+                               Style="{DynamicResource MetaStyle}" TextWrapping="Wrap" Margin="0,4,0,16"/>
+
+                    <TextBlock Text="Почему повторный анализ такой быстрый?"
+                               FontWeight="SemiBold" FontFamily="{DynamicResource SerifFontFamily}"/>
+                    <TextBlock Text="Инкрементальный кэш: неизменённые файлы не перечитываются (в журнале — «пропущено неизменённых файлов N»). Слой L2 держит результаты в оперативной памяти сеанса — watch-режим и перезапуски анализа отвечают мгновенно. Срок хранения, лимит объёма и кнопка «Очистить кэш» — в разделе «КЭШ» на «Обзоре». При смене пресета, фильтров или конфигурации паттернов кэш сбрасывается автоматически."
+                               Style="{DynamicResource MetaStyle}" TextWrapping="Wrap" Margin="0,4,0,16"/>
+
+                    <TextBlock Text="Случайно нажал «Сбросить к встроенному» — данные пропали?"
+                               FontWeight="SemiBold" FontFamily="{DynamicResource SerifFontFamily}"/>
+                    <TextBlock Text="Сброс требует подтверждения и показывает, сколько карточек будет удалено. Если подтвердили — восстановить можно только из экспорта (MD/JSON), поэтому полезно периодически сохранять кодекс этими кнопками."
+                               Style="{DynamicResource MetaStyle}" TextWrapping="Wrap" Margin="0,4,0,16"/>
+
+                    <TextBlock Text="Как автоматизировать прогоны без интерфейса?"
+                               FontWeight="SemiBold" FontFamily="{DynamicResource SerifFontFamily}"/>
+                    <TextBlock Text="Консольный EntityAnalyzer.Cli.exe: --corpus, --preset, --formats, --max-mentions, --patterns-only. Полный список аргументов — в README рядом с программой."
+                               Style="{DynamicResource MetaStyle}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Expander>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

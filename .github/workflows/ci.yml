@@ -1,0 +1,99 @@
+name: ci
+
+on:
+  push:
+    branches: [ main, 'release/**' ]
+  pull_request:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-matrix:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ windows-latest, ubuntu-latest ]
+        culture: [ ru-RU, en-US, tr-TR ]
+    runs-on: ${{ matrix.os }}
+    env:
+      EA_TEST_CULTURE: ${{ matrix.culture }}
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      # WPF is Windows-only; Core/CLI/tests are cross-platform.
+      - name: Build solution (Windows, 0 warnings)
+        if: runner.os == 'Windows'
+        working-directory: dotnet
+        run: dotnet build EntityAnalyzer.slnx -c Release --nologo
+
+      - name: Test Core/CLI
+        shell: pwsh
+        working-directory: dotnet
+        env:
+          ENTITYANALYZER_DATA_DIR: ${{ runner.temp }}/ea-ci-profile
+          EA_SEMANTIC_USER_DIR: ${{ runner.temp }}/ea-ci-semantic
+        run: |
+          dotnet test tests/EntityAnalyzer.Core.Tests/EntityAnalyzer.Core.Tests.csproj -c Release --nologo --blame-crash --logger "console;verbosity=detailed" 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP/ea-test.log"
+          $code = $LASTEXITCODE
+          Set-Content -Path "$env:RUNNER_TEMP/ea-test-exit.txt" -Value $code
+          exit $code
+
+      - name: Test failure details
+        if: failure()
+        shell: pwsh
+        working-directory: dotnet
+        run: |
+          function Emit([string]$title, [string]$text) {
+            if ([string]::IsNullOrWhiteSpace($text)) { return }
+            if ($text.Length -gt 30000) { $text = $text.Substring($text.Length - 30000) }
+            $escaped = $text.Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A')
+            Write-Output "::error title=$title::$escaped"
+          }
+
+          $log = Join-Path $env:RUNNER_TEMP 'ea-test.log'
+          if (Test-Path $log) {
+            $exit = if (Test-Path (Join-Path $env:RUNNER_TEMP 'ea-test-exit.txt')) { Get-Content (Join-Path $env:RUNNER_TEMP 'ea-test-exit.txt') } else { '?' }
+            $tail = (Get-Content $log | Select-Object -Last 25) -join "`n"
+            Emit "Test tail exit=$exit" $tail
+            "### Test tail (exit $exit)`n``````text`n$tail`n``````" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+
+            $interesting = (Get-Content $log | Select-String -Pattern 'Failed|Error|Exception|Assert|Stack|Aborted|Segmentation|Unhandled|crash|killed|Starting:' | Select-Object -Last 40 | ForEach-Object { $_.Line }) -join "`n"
+            Emit 'Interesting test lines' $interesting
+          }
+
+          $trx = Get-ChildItem -Path . -Recurse -Filter *.trx -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($trx) {
+            $failed = (Select-String -Path $trx.FullName -Pattern 'outcome="Failed"[^>]*testName="([^"]+)"' -AllMatches | ForEach-Object { $_.Matches } | ForEach-Object { $_.Groups[1].Value }) -join "`n"
+            Emit 'Failed tests from TRX' $failed
+          }
+
+          $seq = Get-ChildItem -Path . -Recurse -Filter Sequence.xml -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($seq) {
+            $raw = Get-Content $seq.FullName -Raw
+            $short = if ($raw.Length -gt 12000) { $raw.Substring($raw.Length - 12000) } else { $raw }
+            Emit 'Blame sequence tail' $short
+          }
+
+      - name: CLI smoke (edge corpus)
+        shell: pwsh
+        working-directory: dotnet
+        env:
+          ENTITYANALYZER_DATA_DIR: ${{ runner.temp }}/ea-ci-profile
+          EA_SEMANTIC_USER_DIR: ${{ runner.temp }}/ea-ci-semantic
+        run: |
+          $corpus = Join-Path $env:RUNNER_TEMP "ea_ci_corpus"
+          New-Item -ItemType Directory -Force $corpus | Out-Null
+          [System.IO.File]::WriteAllText("$corpus/t.txt", "Nag and Yeb spoke in the dark.", [System.Text.UTF8Encoding]::new($false))
+          dotnet publish src/EntityAnalyzer.Cli/EntityAnalyzer.Cli.csproj -c Release -o cli-out --nologo
+          & "./cli-out/EntityAnalyzer.Cli" --corpus $corpus --out "$corpus/_out" --preset light --no-incremental
+          if ($LASTEXITCODE -ne 0) { exit 1 }

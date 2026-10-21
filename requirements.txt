@@ -1,0 +1,7 @@
+# Entity Analyzer (Python legacy v18)
+# QA BUG-P02: зависимости раньше не были зафиксированы.
+PyYAML>=6.0
+pyahocorasick>=2.0
+rapidfuzz>=3.0
+# Опционально (векторная фильтрация ложных контекстов; работает и без них):
+# sentence-transformers>=2.0

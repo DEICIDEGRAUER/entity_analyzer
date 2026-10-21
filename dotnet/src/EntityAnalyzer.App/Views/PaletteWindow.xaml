@@ -1,0 +1,88 @@
+<Window x:Class="EntityAnalyzer.App.Views.PaletteWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Поиск и команды" Width="640" Height="520"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource BrushBgMain}"
+        TextOptions.TextFormattingMode="Ideal" UseLayoutRounding="True">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="КОМАНДЫ · КОДЕКС · УПОМИНАНИЯ · ФАЙЛЫ"
+                       Style="{DynamicResource SectionHeaderStyle}"
+                       Foreground="{DynamicResource BrushTextSecondary}"
+                       Margin="0,0,0,8"/>
+            <TextBox x:Name="QueryBox" FontSize="16" Padding="8,6"
+                     TextChanged="QueryBox_TextChanged"
+                     KeyDown="QueryBox_KeyDown"
+                     AutomationProperties.Name="Поиск по командам и данным"
+                     AutomationProperties.HelpText="Введите команду, сущность, вариант или имя файла"
+                     ToolTip="Введите команду, сущность, вариант или имя файла (Ctrl+K)"/>
+        </StackPanel>
+
+        <ListBox Grid.Row="1" x:Name="ResultList" Margin="0,12,0,0"
+                 MouseLeftButtonDown="ResultList_Click"
+                 KeyDown="QueryBox_KeyDown"
+                 AutomationProperties.Name="Результаты поиска"
+                 AutomationProperties.HelpText="Стрелки — выбор, Enter — выполнить">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <!-- Для экранных дикторов: иначе UIA отдаёт ToString() записи,
+                         а не человекочитаемый заголовок результата. -->
+                    <Setter Property="AutomationProperties.Name" Value="{Binding Title}"/>
+                    <Setter Property="AutomationProperties.HelpText" Value="{Binding Hint}"/>
+                </Style>
+            </ListBox.ItemContainerStyle>
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <DockPanel Margin="2">
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding Kind}"
+                                   Style="{DynamicResource TechStyle}"
+                                   Foreground="{DynamicResource BrushTextSecondary}"
+                                   Margin="12,0,0,0" VerticalAlignment="Center"/>
+                        <StackPanel>
+                            <TextBlock Text="{Binding Title}" FontSize="14" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Text="{Binding Hint}" Style="{DynamicResource MetaStyle}"
+                                       Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                    </DockPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <TextBlock x:Name="EmptyState" Grid.Row="1"
+                   Text="Ничего не найдено — измените запрос."
+                   Style="{DynamicResource MetaStyle}"
+                   Foreground="{DynamicResource BrushTextSecondary}"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                   TextWrapping="Wrap" IsHitTestVisible="False" Visibility="Collapsed"
+                   AutomationProperties.Name="Ничего не найдено — измените запрос"
+                   AutomationProperties.LiveSetting="Polite"/>
+
+        <Grid Grid.Row="2" Margin="0,10,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Button x:Name="ExecuteButton" Content="Выполнить"
+                    Style="{DynamicResource MiniGhostButtonStyle}"
+                    Click="ExecuteSelected_Click"
+                    AutomationProperties.Name="Выполнить выбранную команду"
+                    AutomationProperties.HelpText="То же, что клавиша Enter"
+                    ToolTip="Выполнить выбранную команду (Enter)"/>
+            <TextBlock x:Name="ResultStatus" Grid.Column="1"
+                       Style="{DynamicResource MetaStyle}"
+                       VerticalAlignment="Center" Margin="12,0,0,0"
+                       AutomationProperties.LiveSetting="Polite"/>
+            <TextBlock Grid.Column="2" Style="{DynamicResource MetaStyle}" Margin="16,0,0,0"
+                       VerticalAlignment="Center"
+                       Text="↑↓ — выбор · Enter — выполнить · Esc — закрыть · Ctrl+K — открыть"/>
+        </Grid>
+    </Grid>
+</Window>
