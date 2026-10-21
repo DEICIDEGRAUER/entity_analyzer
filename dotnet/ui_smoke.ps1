@@ -12,6 +12,9 @@ if ($profileDir.TrimEnd('\') -ieq $realProfile.TrimEnd('\')) {
     Write-Output "FAIL: ENTITYANALYZER_DATA_DIR указывает на реальный профиль: $profileDir"
     exit 1
 }
+# Semantic-слой тоже не должен читать/писать данные машины: даже если
+# снаружи задан EA_SEMANTIC_USER_DIR, смоук уводит его в изолированный профиль.
+$env:EA_SEMANTIC_USER_DIR = Join-Path $profileDir "semantic"
 
 $corpus = Join-Path $env:TEMP "ea_smoke_corpus"
 New-Item -ItemType Directory -Force -Path $corpus | Out-Null

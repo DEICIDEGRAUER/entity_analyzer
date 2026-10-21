@@ -33,6 +33,7 @@ $swTotal  = [System.Diagnostics.Stopwatch]::StartNew()
 $env:ENTITYANALYZER_DATA_DIR = Join-Path $env:TEMP "ea_verify_profile"
 if (Test-Path $env:ENTITYANALYZER_DATA_DIR) { Remove-Item $env:ENTITYANALYZER_DATA_DIR -Recurse -Force -ErrorAction SilentlyContinue }
 New-Item -ItemType Directory -Force -Path $env:ENTITYANALYZER_DATA_DIR | Out-Null
+$env:EA_SEMANTIC_USER_DIR = Join-Path $env:ENTITYANALYZER_DATA_DIR "semantic"
 $realProfile = Join-Path $env:APPDATA "EntityAnalyzer"
 function Get-ProfileSnapshot([string]$dir) {
     if (-not (Test-Path $dir)) { return @() }
