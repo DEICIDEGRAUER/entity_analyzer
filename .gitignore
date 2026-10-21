@@ -68,3 +68,8 @@ dotnet/tests/**/TestResults/
 dotnet/cli_pid.txt
 dotnet/publish/*.pdb
 dotnet/publish-cli/*.pdb
+
+# ONNX models are downloaded explicitly; only docs and the hash manifest are tracked
+dotnet/models/*
+!dotnet/models/README.md
+!dotnet/models/manifest.json
