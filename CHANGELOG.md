@@ -102,6 +102,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   [all six jobs passed](https://github.com/DEICIDEGRAUER/entity_analyzer/actions/runs/39568359864)
   (Windows and Ubuntu, ru-RU/en-US/tr-TR), including the CLI smoke with the
   isolated profile.
+- CI actions moved to Node 24: `actions/checkout@v7` and
+  `actions/setup-dotnet@v6` in both workflows; matrix, isolated profiles, and
+  failure diagnostics are unchanged.
+- Remote GitHub Actions run 8 on `52e4159`:
+  [all six jobs passed](https://github.com/DEICIDEGRAUER/entity_analyzer/actions/runs/39568778298)
+  (Windows and Ubuntu, ru-RU/en-US/tr-TR) with the updated actions.
 - `verify.ps1 -WithGuiSmoke`: build, tests, GUI/CLI publish, CLI smoke with an
   explicit `<output>/.cache` location check, performance gate, GUI smoke V15
   (including the palette empty state, ranking, execute button, focus return,
