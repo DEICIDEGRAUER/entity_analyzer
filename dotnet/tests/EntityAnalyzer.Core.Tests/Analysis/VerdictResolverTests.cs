@@ -8,10 +8,13 @@ public class VerdictResolverTests : IDisposable
 {
     private readonly string _path = Path.Combine(Path.GetTempPath(),
         "ea_verdict_resolver_" + Guid.NewGuid().ToString("N") + ".jsonl");
+    private readonly string _dir = Path.Combine(Path.GetTempPath(),
+        "ea_verdict_resolver_" + Guid.NewGuid().ToString("N"));
 
     public void Dispose()
     {
         try { File.Delete(_path); } catch { }
+        try { Directory.Delete(_dir, true); } catch { }
     }
 
     private static Mention MentionAt(int num, long offset, string variant, int line) =>
@@ -93,5 +96,73 @@ public class VerdictResolverTests : IDisposable
         Assert.Equal(1, applied);
         Assert.Contains(@"C:\corpus\a.txt", hashed);
         Assert.DoesNotContain(@"C:\corpus\empty.txt", hashed);
+    }
+
+    private static AnalysisSession SessionWith(string path, params Mention[] mentions) => new(
+        Files: [FileWith(path, mentions)],
+        Summary: new AnalysisSummary(mentions.Length, 1, 1, 100,
+            new Dictionary<string, int> { ["Наг"] = mentions.Length }),
+        Quality: new QualityReport(0, 0, 0, 0, 0, 0, mentions.Length, 0, 0, 0,
+            Array.Empty<(string, string)>(), "0s"),
+        PresetName: "extended");
+
+    [Fact]
+    public void ApplyStoredTo_uses_hash_from_incremental_index()
+    {
+        Directory.CreateDirectory(_dir);
+        var file = Path.Combine(_dir, "a.txt");
+        File.WriteAllText(file, "Наг и Йеб пришли.");
+        var hash = VerdictResolver.HashFile(file);
+        Assert.NotNull(hash);
+
+        var indexPath = Path.Combine(_dir, "incremental.json");
+        var index = new IncrementalIndexStore(indexPath);
+        index.StoreHash(file, hash!);
+        index.Flush();
+
+        var store = new VerdictStore(Path.Combine(_dir, "verdicts.jsonl"));
+        store.Append(Record(hash!, 7, "Наг", VerdictKind.Confirmed));
+        var mention = MentionAt(1, 7, "Наг", 1);
+        var session = SessionWith(file, mention);
+
+        var applied = VerdictResolver.ApplyStoredTo(session, store,
+            new IncrementalIndexStore(indexPath));
+
+        Assert.Equal(1, applied);
+        Assert.Equal(VerdictKind.Confirmed, mention.Verdict);
+    }
+
+    [Fact]
+    public void ApplyStoredTo_falls_back_to_reading_file_without_index()
+    {
+        Directory.CreateDirectory(_dir);
+        var file = Path.Combine(_dir, "b.txt");
+        File.WriteAllText(file, "Наг и Йеб пришли.");
+        var hash = VerdictResolver.HashFile(file);
+        Assert.NotNull(hash);
+
+        var store = new VerdictStore(Path.Combine(_dir, "verdicts.jsonl"));
+        store.Append(Record(hash!, 3, "Йеб", VerdictKind.Rejected));
+        var mention = MentionAt(1, 3, "Йеб", 1);
+        var session = SessionWith(file, mention);
+
+        var applied = VerdictResolver.ApplyStoredTo(session, store, index: null);
+
+        Assert.Equal(1, applied);
+        Assert.Equal(VerdictKind.Rejected, mention.Verdict);
+    }
+
+    [Fact]
+    public void ApplyStoredTo_empty_store_does_not_touch_missing_files()
+    {
+        var mention = MentionAt(1, 7, "Наг", 1);
+        mention.Verdict = VerdictKind.Confirmed;
+        var session = SessionWith(Path.Combine(_dir, "missing.txt"), mention);
+
+        var applied = VerdictResolver.ApplyStoredTo(session,
+            new VerdictStore(Path.Combine(_dir, "verdicts.jsonl")), index: null);
+
+        Assert.Equal(0, applied);
+        Assert.Null(mention.Verdict);
     }
 }

@@ -283,6 +283,7 @@ public static class Program
         var scripts = new List<string>();       // R1-13: пользовательские .csx-скрипты
         bool noIncremental = false;
         bool patternsOnly = false;
+        bool reviewReport = false; // R2-13: применить вердикты и выгрузить протокол
         bool scout = false;
         string? reproPath = null; // R2-12: пакет воспроизводимости прогона
         string? academicPath = null; // R1-28: научное резюме поверх готового .earepro
@@ -374,6 +375,7 @@ public static class Program
                 }
                 case "--no-incremental": noIncremental = true; break;
                 case "--patterns-only": patternsOnly = true; break;
+                case "--review-report": reviewReport = true; break; // R2-13: протокол проверки в CLI
                 case "--scout": scout = true; break; // R1-1: непокрытые имена корпуса
                 case "--repro": reproPath = args[++i]; break; // R2-12: .earepro
                 case "--academic": academicPath = args[++i]; break; // R1-28: резюме из .earepro
@@ -433,7 +435,7 @@ public static class Program
 
         var streamLarge = GetOption(args, "--stream-large") is not null; // R1-5
         return Run(corpus, output, configPath, catalogPath, presetName, formatsArg, maxMentions,
-            extraDirs, excludes, noIncremental, patternsOnly, scout, reproPath, preprocessors, codexPack, redactDir, draftsDir, collocationsFor, showTimeline, showAnaphora, themesK, templatePath, indexPath, lookupPrefix, streamLarge);
+            extraDirs, excludes, noIncremental, patternsOnly, reviewReport, scout, reproPath, preprocessors, codexPack, redactDir, draftsDir, collocationsFor, showTimeline, showAnaphora, themesK, templatePath, indexPath, lookupPrefix, streamLarge);
     }
 
     /// <summary>Значение опции <paramref name="name"/> или null.</summary>
@@ -505,6 +507,8 @@ public static class Program
                                   JSON печатается в stdout для правки
           --no-incremental        отключить инкрементальный режим (полное чтение корпуса)
           --patterns-only         искать только семантические паттерны (без сущностей)
+          --review-report         применить сохранённые вердикты и записать
+                                  review_report.md/.csv рядом с отчётами
           --scout                 «Кодекс-скаут»: частотные имена вне кодекса → scout.txt
           --repro <файл>          Пакет воспроизводимости (.earepro): прогон + SHA-256 корпуса
           --academic <файл>       Научное резюме (.md) поверх готового .earepro — для рецензента
@@ -586,6 +590,7 @@ public static class Program
         string presetName, string formatsArg, int maxMentions,
         List<string> extraDirs, List<string> excludes, bool noIncremental,
         bool patternsOnly = false,
+        bool reviewReport = false,
         bool scout = false,
         string? reproPath = null,
         List<string>? preprocessors = null,
@@ -862,6 +867,18 @@ public static class Program
         var session = engine.Run(CancellationToken.None, new ConsoleProgress());
 
         clock.Stop();
+
+        // R2-13: протокол проверки доступен и headless-прогону. Флаг явный:
+        // без него CLI не читает журнал вердиктов и не меняет набор отчётов.
+        if (reviewReport)
+        {
+            var index = new IncrementalIndexStore(
+                Path.Combine(options.Cache.Dir, "incremental.json"));
+            var applied = VerdictResolver.ApplyStoredTo(session, VerdictStore.Default, index);
+            Console.WriteLine(applied > 0
+                ? $"Протокол проверки: применено вердиктов {applied} — review_report.md/.csv"
+                : "Протокол проверки: сохранённых вердиктов для этого корпуса нет — review_report не создан");
+        }
 
         ReportExporter.ExportAll(session, options.Output.Dir, formats,
             perEntityFolders: options.Output.PerEntityFolders, catalog: catalog, options: options,
