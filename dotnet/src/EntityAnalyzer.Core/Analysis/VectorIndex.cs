@@ -2,8 +2,11 @@ namespace EntityAnalyzer.Core.Analysis;
 
 /// <summary>
 /// R1-24 «Смысловой поиск»: контракт эмбеддера — текст → вектор.
-/// Офлайн-реализация (bag-of-words) встроена; семантические модели
-/// (ONNX) подключаются этим же контрактом после согласования зависимости.
+/// <see cref="Dimensions"/> должен быть положительным, а <see cref="Embed"/>
+/// — возвращать массив ровно такой длины с конечными значениями.
+/// Реализация должна быть детерминированной: одинаковый текст даёт
+/// одинаковый вектор независимо от процесса и текущей культуры. ONNX-модели
+/// подключаются этим же контрактом отдельным opt-in проектом.
 /// </summary>
 public interface IEmbedder
 {
@@ -16,64 +19,149 @@ public sealed record VectorSearchResult(string Id, double Score);
 
 /// <summary>
 /// Векторный индекс «свой» (реестр, п. R1-24): косинусная близость,
-/// top-k поиск. Хранит векторы документов в памяти; персистенция —
-/// через сериализацию вызывающим слоем.
+/// top-k поиск. Хранит нормализованные векторы документов в памяти.
+/// Повторный <see cref="Add"/> с тем же id заменяет документ (upsert).
+/// Tie-break детерминированный: сначала score, затем id по ordinal.
+/// Экземпляр не потокобезопасен; персистенция — через сериализацию
+/// вызывающим слоем.
 /// </summary>
 public sealed class VectorIndex
 {
     private readonly IEmbedder _embedder;
-    private readonly List<(string Id, double[] Vector)> _documents = [];
+    private readonly Dictionary<string, double[]> _documents = new(StringComparer.Ordinal);
 
-    public VectorIndex(IEmbedder embedder) => _embedder = embedder;
+    public VectorIndex(IEmbedder embedder)
+    {
+        ArgumentNullException.ThrowIfNull(embedder);
+        if (embedder.Dimensions <= 0)
+            throw new ArgumentOutOfRangeException(nameof(embedder),
+                "Эмбеддер должен возвращать вектор положительной размерности.");
+        _embedder = embedder;
+    }
 
     public int Count => _documents.Count;
 
-    public void Add(string id, string text) =>
-        _documents.Add((id, Normalize(_embedder.Embed(text))));
+    /// <summary>Добавляет документ или заменяет вектор с тем же id.</summary>
+    public void Add(string id, string text)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+            throw new ArgumentException("Id документа не может быть пустым.", nameof(id));
 
-    /// <summary>Top-k ближайших документов к запросу.</summary>
+        _documents[id] = EmbedNormalized(text);
+    }
+
+    /// <summary>
+    /// Top-k ближайших документов к запросу. Пустой запрос и topK ≤ 0
+    /// возвращают пустой результат, а не произвольный список нулевых score.
+    /// </summary>
     public IReadOnlyList<VectorSearchResult> Search(string query, int topK = 10)
     {
-        if (_documents.Count == 0 || topK <= 0) return [];
-        var q = Normalize(_embedder.Embed(query));
+        if (_documents.Count == 0 || topK <= 0 || string.IsNullOrWhiteSpace(query))
+            return [];
+
+        var q = EmbedNormalized(query);
+        if (!q.Any(value => value != 0)) return [];
+
         return [.. _documents
-            .Select(d => new VectorSearchResult(d.Id, Cosine(q, d.Vector)))
+            .Select(d => new VectorSearchResult(d.Key, Cosine(q, d.Value)))
             .OrderByDescending(r => r.Score)
             .ThenBy(r => r.Id, StringComparer.Ordinal)
             .Take(topK)];
     }
 
-    private static double[] Normalize(double[] v)
+    private double[] EmbedNormalized(string text)
     {
-        var norm = Math.Sqrt(v.Sum(x => x * x));
-        if (norm < 1e-12) return v;
-        return [.. v.Select(x => x / norm)];
+        if (text is null)
+            throw new ArgumentNullException(nameof(text));
+
+        var vector = _embedder.Embed(text)
+            ?? throw new InvalidOperationException("Эмбеддер вернул null вместо вектора.");
+        if (vector.Length != _embedder.Dimensions)
+            throw new InvalidOperationException(
+                $"Эмбеддер вернул вектор длины {vector.Length}, ожидалась {_embedder.Dimensions}.");
+        foreach (var value in vector)
+            if (!double.IsFinite(value))
+                throw new InvalidOperationException("Эмбеддер вернул NaN или бесконечность.");
+
+        return Normalize(vector);
+    }
+
+    private static double[] Normalize(double[] vector)
+    {
+        var normSquared = 0.0;
+        foreach (var value in vector) normSquared += value * value;
+
+        var result = new double[vector.Length];
+        if (normSquared < 1e-24) return result;
+
+        var norm = Math.Sqrt(normSquared);
+        for (var i = 0; i < vector.Length; i++)
+            result[i] = vector[i] / norm;
+        return result;
     }
 
     private static double Cosine(double[] a, double[] b)
     {
         var sum = 0.0;
         for (var i = 0; i < a.Length && i < b.Length; i++) sum += a[i] * b[i];
-        return sum;
+        return Math.Clamp(sum, -1.0, 1.0);
     }
 }
 
-/// <summary>Офлайн-эмбеддер: хешированный bag-of-words (без зависимостей).</summary>
+/// <summary>
+/// Офлайн-эмбеддер: хешированный bag-of-words без внешних зависимостей.
+/// Токенизация не зависит от культуры и пунктуации; корзина считается
+/// стабильным FNV-1a по UTF-16, а не рандомизированным string.GetHashCode().
+/// Это дефолтный эмбеддер; ONNX подключается отдельно как opt-in.
+/// </summary>
 public sealed class BagOfWordsEmbedder : IEmbedder
 {
+    private static readonly char[] TokenTrimChars =
+    [
+        ',', '.', ';', ':', '!', '?', '«', '»', '“', '”', '„', '‟',
+        '"', '\'', '(', ')', '[', ']', '{', '}', '—', '–', '−', '…',
+    ];
+
     public int Dimensions { get; }
 
-    public BagOfWordsEmbedder(int dimensions = 256) => Dimensions = dimensions;
+    public BagOfWordsEmbedder(int dimensions = 256)
+    {
+        if (dimensions <= 0)
+            throw new ArgumentOutOfRangeException(nameof(dimensions),
+                "Размерность bag-of-words должна быть положительной.");
+        Dimensions = dimensions;
+    }
 
     public double[] Embed(string text)
     {
-        var v = new double[Dimensions];
-        foreach (var raw in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        if (text is null)
+            throw new ArgumentNullException(nameof(text));
+
+        var vector = new double[Dimensions];
+        foreach (var raw in text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
         {
-            var w = raw.Trim(',', '.', ';', ':', '!', '?').ToLowerInvariant();
-            if (w.Length == 0) continue;
-            v[Math.Abs(w.GetHashCode()) % Dimensions] += 1;
+            var token = raw.Trim(TokenTrimChars);
+            if (token.Length == 0) continue;
+
+            var word = token.ToLowerInvariant();
+            vector[StableBucket(word)] += 1;
         }
-        return v;
+
+        return vector;
+    }
+
+    private int StableBucket(string word)
+    {
+        var hash = 2166136261u;
+        unchecked
+        {
+            foreach (var c in word)
+            {
+                hash ^= c;
+                hash *= 16777619u;
+            }
+        }
+
+        return (int)(hash % (uint)Dimensions);
     }
 }

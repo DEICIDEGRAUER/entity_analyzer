@@ -10,43 +10,71 @@ namespace EntityAnalyzer.Core.Tests;
 /// </summary>
 public class SemanticSearchTests
 {
-    private sealed class BagOfWordsEmbedder : IEmbedder
+    // Независимая реализация FNV-1a для проверки стабильности корзин.
+    private static int StableBucket(string word, int dimensions)
     {
-        public int Dimensions => 6;
-        public double[] Embed(string text)
+        var hash = 2166136261u;
+        unchecked
         {
-            var v = new double[Dimensions];
-            foreach (var w in text.ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries))
-                v[StableBucket(w)] += 1;
-            return v;
-        }
-
-        // Детерминированная корзина (FNV-1a): string.GetHashCode() в .NET
-        // рандомизирован в каждом процессе — тест мигал по составу корзин
-        // и «культ алтарь жрец» иногда обгонял точное совпадение.
-        private static int StableBucket(string word)
-        {
-            var h = 2166136261u;
             foreach (var c in word)
             {
-                h ^= c;
-                h *= 16777619u;
+                hash ^= c;
+                hash *= 16777619u;
             }
-            return (int)(h % 6);
         }
+
+        return (int)(hash % (uint)dimensions);
+    }
+
+    private static void AssertVectorEqual(double[] expected, double[] actual)
+    {
+        Assert.Equal(expected.Length, actual.Length);
+        for (var i = 0; i < expected.Length; i++)
+            Assert.Equal(expected[i], actual[i]);
+    }
+
+    private sealed class MapEmbedder : IEmbedder
+    {
+        private readonly Dictionary<string, double[]> _vectors;
+
+        public int Dimensions { get; }
+
+        public MapEmbedder(int dimensions, params (string Text, double[] Vector)[] entries)
+        {
+            Dimensions = dimensions;
+            _vectors = entries.ToDictionary(e => e.Text, e => e.Vector, StringComparer.Ordinal);
+        }
+
+        public double[] Embed(string text) =>
+            _vectors.TryGetValue(text, out var vector) ? [.. vector] : new double[Dimensions];
+    }
+
+    private sealed class ScriptedEmbedder : IEmbedder
+    {
+        private readonly Func<string, double[]> _embed;
+
+        public int Dimensions { get; }
+
+        public ScriptedEmbedder(int dimensions, Func<string, double[]> embed)
+        {
+            Dimensions = dimensions;
+            _embed = embed;
+        }
+
+        public double[] Embed(string text) => _embed(text);
     }
 
     [Fact]
     public void Empty_index_returns_no_results()
     {
-        var index = new VectorIndex(new BagOfWordsEmbedder());
+        var index = new VectorIndex(new BagOfWordsEmbedder(64));
         Assert.Empty(index.Search("запрос", topK: 5));
     }
 
     [Fact]
     public void Exact_word_match_ranks_first()
     {
-        var index = new VectorIndex(new BagOfWordsEmbedder());
+        var index = new VectorIndex(new BagOfWordsEmbedder(64));
         index.Add("doc-sea", "море волны шторм");
         index.Add("doc-cult", "культ алтарь жрец");
         var results = index.Search("шторм волны", topK: 2);
@@ -56,7 +84,7 @@ public class SemanticSearchTests
     [Fact]
     public void TopK_limits_results()
     {
-        var index = new VectorIndex(new BagOfWordsEmbedder());
+        var index = new VectorIndex(new BagOfWordsEmbedder(64));
         for (var i = 0; i < 10; i++) index.Add($"doc{i}", $"документ номер {i}");
         Assert.Equal(3, index.Search("документ", topK: 3).Count);
     }
@@ -64,12 +92,111 @@ public class SemanticSearchTests
     [Fact]
     public void Results_are_sorted_by_similarity()
     {
-        var index = new VectorIndex(new BagOfWordsEmbedder());
+        var index = new VectorIndex(new BagOfWordsEmbedder(64));
         index.Add("weak", "совсем другой текст");
         index.Add("strong", "море море море");
         var results = index.Search("море", topK: 2);
         Assert.True(results[0].Score >= results[1].Score);
         Assert.Equal("strong", results[0].Id);
+    }
+
+    [Fact]
+    public void BagOfWords_embedding_is_process_stable()
+    {
+        var embedder = new BagOfWordsEmbedder(64);
+        var expected = new double[64];
+        expected[StableBucket("море", 64)] = 2;
+        expected[StableBucket("шторм", 64)] = 1;
+
+        var actual = embedder.Embed("Море, море! Шторм?");
+        AssertVectorEqual(expected, actual);
+        AssertVectorEqual(actual, embedder.Embed("море море шторм"));
+    }
+
+    [Fact]
+    public void BagOfWords_empty_text_is_zero_vector()
+    {
+        var embedder = new BagOfWordsEmbedder(16);
+        AssertVectorEqual(new double[16], embedder.Embed(""));
+        AssertVectorEqual(new double[16], embedder.Embed(" ,.!?—"));
+    }
+
+    [Fact]
+    public void BagOfWords_rejects_non_positive_dimensions()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new BagOfWordsEmbedder(0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new BagOfWordsEmbedder(-1));
+    }
+
+    [Fact]
+    public void Empty_query_and_nonpositive_topk_return_no_results()
+    {
+        var index = new VectorIndex(new BagOfWordsEmbedder(64));
+        index.Add("doc", "море");
+        Assert.Empty(index.Search(""));
+        Assert.Empty(index.Search(null!));
+        Assert.Empty(index.Search("   ", 5));
+        Assert.Empty(index.Search(" ,.!?—", 5));
+        Assert.Empty(index.Search("море", 0));
+        Assert.Empty(index.Search("море", -1));
+    }
+
+    [Fact]
+    public void Duplicate_id_replaces_existing_document()
+    {
+        var embedder = new MapEmbedder(2,
+            ("one", [1.0, 0.0]),
+            ("two", [0.0, 1.0]));
+        var index = new VectorIndex(embedder);
+
+        index.Add("same", "one");
+        index.Add("same", "two");
+
+        Assert.Equal(1, index.Count);
+        var two = Assert.Single(index.Search("two", 1));
+        Assert.Equal("same", two.Id);
+        Assert.Equal(1.0, two.Score, 12);
+        Assert.Equal(0.0, Assert.Single(index.Search("one", 1)).Score, 12);
+    }
+
+    [Fact]
+    public void Ties_are_broken_by_ordinal_id()
+    {
+        var embedder = new MapEmbedder(1,
+            ("same", [1.0]),
+            ("other", [0.0]));
+        var index = new VectorIndex(embedder);
+        index.Add("b", "same");
+        index.Add("a", "same");
+        index.Add("c", "other");
+
+        var ids = index.Search("same", 2).Select(r => r.Id).ToArray();
+        Assert.Equal(new[] { "a", "b" }, ids);
+    }
+
+    [Fact]
+    public void Index_rejects_invalid_embedder_dimensions()
+    {
+        Assert.Throws<ArgumentNullException>(() => new VectorIndex(null!));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new VectorIndex(new ScriptedEmbedder(0, _ => [])));
+    }
+
+    [Fact]
+    public void Index_rejects_invalid_embedding_vectors()
+    {
+        var wrongLength = new VectorIndex(new ScriptedEmbedder(2, _ => [1.0, 2.0, 3.0]));
+        Assert.Throws<InvalidOperationException>(() => wrongLength.Add("id", "text"));
+
+        var notFinite = new VectorIndex(new ScriptedEmbedder(2, _ => [double.NaN, 0.0]));
+        Assert.Throws<InvalidOperationException>(() => notFinite.Add("id", "text"));
+
+        var infinite = new VectorIndex(new ScriptedEmbedder(2, _ => [double.PositiveInfinity, 0.0]));
+        Assert.Throws<InvalidOperationException>(() => infinite.Add("id", "text"));
+
+        var valid = new VectorIndex(new BagOfWordsEmbedder(8));
+        Assert.Throws<ArgumentException>(() => valid.Add(" ", "text"));
+        Assert.Throws<ArgumentNullException>(() => valid.Add("id", null!));
     }
 }
 
