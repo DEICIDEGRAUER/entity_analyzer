@@ -11,10 +11,14 @@ Excluded from this branch:
 - local `.mcp.json` and `.tessera` state;
 - `TestResults/` and `.trx` files (they contain machine/user paths);
 - PDB/debug symbols and prebuilt `dotnet/publish*` binaries;
+- ONNX model weights and tokenizer files under `dotnet/models/` (only the
+  README and hash manifest are tracked);
 - local launchers that only work with the prebuilt publish folder.
 
 The .NET application source is in `dotnet/`. The app-only public release branch
 is `main`, which uses the app repository layout (contents of `dotnet/` at the
 repository root).
-Validation: `dotnet build` (0 warnings, 0 errors) and 843/843 Core tests in an isolated profile.
-Source: root `release/v18.1` at `534a39e`.
+Validation: `dotnet build` (0 warnings, 0 errors), 862/862 Core tests in an
+isolated profile, and `fetch-model.ps1`/`fetch-model.sh -Verify` against the
+pinned six-file E5 set.
+Source: root `release/v18.1`.

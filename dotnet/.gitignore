@@ -37,3 +37,8 @@ TestResults/
 publish/output/
 cli_pid.txt
 *.pdb
+
+# ONNX models are downloaded explicitly; only docs and the hash manifest are tracked
+/models/*
+!/models/README.md
+!/models/manifest.json

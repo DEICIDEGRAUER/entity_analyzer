@@ -72,3 +72,8 @@ dotnet/publish-cli/*.pdb
 # Sanitized snapshot: source-only
 dotnet/publish/
 dotnet/publish-cli/
+
+# ONNX models are downloaded explicitly; only docs and the hash manifest are tracked
+dotnet/models/*
+!dotnet/models/README.md
+!dotnet/models/manifest.json

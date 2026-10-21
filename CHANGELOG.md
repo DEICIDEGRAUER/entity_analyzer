@@ -73,6 +73,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   empty queries. E5 uses XLM-R SentencePiece rather than BERT/`vocab.txt`.
   BoW remains default; `Microsoft.ML.OnnxRuntime` and model files are not
   added. Core suite is now 862 tests.
+- ONNX Phase B model-fetch infrastructure is added without packages or
+  committed weights: `dotnet/scripts/fetch-model.ps1` and `fetch-model.sh` pin
+  `Xenova/multilingual-e5-small` at revision `3acb1fa4`, verify sizes and
+  SHA-256 before atomically renaming `.part` files, and update
+  `dotnet/models/manifest.json` plus `dotnet/models/README.md` in `-RecordHashes`;
+  `-Verify` is offline and strict, and `-Force` re-downloads. The
+  `model_int8.onnx` hash is pinned to
+  `4d24e2bc01a447951524466ef533e52944bf48509e6552810bcee1a2711cb02c`;
+  tokenizer, config, and SentencePiece hashes were recorded from the
+  controlled first download. `models/` weights are ignored and no ONNX or
+  tokenizer package was added.
 - Repository hygiene: local-only artifacts (`TestResults/*.trx` with machine
   paths, top-level `output/` and `publish/output` with corpus reports,
   `cli_pid.txt`, PDBs, `.earepro`, `.mcp.json`, `.tessera`, `output_dotnet`,
@@ -125,6 +136,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   additivity of the regular reports), palette ranking (title priority, context
   fallback, long alias lists, 200-item limit, duplicate search text), recent
   ordering, command history, and verdict filtering for review modes.
+- Fetch-model smoke: PowerShell and Git Bash `-Verify` both validated the
+  pinned six-file set, including `model_int8.onnx` SHA-256
+  `4d24e2bc...`; `-RecordHashes` updated the manifest and README, and no
+  package references or weights were committed.
 - Review navigation and verdict restoration are covered by 8 focused tests;
   the review protocol and its CLI loading path are covered by 8 more
   (additivity, decisions-only listing, Markdown escaping, stable codes,
