@@ -69,10 +69,13 @@ function Mark([string]$msg) {
 :verify_pipeline do {
 
 # ── 1. Сборка: требование 0 ошибок / 0 предупреждений ───────────────
+# UseSharedCompilation=false: VBCSCompiler переживает dotnet-процесс и
+# наследует redirected-хендлы; Start-Process -Wait тогда висит до его
+# завершения (наблюдалось на bench-gate). Компилятор запускаем в процессе.
 Mark "step1 build: старт"
 $t = [System.Diagnostics.Stopwatch]::StartNew()
 $buildLog = Join-Path $scratch "verify_build.log"
-$code = Run-Detached "dotnet" @('build','EntityAnalyzer.slnx','-c','Release','--nologo') $root $buildLog (Join-Path $scratch "verify_build.err.log")
+$code = Run-Detached "dotnet" @('build','EntityAnalyzer.slnx','-c','Release','--nologo','-p:UseSharedCompilation=false') $root $buildLog (Join-Path $scratch "verify_build.err.log")
 $t.Stop()
 $buildText = ""
 if (Test-Path $buildLog) { $buildText = Get-Content $buildLog -Raw -Encoding UTF8 }
@@ -86,7 +89,7 @@ if ($code -ne 0) { Write-Output "Сборка сломана — остальн�
 Mark "step2 test: старт"
 $t = [System.Diagnostics.Stopwatch]::StartNew()
 $testLog = Join-Path $scratch "verify_test.log"
-$code = Run-Detached "dotnet" @('test','EntityAnalyzer.slnx','-c','Release','--nologo') $root $testLog (Join-Path $scratch "verify_test.err.log")
+$code = Run-Detached "dotnet" @('test','EntityAnalyzer.slnx','-c','Release','--nologo','-p:UseSharedCompilation=false') $root $testLog (Join-Path $scratch "verify_test.err.log")
 $t.Stop()
 $passed = -1; $failed = -1; $total = -1
 if (Test-Path $testLog) {
@@ -108,8 +111,8 @@ if (-not $ok) { break verify_pipeline }
 if (-not $SkipPublish) {
     Mark "step3 publish: старт"
     $t = [System.Diagnostics.Stopwatch]::StartNew()
-    $c1 = Run-Detached "dotnet" @('publish','src\EntityAnalyzer.App\EntityAnalyzer.App.csproj','-c','Release','-o','publish','--nologo') $root (Join-Path $scratch "verify_pub_gui.log") (Join-Path $scratch "verify_pub_gui.err.log")
-    $c2 = Run-Detached "dotnet" @('publish','src\EntityAnalyzer.Cli\EntityAnalyzer.Cli.csproj','-c','Release','-o','publish-cli','--nologo') $root (Join-Path $scratch "verify_pub_cli.log") (Join-Path $scratch "verify_pub_cli.err.log")
+    $c1 = Run-Detached "dotnet" @('publish','src\EntityAnalyzer.App\EntityAnalyzer.App.csproj','-c','Release','-o','publish','--nologo','-p:UseSharedCompilation=false') $root (Join-Path $scratch "verify_pub_gui.log") (Join-Path $scratch "verify_pub_gui.err.log")
+    $c2 = Run-Detached "dotnet" @('publish','src\EntityAnalyzer.Cli\EntityAnalyzer.Cli.csproj','-c','Release','-o','publish-cli','--nologo','-p:UseSharedCompilation=false') $root (Join-Path $scratch "verify_pub_cli.log") (Join-Path $scratch "verify_pub_cli.err.log")
     $t.Stop()
     $code = $(if ($c1 -eq 0 -and $c2 -eq 0) { 0 } else { 3 })
     Add-Step "publish" $code "gui=$c1, cli=$c2" $t.Elapsed.TotalSeconds
@@ -151,11 +154,11 @@ try { Remove-Item $cliWork -Recurse -Force } catch { }
 Mark "step4b bench-gate: старт"
 $t = [System.Diagnostics.Stopwatch]::StartNew()
 $benchProj = Join-Path $root "tools\Bench\Bench.csproj"
-$code = Run-Detached "dotnet" @('run','--project',$benchProj,'-c','Release','--','--gate','--n','9') $root (Join-Path $scratch "verify_bench.log") (Join-Path $scratch "verify_bench.err.log")
+$code = Run-Detached "dotnet" @('run','--project',$benchProj,'-c','Release','-p:UseSharedCompilation=false','--','--gate','--n','9') $root (Join-Path $scratch "verify_bench.log") (Join-Path $scratch "verify_bench.err.log")
 if ($code -ne 0) {
     Add-Content -Path (Join-Path $scratch "verify_bench.log") -Value "[retry] первый прогон провалился — повтор через 2 c (шум фона)" -Encoding UTF8
     Start-Sleep -Seconds 2
-    $code = Run-Detached "dotnet" @('run','--project',$benchProj,'-c','Release','--','--gate','--n','9') $root (Join-Path $scratch "verify_bench_retry.log") (Join-Path $scratch "verify_bench_retry.err.log")
+    $code = Run-Detached "dotnet" @('run','--project',$benchProj,'-c','Release','-p:UseSharedCompilation=false','--','--gate','--n','9') $root (Join-Path $scratch "verify_bench_retry.log") (Join-Path $scratch "verify_bench_retry.err.log")
 }
 $t.Stop()
 Add-Step "bench-gate" $code "exit=$code (порог ×1.5, n=9, автоповтор при провале)" $t.Elapsed.TotalSeconds
@@ -168,7 +171,7 @@ if ($WithGuiSmoke) {
         $t = [System.Diagnostics.Stopwatch]::StartNew()
         $code = Run-Detached "powershell" @('-NoProfile','-ExecutionPolicy','Bypass','-File',$smokeScript) $root (Join-Path $scratch "verify_smoke.log") (Join-Path $scratch "verify_smoke.err.log")
         $t.Stop()
-        Add-Step "gui-smoke" $code "exit=$code (SMOKE V14)" $t.Elapsed.TotalSeconds
+        Add-Step "gui-smoke" $code "exit=$code (SMOKE V15)" $t.Elapsed.TotalSeconds
     } else {
         Add-Step "gui-smoke" 9 "скрипт не найден: $smokeScript" 0
     }

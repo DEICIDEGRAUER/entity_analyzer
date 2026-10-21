@@ -331,6 +331,9 @@ for ($i = 0; $i -lt 90; $i++) {
 }
 if (-not $analysisDone) { Fail "analysis did not finish" }
 Start-Sleep -Seconds 1
+if (Test-Path (Join-Path $reports "review_report.md")) { Fail "review_report.md written without verdicts" }
+if (Test-Path (Join-Path $reports "review_report.csv")) { Fail "review_report.csv written without verdicts" }
+Write-Output "OK no review protocol without verdicts"
 Select-Radio $win 1
 Start-Sleep -Seconds 1
 $confirm = Find-Button $win "подтверждено"
@@ -349,7 +352,28 @@ foreach ($tx in (Get-AllOf $win ([System.Windows.Automation.ControlType]::Text))
 if (-not $hintOk) { Fail "review protocol hint missing or stale after verdict" }
 Write-Output "OK review protocol hint after verdict"
 
+$exportBtn = Find-Button $win "Экспортировать"
+if (-not $exportBtn) { Fail "export button missing" }
+if (-not (Invoke-One $exportBtn)) { Fail "export button has no invoke pattern" }
+$mdPath = Join-Path $reports "review_report.md"
+$csvPath = Join-Path $reports "review_report.csv"
+$reviewExported = $false
+for ($i = 0; $i -lt 60; $i++) {
+    if ((Test-Path $mdPath) -and (Test-Path $csvPath)) { $reviewExported = $true; break }
+    Start-Sleep -Milliseconds 500
+}
+if (-not $reviewExported) { Fail "review protocol files were not written after export" }
+$md = Get-Content $mdPath -Raw -Encoding UTF8
+if ($md -notmatch '\*\*Подтверждено:\*\* 1') { Fail "review_report.md confirmed count mismatch" }
+if ($md -notmatch '## Решения') { Fail "review_report.md decisions section missing" }
+if ($md -notmatch '\| a\.txt \|') { Fail "review_report.md decision row missing" }
+$csv = @(Get-Content $csvPath -Encoding UTF8 | Where-Object { $_.Trim().Length -gt 0 })
+if ($csv.Count -ne 2) { Fail ("review_report.csv row count=" + $csv.Count) }
+if ($csv[0] -ne 'file;line;offset;entity;variant;verdict') { Fail "review_report.csv header mismatch" }
+if ($csv[1] -notmatch '"confirmed"') { Fail "review_report.csv confirmed code missing" }
+Write-Output "OK review protocol exported after verdict"
+
 Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
-Write-Output "SMOKE V14 PASSED"
+Write-Output "SMOKE V15 PASSED"
 
 

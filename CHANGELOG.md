@@ -90,15 +90,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   byte-identical regular reports, index lookup, file-hash fallback, empty
   journal).
 - Local CI culture matrix: 843/843 tests pass in ru-RU, en-US, and tr-TR.
+- GUI smoke V15: after analysis without verdicts `review_report.md/.csv` are
+  absent; after a verdict the Export button writes both files, the Markdown
+  contains one confirmed decision and a decisions section, and the CSV contains
+  exactly one data row with the stable `confirmed` code.
 - Remote GitHub Actions run 6 on `b94b7fa`:
   [all six jobs passed](https://github.com/DEICIDEGRAUER/entity_analyzer/actions/runs/39533932651)
   (Windows and Ubuntu, ru-RU/en-US/tr-TR), including the CLI smoke with the
   isolated profile.
 - `verify.ps1 -WithGuiSmoke`: build, tests, GUI/CLI publish, CLI smoke with an
-  explicit `<output>/.cache` location check, performance gate, GUI smoke
+  explicit `<output>/.cache` location check, performance gate, GUI smoke V15
   (including the palette empty state, ranking, execute button, focus return,
-  and the review-protocol hint after a real analysis and verdict), and
+  the review-protocol hint after a real analysis and verdict, and the actual
+  `review_report.md/.csv` files with one confirmed decision), and
   real-profile-untouched check.
+- `verify.ps1` disables shared compilation for build, test, publish, and bench:
+  a lingering `VBCSCompiler` inherited redirected handles and made
+  `Start-Process -Wait` hang at bench-gate. The full pipeline now completes in
+  about 69 s.
 - Isolated GUI smokes: bulk verdict undo, recent-project pruning.
 - Full-corpus baseline recorded on `8d87b13` (10,489 analyzed files): cold run
   about 30–36 s, steady warm run about 3.3 s. Cold and warm runs produced the
