@@ -56,3 +56,15 @@ _scratch/
 
 # Nested dotnet repository metadata
 dotnet/.github/
+
+# Local/user artifacts (never publish)
+output_dotnet/
+reports/
+.tessera/
+.mcp.json
+*.earepro
+dotnet/publish/output/
+dotnet/tests/**/TestResults/
+dotnet/cli_pid.txt
+dotnet/publish/*.pdb
+dotnet/publish-cli/*.pdb

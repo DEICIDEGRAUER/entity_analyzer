@@ -1,5 +1,0 @@
-Обособленный скан семантических паттернов
-Файлов: 10132
-Находок: 0
-Время: 16.1s
-Отчёты: C:\Users\malin\Desktop\entity_analyzer\output_dotnet\by_pattern
