@@ -72,6 +72,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   before falling back to reading the file; the hash cache is cleared for every
   new session.
 - README updated to the current 843-test baseline.
+- Remote CI now runs the Core/CLI suite on Windows and Linux in ru-RU,
+  en-US, and tr-TR, builds WPF only on Windows, uses an isolated profile,
+  and publishes failure diagnostics. The path-restamping test is
+  platform-neutral, and the microbenchmark compares the median of three
+  runs with a 50% guard instead of a single 15% comparison.
 
 ### Verified
 - 843/843 Core tests, including the review protocol (no files without
@@ -85,6 +90,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   byte-identical regular reports, index lookup, file-hash fallback, empty
   journal).
 - Local CI culture matrix: 843/843 tests pass in ru-RU, en-US, and tr-TR.
+- Remote GitHub Actions run 6 on `b94b7fa`:
+  [all six jobs passed](https://github.com/DEICIDEGRAUER/entity_analyzer/actions/runs/39533932651)
+  (Windows and Ubuntu, ru-RU/en-US/tr-TR), including the CLI smoke with the
+  isolated profile.
 - `verify.ps1 -WithGuiSmoke`: build, tests, GUI/CLI publish, CLI smoke with an
   explicit `<output>/.cache` location check, performance gate, GUI smoke
   (including the palette empty state, ranking, execute button, focus return,

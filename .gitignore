@@ -53,3 +53,6 @@ _scratch/
 # Distribution
 *.whl
 *.tar.gz
+
+# Nested dotnet repository metadata
+dotnet/.github/

@@ -3,6 +3,7 @@ bin/
 obj/
 releases/
 publish-bench/
+cli-out/
 
 # Черновики, логи, кэш
 _scratch/
