@@ -108,4 +108,68 @@ public class HomonymClassifierTests
         var sense = HomonymClassifier.Classify("Наг", "Упоминание Наг встречается здесь.");
         Assert.Equal(HomonymSense.PersonName, sense);
     }
+
+    [Fact]
+    public void Dotted_abbreviation_is_detected()
+    {
+        var sense = HomonymClassifier.Classify("Н.А.Г.", "Жрец Н.А.Г. произнёс проклятие.");
+        Assert.Equal(HomonymSense.Abbreviation, sense);
+    }
+
+    [Fact]
+    public void Strong_personal_context_overrides_all_caps()
+    {
+        // CAPS-паттерн — не приговор: «жрец ... произнёс» прямо указывает
+        // на персональное употребление.
+        var sense = HomonymClassifier.Classify("НАГ", "Жрец НАГ произнёс проклятие.");
+        Assert.Equal(HomonymSense.PersonName, sense);
+    }
+
+    [Fact]
+    public void Inflected_term_is_matched()
+    {
+        var sense = HomonymClassifier.Classify("Наг", "Жрец Нага произнёс проклятие.");
+        Assert.Equal(HomonymSense.PersonName, sense);
+    }
+
+    [Fact]
+    public void Place_preposition_works_through_place_phrase()
+    {
+        var sense = HomonymClassifier.Classify(
+            "Наг", "Мы прибыли в древний город Наг поздно вечером.");
+        Assert.Equal(HomonymSense.Toponym, sense);
+    }
+
+    [Fact]
+    public void Place_noun_suggests_toponym_without_preposition()
+    {
+        // Местный контекст уточняет и CAPS-форму, которая без него
+        // считалась бы аббревиатурой.
+        var sense = HomonymClassifier.Classify("НАГ", "Город НАГ раскинулся на севере.");
+        Assert.Equal(HomonymSense.Toponym, sense);
+    }
+
+    [Fact]
+    public void Distant_personal_word_does_not_override_near_place_context()
+    {
+        // «Жрец» стоит далеко и не должен перебивать «в Наг».
+        var sense = HomonymClassifier.Classify(
+            "Наг", "Жрец сказал, что караван прибыл в Наг.");
+        Assert.Equal(HomonymSense.Toponym, sense);
+    }
+
+    [Fact]
+    public void Punctuation_and_speech_verb_around_term_suggest_person()
+    {
+        var sense = HomonymClassifier.Classify("Наг", "«Наг», — сказал жрец.");
+        Assert.Equal(HomonymSense.PersonName, sense);
+    }
+
+    [Fact]
+    public void Empty_context_keeps_caps_abbreviation()
+    {
+        Assert.Equal(HomonymSense.Abbreviation, HomonymClassifier.Classify("НАГ", ""));
+        Assert.Equal(HomonymSense.PersonName, HomonymClassifier.Classify("Наг", ""));
+        Assert.Equal(HomonymSense.PersonName, HomonymClassifier.Classify("", "Наг"));
+    }
 }
