@@ -87,6 +87,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (including the palette empty state, ranking, execute button, and focus return), and
   real-profile-untouched check.
 - Isolated GUI smokes: bulk verdict undo, recent-project pruning.
+- Full-corpus baseline recorded on `8d87b13` (10,489 analyzed files): cold run
+  about 30–36 s, steady warm run about 3.3 s. Cold and warm runs produced the
+  same 913 mentions in 261 files and a byte-identical `entities_table.csv`;
+  methodology, output set, cache size, and caveats are in
+  `dotnet/docs/PERFORMANCE.md`.
 
 ## [18.1.0] - 2026-08-29
 
