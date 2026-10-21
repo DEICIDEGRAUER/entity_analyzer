@@ -98,6 +98,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   [all six jobs passed](https://github.com/DEICIDEGRAUER/entity_analyzer/actions/runs/39533932651)
   (Windows and Ubuntu, ru-RU/en-US/tr-TR), including the CLI smoke with the
   isolated profile.
+- Remote GitHub Actions run 7 on `88c2647`:
+  [all six jobs passed](https://github.com/DEICIDEGRAUER/entity_analyzer/actions/runs/39568359864)
+  (Windows and Ubuntu, ru-RU/en-US/tr-TR), including the CLI smoke with the
+  isolated profile.
 - `verify.ps1 -WithGuiSmoke`: build, tests, GUI/CLI publish, CLI smoke with an
   explicit `<output>/.cache` location check, performance gate, GUI smoke V15
   (including the palette empty state, ranking, execute button, focus return,
