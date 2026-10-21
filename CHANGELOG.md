@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Review results are now exported. When a session has at least one verdict,
+  `ExportAll` additionally writes `review_report.md` (summary: total/reviewed/
+  confirmed/rejected/uncertain, files with unreviewed mentions, plus a decisions
+  table) and `review_report.csv` (machine-readable; RFC 4180 quoting; stable
+  `confirmed/rejected/uncertain` codes matching `verdicts.jsonl`). Without
+  verdicts the protocol is not written at all, so the regular report set and
+  their content stay byte-identical. The Export page shows the current review
+  progress and whether the protocol will be written.
 - The results page can jump to the next file with unreviewed mentions and
   shows corpus-wide review progress. Navigation respects the current file
   filters first; if they contain no work, it resets them and continues across
@@ -57,14 +65,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - File hashes used by verdicts and stars are taken from the incremental index
   before falling back to reading the file; the hash cache is cleared for every
   new session.
-- README updated to the current 835-test baseline.
+- README updated to the current 840-test baseline.
 
 ### Verified
-- 835/835 Core tests, including palette ranking (title priority, context
+- 840/840 Core tests, including the review protocol (no files without
+  verdicts, decisions-only listing, Markdown escaping, stable CSV codes,
+  additivity of the regular reports), palette ranking (title priority, context
   fallback, long alias lists, 200-item limit, duplicate search text), recent
   ordering, command history, and verdict filtering for review modes.
-- Review navigation and verdict restoration are covered by 8 focused tests.
-- Local CI culture matrix: 835/835 tests pass in ru-RU, en-US, and tr-TR.
+- Review navigation and verdict restoration are covered by 8 focused tests;
+  the review protocol is covered by 5 more (additivity, decisions-only
+  listing, Markdown escaping, stable codes, byte-identical regular reports).
+- Local CI culture matrix: 840/840 tests pass in ru-RU, en-US, and tr-TR.
 - `verify.ps1 -WithGuiSmoke`: build, tests, GUI/CLI publish, CLI smoke with an
   explicit `<output>/.cache` location check, performance gate, GUI smoke
   (including the palette empty state, ranking, execute button, and focus return), and

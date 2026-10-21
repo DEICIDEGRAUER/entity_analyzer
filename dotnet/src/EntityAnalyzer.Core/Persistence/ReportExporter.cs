@@ -51,6 +51,10 @@ public static partial class ReportExporter
         // Максимально подробный сводный отчёт.
         try { WriteFullReport(session, outputDir, options); } catch { /* некритично */ }
 
+        // Протокол проверки: пишется только при наличии вердиктов — набор
+        // обычных отчётов остаётся прежним (аддитивно).
+        try { WriteReviewReport(session, outputDir); } catch { /* некритично */ }
+
         return outputDir;
     }
 
@@ -112,6 +116,112 @@ public static partial class ReportExporter
 
     private const string quote = "\"";
     private const string doubleQuote = "\"\"";
+
+    // ---------- протокол проверки (вердикты) ----------
+
+    /// <summary>
+    /// Протокол проверки (R2-13): review_report.md + review_report.csv
+    /// рядом с обычными отчётами. Пишется только когда в сессии есть хотя бы
+    /// один вердикт — без разметки набор файлов экспорта не меняется вовсе,
+    /// поэтому обычные отчёты остаются прежними и аддитивность не ломает
+    /// существующие конвейеры. В протокол попадают только решённые цитаты;
+    /// непроверенные учитываются сводкой («Осталось непроверенных» и файлы).
+    /// </summary>
+    public static string WriteReviewReport(AnalysisSession session, string outputDir)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+
+        var summary = ReviewNavigator.Summarize(session.Files);
+        if (summary.Reviewed == 0) return "";
+
+        Directory.CreateDirectory(outputDir);
+
+        var decisions = session.Files
+            .SelectMany(f => f.Mentions.Select(m => (File: f, Mention: m)))
+            .Where(x => x.Mention.Verdict is not null)
+            .ToArray();
+        var counts = new Dictionary<VerdictKind, int>
+        {
+            [VerdictKind.Confirmed] = 0,
+            [VerdictKind.Rejected] = 0,
+            [VerdictKind.Uncertain] = 0,
+        };
+        foreach (var x in decisions)
+            counts[x.Mention.Verdict!.Value] = counts.GetValueOrDefault(x.Mention.Verdict.Value) + 1;
+
+        var mdPath = Path.Combine(outputDir, "review_report.md");
+        WriteReviewMarkdown(mdPath, session, summary, counts, decisions);
+        WriteReviewCsv(decisions, outputDir);
+        return mdPath;
+    }
+
+    private static void WriteReviewMarkdown(string path, AnalysisSession session, ReviewSummary summary,
+        IReadOnlyDictionary<VerdictKind, int> counts,
+        (FileResult File, Mention Mention)[] decisions)
+    {
+        var sb = new StringBuilder();
+        var ci = CultureInfo.InvariantCulture;
+        sb.AppendLine("# Протокол проверки упоминаний");
+        sb.AppendLine();
+        sb.AppendLine(ci, $"- **Пресет:** {session.PresetName}  ");
+        sb.AppendLine(ci, $"- **Всего цитат:** {summary.Total:N0}  ");
+        sb.AppendLine(ci, $"- **Проверено:** {summary.Reviewed:N0}  ");
+        sb.AppendLine(ci, $"- **Подтверждено:** {counts[VerdictKind.Confirmed]:N0}  ");
+        sb.AppendLine(ci, $"- **Ложные срабатывания:** {counts[VerdictKind.Rejected]:N0}  ");
+        sb.AppendLine(ci, $"- **Спорно:** {counts[VerdictKind.Uncertain]:N0}  ");
+        sb.AppendLine(ci, $"- **Осталось непроверенных:** {summary.Unreviewed:N0}  ");
+        sb.AppendLine(ci, $"- **Файлов с непроверенными цитатами:** {summary.FilesWithUnreviewed:N0}");
+        sb.AppendLine();
+
+        sb.AppendLine("## Решения");
+        sb.AppendLine();
+        sb.AppendLine("| Файл | Строка | Сущность | Вариант | Вердикт | Смещение |");
+        sb.AppendLine("|------|-------:|----------|---------|---------|---------:|");
+        foreach (var (file, m) in decisions)
+        {
+            sb.AppendLine(CultureInfo.InvariantCulture,
+                $"| {MdCell(file.FileName)} | {m.Line} | {MdCell(m.Entity)} | {MdCell(m.Variant)} |" +
+                $" {MdCell(m.VerdictLabel)} | {(m.Offset > 0 ? m.Offset : m.Line)} |");
+        }
+        sb.AppendLine();
+
+        sb.AppendLine("Смещение — позиция находки, по которой ключуется вердикт в verdicts.jsonl");
+        sb.AppendLine("(нормализованный текст файла; для старых данных — номер строки).");
+        File.WriteAllText(path, sb.ToString(), new UTF8Encoding(false));
+    }
+
+    /// <summary>Экранирование ячейки Markdown-таблицы: канал, бэкслеш и переносы строк.</summary>
+    private static string MdCell(string value) => (value ?? "")
+        .Replace("\\", "\\\\")
+        .Replace("|", "\\|")
+        .Replace("\r", " ")
+        .Replace("\n", " ");
+
+    private static void WriteReviewCsv((FileResult File, Mention Mention)[] decisions, string outputDir)
+    {
+        var path = Path.Combine(outputDir, "review_report.csv");
+        var sb = new StringBuilder();
+        sb.AppendLine("file;line;offset;entity;variant;verdict");
+        foreach (var (file, m) in decisions)
+        {
+            sb.AppendLine(CultureInfo.InvariantCulture,
+                $"{CsvCell(file.FileName)};{m.Line};{(m.Offset > 0 ? m.Offset : m.Line).ToString(CultureInfo.InvariantCulture)};" +
+                $"{CsvCell(m.Entity)};{CsvCell(m.Variant)};{CsvCell(VerdictCode(m.Verdict!.Value))}");
+        }
+        File.WriteAllText(path, sb.ToString(), new UTF8Encoding(false));
+    }
+
+    /// <summary>Стабильный машинный код вердикта для CSV — как в verdicts.jsonl.</summary>
+    private static string VerdictCode(VerdictKind kind) => kind switch
+    {
+        VerdictKind.Confirmed => "confirmed",
+        VerdictKind.Rejected => "rejected",
+        VerdictKind.Uncertain => "uncertain",
+        _ => "",
+    };
+
+    private static string CsvCell(string value) =>
+        "\"" + (value ?? "").Replace("\"", "\"\"") + "\"";
 
     /// <summary>Максимально подробный отчёт о прогоне: конфигурация, корпус, воронка,
     /// тайминги стадий, сущности/группы/темы, варианты, повторы, ошибки.</summary>

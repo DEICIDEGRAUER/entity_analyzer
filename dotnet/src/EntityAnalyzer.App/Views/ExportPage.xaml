@@ -34,6 +34,11 @@
                        Foreground="{DynamicResource BrushTextSecondary}"
                        Text="Плюс к форматам: энциклопедические статьи о сущностях (articles/ — Markdown и индекс), папки by_entity с упоминаниями и статьёй, варианты написаний и граф упоминаний."/>
 
+            <!-- Плюс: протокол проверки, когда есть вердикты -->
+            <TextBlock Text="{Binding ReviewReportInfo}" Style="{DynamicResource MetaStyle}"
+                       TextWrapping="Wrap" Margin="0,8,0,0"
+                       Foreground="{DynamicResource BrushTextSecondary}"/>
+
             <TextBlock Text="Папка вывода" Style="{DynamicResource MetaStyle}" Margin="0,24,0,0"/>
             <DockPanel Margin="0,8,0,0">
                 <Button DockPanel.Dock="Right" Content="Выбрать…" Style="{DynamicResource GhostButtonStyle}"

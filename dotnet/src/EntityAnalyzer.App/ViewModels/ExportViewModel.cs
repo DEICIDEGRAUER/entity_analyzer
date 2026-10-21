@@ -32,9 +32,26 @@ public sealed class ExportViewModel : ObservableObject
     private bool _hasLastAutoExport;
     public bool HasLastAutoExport { get => _hasLastAutoExport; private set => Set(ref _hasLastAutoExport, value); }
 
+    // Протокол проверки: пишется вместе с отчётами, только если есть вердикты.
+    private string _reviewReportInfo = "";
+    public string ReviewReportInfo { get => _reviewReportInfo; private set => Set(ref _reviewReportInfo, value); }
+
+    /// <summary>Сводка проверки для подсказки на странице экспорта.</summary>
+    private void RefreshReviewInfo(AnalysisSession? session)
+    {
+        ReviewReportInfo = session is null
+            ? "Протокол проверки появится после анализа и первых вердиктов."
+            : ReviewNavigator.Summarize(session.Files) is { } s
+                ? s.Reviewed == 0
+                    ? $"Проверка: 0 из {s.Total:N0} цитат — протокол review_report не создаётся, пока нет вердиктов."
+                    : $"Проверка: {s.Reviewed:N0} из {s.Total:N0} цитат — вместе с отчётами будут записаны review_report.md и review_report.csv."
+                : "";
+    }
+
     /// <summary>Вызывается MainViewModel при навигации на страницу.</summary>
     public void RefreshAutoExportInfo()
     {
+        RefreshReviewInfo(_main.Session);
         var s = _main.Session;
         if (s is null || string.IsNullOrWhiteSpace(_settings.OutputDir)) { HasLastAutoExport = false; return; }
         try
@@ -102,6 +119,7 @@ public sealed class ExportViewModel : ObservableObject
     internal void RefreshFrom(AnalysisSession session)
     {
         OnPropertyChanged(nameof(HasSession));
+        RefreshReviewInfo(session);
         var raw = Math.Max(1, session.Quality.RawMatches);
         BarRaw = 100;
         BarFinal = session.Quality.FinalMentions * 100.0 / raw;
