@@ -50,6 +50,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the full context does not score.
 
 ### Changed
+- The homonym classifier now scores a local context window instead of using
+  the first personal word anywhere in the sentence: inflected forms of the
+  term (`Нага`, `Наге`, `Нагом`) are matched, place prepositions work through
+  a place phrase (`в древний город Наг`), place nouns count, and dotted
+  acronyms are recognized. Explicit personal or place context can refine an
+  all-caps term, while a neutral CAPS form stays an abbreviation. The public
+  `Classify` contract is unchanged; the Core suite is now 851 tests.
 - Repository hygiene: local-only artifacts (`TestResults/*.trx` with machine
   paths, top-level `output/` and `publish/output` with corpus reports,
   `cli_pid.txt`, PDBs, `.earepro`, `.mcp.json`, `.tessera`, `output_dotnet`,
