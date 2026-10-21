@@ -63,7 +63,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   repeated ids replace rather than duplicate, dimensions and finite values are
   validated, empty or punctuation-only queries return no results, and ties sort
   by ordinal id. BoW remains the deterministic default; ONNX is not added and
-  stays a separate opt-in step. Core suite is now 859 tests.
+  stays a separate opt-in step.
+- The ONNX Phase B contract is prepared without runtime or model files:
+  `IRoleAwareEmbedder` distinguishes `Document` and `Query`, so the mandatory
+  E5 `passage:`/`query:` prefixes are enforced by `VectorIndex` instead of
+  being left to callers. The selected E5 profile is 384-dimensional with
+  L2-normalized non-empty vectors and a zero vector for empty input; a
+  dependency-free stub covers dimensions, normalization, role dispatch, and
+  empty queries. E5 uses XLM-R SentencePiece rather than BERT/`vocab.txt`.
+  BoW remains default; `Microsoft.ML.OnnxRuntime` and model files are not
+  added. Core suite is now 862 tests.
 - Repository hygiene: local-only artifacts (`TestResults/*.trx` with machine
   paths, top-level `output/` and `publish/output` with corpus reports,
   `cli_pid.txt`, PDBs, `.earepro`, `.mcp.json`, `.tessera`, `output_dotnet`,
@@ -98,7 +107,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - File hashes used by verdicts and stars are taken from the incremental index
   before falling back to reading the file; the hash cache is cleared for every
   new session.
-- README updated to the current 859-test baseline.
+- README updated to the current 862-test baseline.
 - Remote CI now runs the Core/CLI suite on Windows and Linux in ru-RU,
   en-US, and tr-TR, builds WPF only on Windows, uses an isolated profile,
   and publishes failure diagnostics. The path-restamping test is
@@ -106,11 +115,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   runs with a 50% guard instead of a single 15% comparison.
 
 ### Verified
-- 859/859 Core tests after the VectorIndex/BoW Phase A: stable FNV buckets,
-  Unicode/case/punctuation tokenization, empty and punctuation-only queries,
-  ordinal tie-break, id upsert, and dimension/finite-value validation, in
-  addition to the review protocol (no files without
-  verdicts, decisions-only listing, Markdown escaping, stable CSV codes,
+- 862/862 Core tests after the VectorIndex/BoW Phase A and the dependency-free
+  ONNX/E5 contract: stable FNV buckets, Unicode/case/punctuation tokenization,
+  empty and punctuation-only queries, ordinal tie-break, id upsert,
+  dimension/finite-value validation, 384-dimensional L2-normalized E5 stub,
+  and `Document`/`Query` role dispatch, in addition to the review protocol
+  (no files without verdicts, decisions-only listing, Markdown escaping,
+  stable CSV codes,
   additivity of the regular reports), palette ranking (title priority, context
   fallback, long alias lists, 200-item limit, duplicate search text), recent
   ordering, command history, and verdict filtering for review modes.

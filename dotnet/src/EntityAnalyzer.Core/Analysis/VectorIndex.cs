@@ -14,12 +14,36 @@ public interface IEmbedder
     double[] Embed(string text);
 }
 
+/// <summary>
+/// Роль текста для асимметричных эмбеддеров: E5 кодирует запросы с
+/// префиксом <c>query:</c>, а документы — с <c>passage:</c>.
+/// </summary>
+public enum EmbeddingRole
+{
+    Document,
+    Query,
+}
+
+/// <summary>
+/// Расширение <see cref="IEmbedder"/> для моделей, различающих запрос и
+/// документ. <see cref="VectorIndex"/> вызывает <see cref="EmbeddingRole.Document"/>
+/// при добавлении и <see cref="EmbeddingRole.Query"/> при поиске; BoW этот
+/// интерфейс не реализует и работает как раньше.
+/// </summary>
+public interface IRoleAwareEmbedder : IEmbedder
+{
+    double[] Embed(string text, EmbeddingRole role);
+}
+
 /// <summary>Результат поиска: документ и его близость к запросу.</summary>
 public sealed record VectorSearchResult(string Id, double Score);
 
 /// <summary>
 /// Векторный индекс «свой» (реестр, п. R1-24): косинусная близость,
 /// top-k поиск. Хранит нормализованные векторы документов в памяти.
+/// Если эмбеддер реализует <see cref="IRoleAwareEmbedder"/>, документы
+/// кодируются с ролью <see cref="EmbeddingRole.Document"/>, а запросы —
+/// с <see cref="EmbeddingRole.Query"/>.
 /// Повторный <see cref="Add"/> с тем же id заменяет документ (upsert).
 /// Tie-break детерминированный: сначала score, затем id по ordinal.
 /// Экземпляр не потокобезопасен; персистенция — через сериализацию
@@ -47,7 +71,7 @@ public sealed class VectorIndex
         if (string.IsNullOrWhiteSpace(id))
             throw new ArgumentException("Id документа не может быть пустым.", nameof(id));
 
-        _documents[id] = EmbedNormalized(text);
+        _documents[id] = EmbedNormalized(text, EmbeddingRole.Document);
     }
 
     /// <summary>
@@ -59,7 +83,7 @@ public sealed class VectorIndex
         if (_documents.Count == 0 || topK <= 0 || string.IsNullOrWhiteSpace(query))
             return [];
 
-        var q = EmbedNormalized(query);
+        var q = EmbedNormalized(query, EmbeddingRole.Query);
         if (!q.Any(value => value != 0)) return [];
 
         return [.. _documents
@@ -69,13 +93,16 @@ public sealed class VectorIndex
             .Take(topK)];
     }
 
-    private double[] EmbedNormalized(string text)
+    private double[] EmbedNormalized(string text, EmbeddingRole role)
     {
         if (text is null)
             throw new ArgumentNullException(nameof(text));
 
-        var vector = _embedder.Embed(text)
-            ?? throw new InvalidOperationException("Эмбеддер вернул null вместо вектора.");
+        var vector = _embedder is IRoleAwareEmbedder roleAware
+            ? roleAware.Embed(text, role)
+            : _embedder.Embed(text);
+        if (vector is null)
+            throw new InvalidOperationException("Эмбеддер вернул null вместо вектора.");
         if (vector.Length != _embedder.Dimensions)
             throw new InvalidOperationException(
                 $"Эмбеддер вернул вектор длины {vector.Length}, ожидалась {_embedder.Dimensions}.");
