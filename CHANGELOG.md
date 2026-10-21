@@ -112,6 +112,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ci-matrix.ps1` force `EA_SEMANTIC_USER_DIR` inside the isolated profile, so a
   caller's environment cannot leak real semantic data into tests; local matrix
   remains 843/843 in ru-RU/en-US/tr-TR and full verify is green.
+- Remote GitHub Actions run 9 on `994e0e6`:
+  [all six jobs passed](https://github.com/DEICIDEGRAUER/entity_analyzer/actions/runs/39569620684)
+  (Windows and Ubuntu, ru-RU/en-US/tr-TR).
 - `verify.ps1 -WithGuiSmoke`: build, tests, GUI/CLI publish, CLI smoke with an
   explicit `<output>/.cache` location check, performance gate, GUI smoke V15
   (including the palette empty state, ranking, execute button, focus return,
