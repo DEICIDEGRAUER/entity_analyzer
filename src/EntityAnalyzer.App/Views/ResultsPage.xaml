@@ -1,0 +1,444 @@
+<UserControl x:Class="EntityAnalyzer.App.Views.ResultsPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:b="clr-namespace:EntityAnalyzer.App.Behaviors"
+             xmlns:infra="clr-namespace:EntityAnalyzer.App.Infrastructure">
+
+    <UserControl.Resources>
+        <infra:BranchIndexToBrushConverter x:Key="BranchIndexToBrush"/>
+        <infra:CharsToTileSizeConverter x:Key="CharsToTileSize"/>
+        <infra:DensityToOpacityConverter x:Key="DensityToOpacity"/>
+        <infra:StarToBrushConverter x:Key="StarToBrushConverter"/>
+        <infra:CountToVisibilityConverter x:Key="CountToVisibilityConverter"/>
+        <infra:FileTagsConverter x:Key="FileTagsConverter"/>
+        <infra:ThemeMarksConverter x:Key="ThemeMarksConverter"/>
+    </UserControl.Resources>
+
+    <!-- Экран «Результаты»: панель фильтра + два списка через волосяной
+         разделитель. Цитаты — блоки Content-Quote с отступом слева;
+     слово-триггер подчёркнуто цветом ветви сущности. -->
+    <UserControl.InputBindings>
+        <!-- Item 39: Ctrl+S — отметить/снять звёздочку у выбранной цитаты. -->
+        <KeyBinding Key="S" Modifiers="Control" Command="{Binding ToggleSelectedStarCommand}"/>
+    </UserControl.InputBindings>
+
+    <Grid Margin="32,32,32,24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Панель поиска: строка фильтров, ниже — heat map корпуса.
+             Item 39: раньше обе сетки лежали в колонке 0 и плитки heat map
+             перекрывали поле поиска. -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,24">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="320"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- QA-UX #4: у поля поиска появился placeholder — назначение видно без тултипа -->
+                <Grid VerticalAlignment="Center">
+                    <TextBox Text="{Binding Search, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Фильтр: имя файла, вариант или текст контекста"/>
+                    <TextBlock Text="Фильтр по файлу, варианту или тексту…"
+                               IsHitTestVisible="False"
+                               VerticalAlignment="Center" Margin="8,0,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                <Setter Property="Foreground" Value="{DynamicResource BrushTextDisabled}"/>
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Search}" Value="">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Grid>
+                <WrapPanel Grid.Column="1" VerticalAlignment="Center">
+                    <!-- UX: у фильтра появилась видимая подпись вместо безымянного комбобокса -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="ПОКАЗ" Style="{DynamicResource SectionHeaderStyle}"
+                                   VerticalAlignment="Center" Margin="16,0,8,0"
+                                   ToolTip="Все / без вердикта / подтверждённые / ложные / спорные; Точные и Fuzzy — по типу совпадения"/>
+                        <ComboBox ItemsSource="{Binding FilterModes}" SelectedItem="{Binding SelectedMode}"
+                                  MinWidth="140" VerticalAlignment="Center"
+                                  AutomationProperties.Name="Фильтр цитат"
+                                  AutomationProperties.HelpText="Фильтр по вердикту, точности совпадения или теме"
+                                  ToolTip="Фильтр упоминаний по вердикту, точности совпадения или теме"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="ТЕГ" Style="{DynamicResource SectionHeaderStyle}"
+                                   VerticalAlignment="Center" Margin="16,0,8,0"
+                                   ToolTip="Автотеги файлов по преобладающим темам упоминаний"/>
+                        <ComboBox ItemsSource="{Binding TagFilters}" SelectedItem="{Binding TagFilter}"
+                                  MinWidth="160" VerticalAlignment="Center"
+                                  AutomationProperties.Name="Фильтр по тегам"
+                                  ToolTip="Оставить только файлы с выбранным тегом"/>
+                    </StackPanel>
+                    <CheckBox Content="Только файлы с находками" IsChecked="{Binding OnlyWithResults}"
+                              Margin="24,0,0,0" VerticalAlignment="Center"/>
+                    <Button Content="Копировать цитату" Style="{DynamicResource GhostButtonStyle}"
+                            Command="{Binding CopyContext}" VerticalAlignment="Center"/>
+                    <Button Content="Полный текст файла" Style="{DynamicResource GhostButtonStyle}"
+                            Command="{Binding OpenFullText}" VerticalAlignment="Center"
+                            ToolTip="Открывает исходный файл ВЫБРАННОЙ цитаты с подчёркнутыми упоминаниями"/>
+                </WrapPanel>
+            </Grid>
+
+            <!-- R3-1 (item 52): фильтр по теме (словари с морфологией) и сущности -->
+            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                <TextBlock Text="ТЕМА" Style="{DynamicResource SectionHeaderStyle}" VerticalAlignment="Center"
+                           ToolTip="Тематические словари: слова ищутся в цитатах с морфологией (падежи, формы). Свои слова добавляются на «Обзоре» в сборщике отрывков (user_themes.json)"/>
+                <ComboBox ItemsSource="{Binding ThemeFilters}" SelectedItem="{Binding ThemeFilter}"
+                          MinWidth="140" Margin="8,0,0,0" VerticalAlignment="Center"
+                          AutomationProperties.Name="Фильтр по теме"
+                          ToolTip="Оставить файлы и цитаты, где встречаются слова темы"/>
+                <TextBlock Text="{Binding ThemeFilterWords.Count, StringFormat='слов темы: {0}'}"
+                           Style="{DynamicResource MetaStyle}" VerticalAlignment="Center" Margin="8,0,0,0"
+                           Foreground="{DynamicResource BrushThemeMark}"
+                           Visibility="{Binding ThemeFilterWords.Count, Converter={StaticResource CountToVisibilityConverter}}"
+                           ToolTip="Слова выбранной темы подсвечиваются в цитатах точечной линией"/>
+                <TextBlock Text="СУЩНОСТЬ" Style="{DynamicResource SectionHeaderStyle}" VerticalAlignment="Center" Margin="24,0,0,0"
+                           ToolTip="Оставить цитаты выбранной сущности"/>
+                <ComboBox ItemsSource="{Binding EntityFilters}" SelectedItem="{Binding EntityFilter}"
+                          MinWidth="140" Margin="8,0,0,0" VerticalAlignment="Center"
+                          AutomationProperties.Name="Фильтр по сущности"
+                          ToolTip="Совместно с темой: цитаты, где есть и сущность, и слова темы"/>
+            </StackPanel>
+
+            <!-- R1-6: heat map корпуса — плитки файлов (объём = размер, ветвь = цвет, плотность = насыщенность).
+                 Высота ограничена — карта не должна вытеснять списки файлов/цитат. -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          MaxHeight="132" Margin="0,12,0,0"
+                          Visibility="{Binding HasHeatTiles, Converter={StaticResource BoolToVis}}">
+                <ItemsControl ItemsSource="{Binding HeatTiles}" Margin="12,0,0,0">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Width="{Binding Chars, Converter={StaticResource CharsToTileSize}}"
+                                    Height="{Binding Chars, Converter={StaticResource CharsToTileSize}}"
+                                    Background="{Binding BranchIndex, Converter={StaticResource BranchIndexToBrush}}"
+                                    Opacity="{Binding DensityPer10k, Converter={StaticResource DensityToOpacity}}"
+                                    CornerRadius="2" Margin="4" Cursor="Hand"
+                                    ToolTipService.InitialShowDelay="100">
+                                <Border.ToolTip>
+                                    <ToolTip>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding FileName}" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding Chars, StringFormat=Объём: {0} символов}"/>
+                                            <TextBlock Text="{Binding Mentions, StringFormat=Упоминаний: {0}}"/>
+                                            <TextBlock Text="{Binding DensityPer10k, StringFormat=Плотность: {0} на 10 тыс. знаков}"/>
+                                        </StackPanel>
+                                    </ToolTip>
+                                </Border.ToolTip>
+                                <TextBlock Text="{Binding FileName}" FontSize="11"
+                                           Foreground="White" TextTrimming="CharacterEllipsis"
+                                           HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="4,0,4,4"/>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </StackPanel>
+
+        <!-- Empty State -->
+        <TextBlock Grid.Row="1" Text="Нет данных. Запустите анализ на странице «Обзор»."
+                   Style="{DynamicResource BodyStyle}"
+                   Foreground="{DynamicResource BrushTextSecondary}"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                   Visibility="{Binding IsDataEmpty, Converter={StaticResource BoolToVis}}"/>
+
+        <Grid Grid.Row="1" Visibility="{Binding IsDataEmpty, Converter={StaticResource InverseBoolToVis}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1*" MinWidth="280"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="2*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Регулируемая граница: файлы | цитаты -->
+            <GridSplitter Grid.Column="1" Width="8" HorizontalAlignment="Center"
+                          VerticalAlignment="Stretch" Background="Transparent"
+                          ResizeBehavior="PreviousAndNext" ResizeDirection="Columns"
+                          Style="{DynamicResource AcademicSplitterStyle}"/>
+
+            <!-- Файлы -->
+            <ListBox Grid.Column="0" ItemsSource="{Binding FilesView}"
+                     SelectedItem="{Binding SelectedFile}"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel ToolTip="Показаны цитаты из лимита отображения на файл; «найдено» — все совпадения варианта. Плотность — упоминаний на 10 000 знаков текста.">
+                            <!-- R2-21: клик по имени файла = фильтр «только этот файл» -->
+                            <TextBlock Text="{Binding FileName}" FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis"
+                                       Foreground="{DynamicResource BrushTextPrimary}">
+                                <TextBlock.InputBindings>
+                                    <MouseBinding Gesture="LeftClick"
+                                                  Command="{Binding DataContext.IsolateFileCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                  CommandParameter="{Binding}"/>
+                                </TextBlock.InputBindings>
+                            </TextBlock>
+                            <TextBlock Margin="0,8,0,0">
+                                <Run FontFamily="{DynamicResource MonoFontFamily}" FontSize="12"
+                                     Foreground="{DynamicResource BrushTextSecondary}"
+                                     Text="{Binding Mentions.Count, Mode=OneWay, StringFormat={}{0} цитат}"/>
+                                <Run FontFamily="{DynamicResource MonoFontFamily}" FontSize="12"
+                                     Foreground="{DynamicResource BrushTextSecondary}"
+                                     Text="{Binding TotalFound, Mode=OneWay, StringFormat=· {0} найдено}"/>
+                                <Run FontFamily="{DynamicResource MonoFontFamily}" FontSize="12"
+                                     Foreground="{DynamicResource BrushTextSecondary}"
+                                     Text="{Binding DensityPer10k, Mode=OneWay, StringFormat=· плотность {0:0.#}/10k}"/>
+                            </TextBlock>
+                            <!-- Группа 3 (item 11): автотеги файла по преобладающим темам -->
+                            <TextBlock Margin="0,4,0,0" Style="{DynamicResource MetaStyle}"
+                                       TextTrimming="CharacterEllipsis"
+                                       Text="{Binding FullPath, Converter={StaticResource FileTagsConverter}}"/>
+                            <!-- Группа 3 (item 24): паспорт файла — агрегация по одному файлу. -->
+                            <Button Content="Паспорт" Style="{DynamicResource MiniGhostButtonStyle}"
+                                    FontSize="11" HorizontalAlignment="Left" Margin="0,6,0,0"
+                                    Command="{Binding DataContext.OpenPassportCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                    CommandParameter="{Binding}"
+                                    ToolTip="Полный паспорт файла: сущности, паттерны, темы, плотность по главам и связи"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <!-- Цитаты: панель проверки + цитатник + хлебная крошка изоляции (R2-21) + карточки -->
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>  <!-- Review toolbar -->
+                    <RowDefinition Height="Auto"/>  <!-- Quote mode toolbar -->
+                    <RowDefinition Height="Auto"/>  <!-- Isolation breadcrumb -->
+                    <RowDefinition Height="*"/>     <!-- Quotes list -->
+                </Grid.RowDefinitions>
+
+                <!-- Пользовательский вердикт: горячие клавиши, прогресс и отмена.
+                     Панель всегда над списком, поэтому счётчик не теряется при фильтрации. -->
+                <Border Grid.Row="0" Padding="0,0,0,12">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Right"
+                                   Text="Y / N / U · Ctrl+Z"
+                                   Style="{DynamicResource MetaStyle}"
+                                   Foreground="{DynamicResource BrushTextSecondary}"
+                                   VerticalAlignment="Center" Margin="12,0,0,0"
+                                   ToolTip="Y — подтвердить, N — ложное, U — спорно, Ctrl+Z — отменить. Работают, когда фокус не в поле ввода"/>
+                        <!-- WrapPanel: на узком окне кнопки проверки переносятся
+                             на следующую строку, а не обрезаются справа. -->
+                        <WrapPanel Orientation="Horizontal">
+                            <TextBlock Text="ПРОВЕРКА"
+                                       Style="{DynamicResource SectionHeaderStyle}"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding ReviewProgressText}"
+                                       Style="{DynamicResource MetaStyle}"
+                                       Foreground="{DynamicResource BrushBranch2}"
+                                       VerticalAlignment="Center" Margin="12,0,0,0"
+                                       AutomationProperties.LiveSetting="Polite"/>
+                            <TextBlock Text="{Binding CorpusReviewProgressText}"
+                                       Style="{DynamicResource MetaStyle}"
+                                       Foreground="{DynamicResource BrushTextSecondary}"
+                                       VerticalAlignment="Center" Margin="12,0,0,0"
+                                       ToolTip="Прогресс по всем файлам корпуса; учитываются сохранённые вердикты"/>
+                            <Button Content="Следующий файл →"
+                                    Style="{DynamicResource GhostButtonStyle}"
+                                    FontSize="11" Margin="16,0,0,0"
+                                    Command="{Binding NextUnreviewedFileCommand}"
+                                    AutomationProperties.Name="Следующий файл с непроверенными цитатами"
+                                    ToolTip="Перейти к следующему файлу с непроверенными цитатами; при необходимости включает режим «Непроверенные» и сбрасывает скрывающие фильтры"/>
+                            <Button Content="✓ Все видимые"
+                                    Style="{DynamicResource GhostButtonStyle}"
+                                    FontSize="11" Margin="16,0,0,0"
+                                    Command="{Binding BulkConfirmCommand}"
+                                    ToolTip="Подтвердить все цитаты в текущей (отфильтрованной) выборке"/>
+                            <Button Content="✗ Все видимые"
+                                    Style="{DynamicResource GhostButtonStyle}"
+                                    FontSize="11" Margin="8,0,0,0"
+                                    Command="{Binding BulkRejectCommand}"
+                                    ToolTip="Отметить ложными все цитаты в текущей (отфильтрованной) выборке"/>
+                            <Button Content="↶ Отменить вердикт"
+                                    Style="{DynamicResource GhostButtonStyle}"
+                                    FontSize="11" Margin="8,0,0,0"
+                                    Command="{Binding UndoVerdictCommand}"
+                                    ToolTip="Вернуть предыдущий вердикт (Ctrl+Z). История — последние 100 действий"/>
+                        </WrapPanel>
+                    </DockPanel>
+                </Border>
+
+                <!-- ⭐ Панель цитатника (Issue 26 / Группа 2): книга в quotes.jsonl -->
+                <Border Grid.Row="1" Padding="0,0,0,8"
+                        Visibility="{Binding StarredCount, Converter={StaticResource CountToVisibilityConverter}}">
+                    <WrapPanel Orientation="Horizontal">
+                        <TextBlock Text="⭐ ЦИТАТНИК"
+                                   Style="{DynamicResource SectionHeaderStyle}"
+                                   VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding StarredCount, StringFormat='({0})'}"
+                                   Style="{DynamicResource MetaStyle}"
+                                   VerticalAlignment="Center" Margin="8,0,0,0"
+                                   Foreground="{DynamicResource BrushBranch3}"/>
+                        <Button Content="Открыть раздел"
+                                Style="{DynamicResource GhostButtonStyle}"
+                                Command="{Binding OpenQuoteBookCommand}"
+                                Margin="16,0,0,0" VerticalAlignment="Center"
+                                ToolTip="Раздел «Цитатник»: фильтры по книге, снятие отметок, экспорт"/>
+                        <Button Content="Экспорт в Markdown"
+                                Style="{DynamicResource GhostButtonStyle}"
+                                Command="{Binding ExportStarredQuotesCommand}"
+                                Margin="8,0,0,0" VerticalAlignment="Center"
+                                ToolTip="Экспортировать весь цитатник (все отмеченные цитаты) в Markdown-файл"/>
+                        <Button Content="Очистить всё"
+                                Style="{DynamicResource GhostButtonStyle}"
+                                Command="{Binding ClearAllStarsCommand}"
+                                Margin="8,0,0,0" VerticalAlignment="Center"
+                                ToolTip="Снять звёздочки со всех отмеченных цитат (с подтверждением)"/>
+                    </WrapPanel>
+                </Border>
+
+                <!-- Хлебная крошка изоляции (R2-21) -->
+                <Border Grid.Row="2" Padding="0,0,0,12"
+                        Visibility="{Binding IsFileIsolated, Converter={StaticResource BoolToVis}}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding IsolationBreadcrumb}"
+                                   Style="{DynamicResource BodyStyle}"
+                                   FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <Button Content="✕ Снять фильтр"
+                                Style="{DynamicResource GhostButtonStyle}"
+                                Command="{Binding ClearIsolationCommand}"
+                                Margin="16,0,0,0"
+                                ToolTip="Вернуть полный список файлов"/>
+                    </StackPanel>
+                </Border>
+
+            <ListBox Grid.Row="3" x:Name="MentionsList" ItemsSource="{Binding Mentions}"
+                     SelectedItem="{Binding SelectedMention}"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     HorizontalContentAlignment="Stretch">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <!-- Блок цитаты: линия слева + отступ 24 (Content-Quote) -->
+                        <Border BorderBrush="{DynamicResource BrushBorderLight}"
+                                BorderThickness="1,0,0,0" Padding="24,0,0,0" Margin="0,0,0,24">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <TextBlock Text="{Binding Variant}"
+                                               Style="{DynamicResource SectionHeaderStyle}"
+                                               Foreground="{DynamicResource BrushTextPrimary}"/>
+                                    <TextBlock FontSize="11" Margin="16,0,0,0"
+                                               FontFamily="{DynamicResource MonoFontFamily}"
+                                               Foreground="{DynamicResource BrushTextSecondary}">
+                                        <Run Text="строка "/><Run Text="{Binding Line, Mode=OneWay}"/>
+                                        <!-- R1-19: живой статус достоверности (пусто для точных) -->
+                                        <Run Text="{Binding Converter={StaticResource ConfidenceSuffix}, Mode=OneWay}"/>
+                                    </TextBlock>
+                                    <TextBlock Text="{Binding Theme}" FontStyle="Italic" FontSize="11"
+                                               Foreground="{DynamicResource BrushTextSecondary}" Margin="16,0,0,0"/>
+                                    <TextBlock Text="нечёткое совпадение" FontStyle="Italic" FontSize="11"
+                                               Foreground="{DynamicResource BrushTextSecondary}" Margin="16,0,0,0"
+                                               Visibility="{Binding IsFuzzy, Converter={StaticResource BoolToVis}}"/>
+                                    <!-- Текущий вердикт виден прямо в карточке, а не только в журнале. -->
+                                    <Border Margin="12,0,0,0" Padding="6,1"
+                                            BorderBrush="{DynamicResource BrushBranch2}" BorderThickness="1"
+                                            Visibility="{Binding HasVerdict, Converter={StaticResource BoolToVis}}">
+                                        <TextBlock FontSize="10" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource BrushBranch2}">
+                                            <Run Text="{Binding VerdictGlyph, Mode=OneWay}"/>
+                                            <Run Text=" "/>
+                                            <Run Text="{Binding VerdictLabel, Mode=OneWay}"/>
+                                        </TextBlock>
+                                    </Border>
+                                    <!-- R2-13: вердикты эксперта пишутся в verdicts.jsonl -->
+                                    <Button Content="✓ подтверждено" Style="{DynamicResource GhostButtonStyle}" FontSize="11"
+                                            Margin="16,0,0,0"
+                                            Command="{Binding DataContext.ConfirmMentionCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                            CommandParameter="{Binding}"
+                                            AutomationProperties.HelpText="Сохранить вердикт «подтверждено» и перейти к следующей цитате"
+                                            ToolTip="Вердикт: находка корректна (Y) — сохраняется в вердикты"/>
+                                    <Button Content="✗ ложное" Style="{DynamicResource GhostButtonStyle}" FontSize="11"
+                                            Margin="8,0,0,0"
+                                            Command="{Binding DataContext.RejectMentionCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                            CommandParameter="{Binding}"
+                                            AutomationProperties.HelpText="Сохранить вердикт «ложное срабатывание» и перейти к следующей цитате"
+                                            ToolTip="Вердикт: ложное срабатывание (N) — сохраняется в вердикты"/>
+                                    <Button Content="? спорно" Style="{DynamicResource GhostButtonStyle}" FontSize="11"
+                                            Margin="8,0,0,0"
+                                            Command="{Binding DataContext.UncertainMentionCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                            CommandParameter="{Binding}"
+                                            AutomationProperties.HelpText="Сохранить вердикт «спорно» и перейти к следующей цитате"
+                                            ToolTip="Вердикт: требуется проверка (U) — сохраняется в вердикты"/>
+                                    <!-- ⭐ Цитатник (Issue 26): звёздочка для отметки лучших цитат -->
+                                    <Button Content="★" FontSize="14" FontWeight="Bold"
+                                            Style="{DynamicResource GhostButtonStyle}"
+                                            Margin="16,0,0,0" Padding="4,0"
+                                            Command="{Binding DataContext.ToggleStarCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                            CommandParameter="{Binding}"
+                                            AutomationProperties.Name="Отметить цитату в цитатнике"
+                                            Foreground="{Binding Starred, Converter={StaticResource StarToBrushConverter}}">
+                                        <Button.ToolTip>
+                                            <ToolTip>
+                                                <TextBlock Text="Отметить/снять цитату для цитатника (Ctrl+S). Отмеченные цитаты сохраняются в отдельный файл с возможностью экспорта в Markdown."/>
+                                            </ToolTip>
+                                        </Button.ToolTip>
+                                    </Button>
+                                    <!-- Группа 2 (item 30): заметка дневника с привязкой к этой цитате -->
+                                    <Button Content="✎" FontSize="13"
+                                            Style="{DynamicResource GhostButtonStyle}"
+                                            Margin="8,0,0,0" Padding="4,0"
+                                            Command="{Binding DataContext.AddDiaryNoteCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                            CommandParameter="{Binding}"
+                                            AutomationProperties.Name="Добавить заметку к цитате"
+                                            ToolTip="Добавить заметку в «Дневник» с привязкой к этой цитате"/>
+                                </StackPanel>
+
+                                <!-- Объяснение: пользователь видит не только «найдено», но и почему. -->
+                                <Expander Margin="0,0,0,8">
+                                    <Expander.Header>
+                                        <TextBlock Text="Почему найдено?" Style="{DynamicResource MetaStyle}"
+                                                   Foreground="{DynamicResource BrushBranch1}"/>
+                                    </Expander.Header>
+                                    <StackPanel Margin="0,4,0,8">
+                                        <TextBlock Text="{Binding MatchRule}" Style="{DynamicResource MetaStyle}"/>
+                                        <TextBlock Text="{Binding ConfidenceDetails, StringFormat='Достоверность: {0}'}"
+                                                   Style="{DynamicResource MetaStyle}" Margin="0,4,0,0"/>
+                                        <TextBlock Text="{Binding Repeats, StringFormat='Повторов в файле: {0}'}"
+                                                   Style="{DynamicResource MetaStyle}" Margin="0,4,0,0"/>
+                                        <TextBlock Text="{Binding Entity, StringFormat='Сущность: {0}'}"
+                                                   Style="{DynamicResource MetaStyle}" Margin="0,4,0,0"/>
+                                        <Button Content="Открыть источник с подсветкой"
+                                                Style="{DynamicResource GhostButtonStyle}" FontSize="11"
+                                                HorizontalAlignment="Left" Padding="0,4" Margin="0,8,0,0"
+                                                Command="{Binding DataContext.OpenMentionSourceCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                CommandParameter="{Binding}"
+                                                AutomationProperties.Name="Открыть исходный файл на этом упоминании"/>
+                                    </StackPanel>
+                                </Expander>
+
+                                <TextBlock b:HighlightBehavior.Context="{Binding Context}"
+                                           b:HighlightBehavior.Mark="{Binding Variant}"
+                                           b:HighlightBehavior.MarkBrush="{Binding Entity, Converter={StaticResource EntityToBranch}}"
+                                           b:HighlightBehavior.ThemeBrush="{DynamicResource BrushThemeMark}"
+                                           Style="{DynamicResource QuoteStyle}">
+                                    <!-- R3-1 (item 52): слова выбранной темы — точечная линия -->
+                                    <b:HighlightBehavior.ThemeMarks>
+                                        <MultiBinding Converter="{StaticResource ThemeMarksConverter}">
+                                            <Binding Path="Context"/>
+                                            <Binding Path="DataContext.ThemeFilterWords"
+                                                     RelativeSource="{RelativeSource AncestorType=ListBox}"/>
+                                        </MultiBinding>
+                                    </b:HighlightBehavior.ThemeMarks>
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

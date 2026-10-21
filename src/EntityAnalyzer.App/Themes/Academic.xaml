@@ -1,0 +1,869 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:infra="clr-namespace:EntityAnalyzer.App.Infrastructure">
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         ACADEMIC DESIGN SYSTEM — «Камень, Графит и Лёд»
+         Светлая академическая тема. Принципы книжного дизайна:
+         никаких заливок-карточек, скруглений, теней и цветного шума.
+         Только текст, тонкие линии и точки-маркеры 6×6.
+
+         Правила файла:
+         • Border используется ИСКЛЮЧИТЕЛЬНО как волосяная линия-разделитель
+           (толщина по одной стороне) или рамка выпадающего списка (1 px).
+           Заполненных контейнеров нет.
+         • Все отступы кратны 8; макро-блоки 48/64, микро 16/24.
+         • Цвета — только из палитры ниже (допустимы альфа-варианты
+           палитровых цветов для выделения текста).
+         ══════════════════════════════════════════════════════════════════ -->
+
+    <!-- ── Конвертеры (единая точка регистрации) ── -->
+    <infra:RatioConverter x:Key="RatioConverter"/>
+    <infra:NullToBoolConverter x:Key="NullToFalse"/>
+    <infra:EmptyToCollapsedConverter x:Key="EmptyToCollapsed"/>
+    <infra:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis"/>
+    <infra:BoolToScanTextConverter x:Key="BoolToScanText"/>
+    <infra:MultilineToInlineConverter x:Key="MultilineToInline"/>
+    <infra:EntityTypeToColorConverter x:Key="EntityToBranch"/>
+    <!-- R1-19: суффикс достоверности упоминания (« · достоверность: …») -->
+    <infra:ConfidenceSuffixConverter x:Key="ConfidenceSuffix"/>
+    <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+    <!-- ── Палитра ── -->
+    <!-- Фоны -->
+    <SolidColorBrush x:Key="BrushBgMain"  Color="#F9F9F7"/>  <!-- основной контент, тёплый матово-белый -->
+    <SolidColorBrush x:Key="BrushBgNav"   Color="#F2F2F0"/>  <!-- сайдбары, панели настроек -->
+    <!-- Типографика -->
+    <SolidColorBrush x:Key="BrushTextPrimary"   Color="#2C2C2B"/>  <!-- графит -->
+    <SolidColorBrush x:Key="BrushTextSecondary" Color="#737370"/>  <!-- второстепенное, метаданные -->
+    <SolidColorBrush x:Key="BrushTextDisabled"  Color="#A6A6A4"/>
+    <!-- Разделители -->
+    <SolidColorBrush x:Key="BrushBorderLight"   Color="#E5E5E2"/>
+    <!-- Выделение текста: альфа-вариант Text-Disabled (тот же цвет, прозрачность) -->
+    <SolidColorBrush x:Key="BrushTextSelection" Color="#66A6A6A4"/>
+    <!-- Семантические ветви (ссылки, линии графов, маркеры 6×6) -->
+    <SolidColorBrush x:Key="BrushBranch1" Color="#4A6B82"/>  <!-- Древние / Божества -->
+    <SolidColorBrush x:Key="BrushBranch2" Color="#597C6F"/>  <!-- Локации -->
+    <SolidColorBrush x:Key="BrushBranch3" Color="#70657B"/>  <!-- Артефакты -->
+    <SolidColorBrush x:Key="BrushBranch4" Color="#805A54"/>  <!-- Персоналии -->
+    <SolidColorBrush x:Key="BrushBranch5" Color="#646F7A"/>  <!-- Книги / Культы -->
+    <!-- R3-1 (item 52): слова тем — точечное подчёркивание в цитатах -->
+    <SolidColorBrush x:Key="BrushThemeMark" Color="#9A7B2F"/>
+    <!-- Статусы журнала: ошибка — приглушённый кирпичный Ветви 4 -->
+    <SolidColorBrush x:Key="BrushStatusError" Color="#805A54"/>
+
+    <!-- UX/a11y: видимый клавиатурный фокус. Раньше стили кнопок и вкладок
+         глушили системный пунктир — при Tab-навигации было непонятно, где фокус. -->
+    <Style x:Key="KeyboardFocusVisual" TargetType="{x:Type Control}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Rectangle Margin="-3" Stroke="{DynamicResource BrushTextPrimary}"
+                               StrokeThickness="1" StrokeDashArray="2 1"
+                               SnapsToDevicePixels="True"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ── Шрифты ── -->
+    <!-- Гротеск: UI и навигация -->
+    <FontFamily x:Key="UiFontFamily">Inter, Segoe UI Variable Text, Segoe UI</FontFamily>
+    <!-- Антиква: контент и кодекс -->
+    <FontFamily x:Key="SerifFontFamily">Charter, Bitstream Charter, Literata, Merriweather, Cambria, Georgia</FontFamily>
+    <!-- Моноширинный: технические данные -->
+    <FontFamily x:Key="MonoFontFamily">JetBrains Mono, Cascadia Mono, Consolas</FontFamily>
+
+    <!-- ── Базовое окно ── -->
+    <Style TargetType="{x:Type Window}">
+        <Setter Property="Background" Value="{DynamicResource BrushBgMain}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+        <Setter Property="FontFamily" Value="{StaticResource UiFontFamily}"/>
+        <Setter Property="FontSize" Value="13"/>
+    </Style>
+
+    <!-- ═══════════════ ТЕКСТОВЫЕ СТИЛИ ═══════════════ -->
+
+    <!-- Content-Title: заголовок статьи, антиква 28 -->
+    <Style x:Key="H1Style" TargetType="{x:Type TextBlock}">
+        <Setter Property="FontFamily" Value="{StaticResource SerifFontFamily}"/>
+        <Setter Property="FontSize" Value="28"/>
+        <Setter Property="FontWeight" Value="Regular"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+
+    <!-- Промежуточный заголовок раздела (антиква 20) -->
+    <Style x:Key="H2Style" TargetType="{x:Type TextBlock}">
+        <Setter Property="FontFamily" Value="{StaticResource SerifFontFamily}"/>
+        <Setter Property="FontSize" Value="20"/>
+        <Setter Property="FontWeight" Value="Regular"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+
+    <!-- Content-Body: широкий абзац антиквой 16/26 -->
+    <Style x:Key="BodyStyle" TargetType="{x:Type TextBlock}">
+        <Setter Property="FontFamily" Value="{StaticResource SerifFontFamily}"/>
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="LineHeight" Value="26"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+
+    <!-- Content-Quote: цитата антиквой 15 italic (линию-отступ добавляет контейнер) -->
+    <Style x:Key="QuoteStyle" TargetType="{x:Type TextBlock}">
+        <Setter Property="FontFamily" Value="{StaticResource SerifFontFamily}"/>
+        <Setter Property="FontSize" Value="15"/>
+        <Setter Property="FontStyle" Value="Italic"/>
+        <Setter Property="LineHeight" Value="24"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+
+    <!-- Ui-Header: капс-заголовок секции 11 Bold + трекинг +1px (через Tracking.Spacing) -->
+    <Style x:Key="SectionHeaderStyle" TargetType="{x:Type TextBlock}">
+        <Setter Property="FontFamily" Value="{StaticResource UiFontFamily}"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}"/>
+        <Setter Property="infra:Tracking.Spacing" Value="1"/>
+    </Style>
+
+    <!-- Meta: метаданные, подписи, плейсхолдеры -->
+    <Style x:Key="MetaStyle" TargetType="{x:Type TextBlock}">
+        <Setter Property="FontFamily" Value="{StaticResource UiFontFamily}"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}"/>
+    </Style>
+
+    <!-- Tech-Body: моноширинные данные 12 -->
+    <Style x:Key="TechStyle" TargetType="{x:Type TextBlock}">
+        <Setter Property="FontFamily" Value="{StaticResource MonoFontFamily}"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}"/>
+    </Style>
+
+    <!-- Число-показатель (антиква 28, как Content-Title) -->
+    <Style x:Key="StatNumberStyle" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource H1Style}"/>
+
+    <!-- ═══════════════ BUTTON ═══════════════
+         Primary: текст графит, тонкая рамка Border-Light → hover графит.
+         Ghost: только текст Secondary → hover графит. Заливок нет. -->
+
+    <Style x:Key="PrimaryButtonStyle" TargetType="{x:Type Button}">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+        <Setter Property="FontFamily" Value="{StaticResource UiFontFamily}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Padding" Value="16,8"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource KeyboardFocusVisual}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type Button}">
+                    <!-- Рамка = разрешённая «тонкая линия», CornerRadius=0 -->
+                    <Border x:Name="bd"
+                            Background="Transparent"
+                            BorderBrush="{DynamicResource BrushBorderLight}"
+                            BorderThickness="1">
+                        <ContentPresenter Margin="{TemplateBinding Padding}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          RecognizesAccessKey="True"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource BrushTextPrimary}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource BrushTextPrimary}"/>
+                            <Setter Property="Opacity" Value="0.7"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{DynamicResource BrushTextDisabled}"/>
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource BrushBorderLight}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="GhostButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource PrimaryButtonStyle}">
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}"/>
+        <Setter Property="Padding" Value="8,8"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type Button}">
+                    <!-- Без рамки вовсе: только текст -->
+                    <ContentPresenter Margin="{TemplateBinding Padding}"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                                      RecognizesAccessKey="True"/>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+                            <Setter Property="Opacity" Value="0.7"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{DynamicResource BrushTextDisabled}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Неявная кнопка = primary (в коде View используем Ghost явно) -->
+    <Style TargetType="{x:Type Button}" BasedOn="{StaticResource PrimaryButtonStyle}"/>
+
+    <!-- Маленькая ghost-кнопка для табличных действий (↑ ↓ ✕) -->
+    <Style x:Key="MiniGhostButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource GhostButtonStyle}">
+        <Setter Property="Padding" Value="8,0"/>
+        <Setter Property="FontSize" Value="12"/>
+    </Style>
+
+    <!-- ═══════════════ TEXTBOX ═══════════════
+         Без заливки и полной обводки. Только нижняя граница 1px
+         Border-Light → фокус графит. Отступ текста от линии 8px. -->
+
+    <Style TargetType="{x:Type TextBox}">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+        <Setter Property="CaretBrush" Value="{DynamicResource BrushTextPrimary}"/>
+        <Setter Property="SelectionBrush" Value="{DynamicResource BrushTextSelection}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="0,0,0,8"/>
+        <Setter Property="FontFamily" Value="{StaticResource UiFontFamily}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="VerticalContentAlignment" Value="Bottom"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type TextBox}">
+                    <!-- Нижняя граница = единственная линия поля -->
+                    <Grid>
+                        <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/>
+                        <Rectangle x:Name="underline" Height="1" VerticalAlignment="Bottom"
+                                   Fill="{DynamicResource BrushBorderLight}"/>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="underline" Property="Fill" Value="{DynamicResource BrushTextPrimary}"/>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="underline" Property="Fill" Value="{DynamicResource BrushTextDisabled}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{DynamicResource BrushTextDisabled}"/>
+                        </Trigger>
+                        <!-- Режим «без линии»: многострочные читатели (Details, превью) -->
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Readonly-просмотрщики без линии (журнал, детали, превью отчётов) -->
+    <Style x:Key="BareTextBoxStyle" TargetType="{x:Type TextBox}" BasedOn="{StaticResource {x:Type TextBox}}">
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="VerticalContentAlignment" Value="Top"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type TextBox}">
+                    <ScrollViewer x:Name="PART_ContentHost"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ═══════════════ CHECKBOX ═══════════════
+         Минимальный квадрат 16×16 с линией; отметка — внутренний квадрат 8×8. -->
+
+    <Style TargetType="{x:Type CheckBox}">
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+        <Setter Property="FontFamily" Value="{StaticResource UiFontFamily}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource KeyboardFocusVisual}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type CheckBox}">
+                    <StackPanel Orientation="Horizontal" Background="Transparent">
+                        <Grid Width="16" Height="16" VerticalAlignment="Center">
+                            <Rectangle x:Name="box" Stroke="{DynamicResource BrushBorderLight}" StrokeThickness="1"
+                                       Fill="Transparent"/>
+                            <Rectangle x:Name="mark" Width="8" Height="8"
+                                       Fill="{DynamicResource BrushTextPrimary}" Visibility="Collapsed"/>
+                        </Grid>
+                        <ContentPresenter Margin="8,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="box" Property="Stroke" Value="{DynamicResource BrushTextPrimary}"/>
+                            <Setter TargetName="mark" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="box" Property="Stroke" Value="{DynamicResource BrushTextSecondary}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{DynamicResource BrushTextDisabled}"/>
+                            <Setter TargetName="box" Property="Stroke" Value="{DynamicResource BrushBorderLight}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ═══════════════ COMBOBOX ═══════════════
+         Как поле ввода: без заливки, нижняя линия; стрелка-шеврон. -->
+
+    <Style TargetType="{x:Type ComboBox}">
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+        <Setter Property="FontFamily" Value="{StaticResource UiFontFamily}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource KeyboardFocusVisual}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ComboBox}">
+                    <Grid>
+                        <ToggleButton x:Name="toggle" Focusable="False" ClickMode="Press"
+                                      IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="{x:Type ToggleButton}">
+                                    <!-- Background=Transparent делает ВСЮ область кликабельной
+                                         (без него ловится только видимая линия и шеврон);
+                                         MinHeight держит зону нажатия стабильной -->
+                                    <Grid Background="Transparent" MinHeight="32">
+                                        <Rectangle x:Name="underline" Height="1" VerticalAlignment="Bottom"
+                                                   Fill="{DynamicResource BrushBorderLight}"/>
+                                        <Path Data="M 0 0 L 4 4 L 8 0" Stroke="{DynamicResource BrushTextSecondary}"
+                                              StrokeThickness="1.2" HorizontalAlignment="Right"
+                                              VerticalAlignment="Bottom" Margin="0,0,8,12"/>
+                                    </Grid>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="underline" Property="Fill" Value="{DynamicResource BrushTextDisabled}"/>
+                                        </Trigger>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter TargetName="underline" Property="Fill" Value="{DynamicResource BrushTextPrimary}"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                        </ToggleButton>
+                        <ContentPresenter x:Name="SelectionPresenter" Margin="0,0,24,8" VerticalAlignment="Bottom" IsHitTestVisible="False"
+                                          Content="{TemplateBinding SelectionBoxItem}"
+                                          ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                          ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                          ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"/>
+                        <!-- Режим IsEditable: поле ввода на месте строки выбора.
+                             Без PART_EditableTextBox штатное редактирование ComboBox
+                             невозможно; собственный шаблон TextBox убирает лишнюю линию. -->
+                        <TextBox x:Name="PART_EditableTextBox" Margin="0,0,24,8" VerticalAlignment="Bottom"
+                                 Background="Transparent" BorderThickness="0" Padding="0"
+                                 Visibility="Collapsed" FocusVisualStyle="{x:Null}">
+                            <TextBox.Template>
+                                <ControlTemplate TargetType="{x:Type TextBox}">
+                                    <ScrollViewer x:Name="PART_ContentHost"/>
+                                </ControlTemplate>
+                            </TextBox.Template>
+                        </TextBox>
+                        <Popup IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom"
+                               AllowsTransparency="True" StaysOpen="False" PopupAnimation="Fade">
+                            <!-- Рамка попапа = волосяная линия 1px, без заливки-карточки -->
+                            <Border Background="{DynamicResource BrushBgMain}"
+                                    BorderBrush="{DynamicResource BrushBorderLight}" BorderThickness="1"
+                                    MinWidth="{TemplateBinding ActualWidth}" MaxHeight="320"
+                                    Margin="0,8,0,0">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <ItemsPresenter/>
+                                </ScrollViewer>
+                            </Border>
+                        </Popup>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsEditable" Value="True">
+                            <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible"/>
+                            <Setter TargetName="SelectionPresenter" Property="Visibility" Value="Collapsed"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="ItemContainerStyle">
+            <Setter.Value>
+                <Style TargetType="{x:Type ComboBoxItem}">
+                    <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}"/>
+                    <Setter Property="Padding" Value="16,8"/>
+                    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="{x:Type ComboBoxItem}">
+                                <Grid Background="Transparent">
+                                    <Rectangle x:Name="ind" Width="3" HorizontalAlignment="Left"
+                                               Fill="{DynamicResource BrushTextPrimary}" Visibility="Collapsed"/>
+                                    <ContentPresenter Margin="{TemplateBinding Padding}" VerticalAlignment="Center"/>
+                                </Grid>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+                                    </Trigger>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                        <Setter TargetName="ind" Property="Visibility" Value="Visible"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ═══════════════ LISTBOX / LISTVIEWITEM ═══════════════
+         Прозрачные строки; выделение = вертикальная линия 3px слева
+         + насыщеннее текст (SemiBold). Системное выделение убрано. -->
+
+    <Style TargetType="{x:Type ListBox}">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}"/>
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+        <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True"/>
+    </Style>
+
+    <Style TargetType="{x:Type ListBoxItem}">
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource KeyboardFocusVisual}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ListBoxItem}">
+                    <Grid Background="Transparent">
+                        <Rectangle x:Name="ind" Width="3" HorizontalAlignment="Left"
+                                   Fill="{DynamicResource BrushTextPrimary}" Visibility="Collapsed"/>
+                        <ContentPresenter Margin="24,12,8,12" x:Name="content"/>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                            <Setter TargetName="ind" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ListView (режим таблицы в Кодексе): та же логика выделения -->
+    <Style TargetType="{x:Type ListView}">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}"/>
+    </Style>
+
+    <Style TargetType="{x:Type ListViewItem}">
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ListViewItem}">
+                    <Grid Background="Transparent">
+                        <Rectangle x:Name="ind" Width="3" HorizontalAlignment="Left"
+                                   Fill="{DynamicResource BrushTextPrimary}" Visibility="Collapsed"/>
+                        <ContentPresenter x:Name="content" Margin="24,12,8,12"/>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                            <Setter TargetName="ind" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ═══════════════ DATAGRID ═══════════════
+         Строгая таблица: без зебры, без цветных заголовков и системного
+         выделения. Строка: прозрачная, Padding 8/12, разделитель 1px
+         Border-Light; выделение = линия 3px слева + SemiBold. -->
+
+    <Style TargetType="{x:Type DataGrid}">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="RowBackground" Value="Transparent"/>
+        <Setter Property="AlternatingRowBackground" Value="Transparent"/>
+        <Setter Property="HeadersVisibility" Value="Column"/>
+        <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+        <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource BrushBorderLight}"/>
+        <Setter Property="AutoGenerateColumns" Value="False"/>
+        <Setter Property="CanUserAddRows" Value="False"/>
+        <Setter Property="SelectionMode" Value="Single"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontFamily" Value="{StaticResource UiFontFamily}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+        <Setter Property="RowHeaderWidth" Value="0"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+    </Style>
+
+    <Style x:Key="GridColumnHeaderStyle" TargetType="{x:Type DataGridColumnHeader}">
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}"/>
+        <Setter Property="FontFamily" Value="{StaticResource UiFontFamily}"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="infra:Tracking.Spacing" Value="1"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderLight}"/>
+        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+        <Setter Property="Padding" Value="8,12"/>
+        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+    </Style>
+
+    <Style TargetType="{x:Type DataGridColumnHeader}" BasedOn="{StaticResource GridColumnHeaderStyle}"/>
+
+    <Style TargetType="{x:Type DataGridCell}">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type DataGridCell}">
+                    <!-- Padding 8/12 — увеличенные внутренние отступы строк -->
+                    <ContentPresenter VerticalAlignment="Center" Margin="8,12"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+                <!-- Никакой системной заливки выделения -->
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style TargetType="{x:Type DataGridRow}">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type DataGridRow}">
+                    <Grid>
+                        <!-- Индикатор выделения: вертикальная линия 3px графит -->
+                        <Rectangle x:Name="ind" Width="3" HorizontalAlignment="Left"
+                                   Fill="{DynamicResource BrushTextPrimary}" Visibility="Collapsed"/>
+                        <DataGridCellsPresenter ItemsPanel="{TemplateBinding ItemsPanel}"
+                                                SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="ind" Property="Visibility" Value="Visible"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Числовая ячейка: выравнивание по правому краю -->
+    <Style x:Key="NumericCellElementStyle" TargetType="{x:Type TextBlock}">
+        <Setter Property="HorizontalAlignment" Value="Right"/>
+    </Style>
+
+    <!-- Ячейка таблицы с числом по правому краю (для DataGridTextColumn) -->
+    <Style x:Key="RightAlignCell" TargetType="{x:Type DataGridCell}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type DataGridCell}">
+                    <Border Padding="12,8" Background="Transparent">
+                        <ContentPresenter HorizontalAlignment="Right"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ═══════════════ GRIDSPLITTER ═══════════════
+         Регулируемые границы панелей: прозрачная зона захвата 8px,
+         волосяная линия по центру; при наведении — графит. -->
+    <Style x:Key="AcademicSplitterStyle" TargetType="{x:Type GridSplitter}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type GridSplitter}">
+                    <Grid Background="Transparent" Cursor="SizeWE">
+                        <Rectangle x:Name="line" Width="1"
+                                   Fill="{DynamicResource BrushBorderLight}"/>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="line" Property="Fill" Value="{DynamicResource BrushTextPrimary}"/>
+                        </Trigger>
+                        <Trigger Property="IsDragging" Value="True">
+                            <Setter TargetName="line" Property="Fill" Value="{DynamicResource BrushTextPrimary}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ═══════════════ PROGRESSBAR ═══════════════
+         Тонкая линия 2px: желоб Border-Light, заполнение графит. -->
+
+    <Style TargetType="{x:Type ProgressBar}">
+        <Setter Property="Height" Value="2"/>
+        <Setter Property="Background" Value="{DynamicResource BrushBorderLight}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ProgressBar}">
+                    <Grid Background="{TemplateBinding Background}">
+                        <Rectangle HorizontalAlignment="Left" Fill="{TemplateBinding Foreground}">
+                            <Rectangle.Width>
+                                <MultiBinding Converter="{StaticResource RatioConverter}">
+                                    <Binding Path="Value" RelativeSource="{RelativeSource TemplatedParent}"/>
+                                    <Binding Path="Maximum" RelativeSource="{RelativeSource TemplatedParent}"/>
+                                    <Binding Path="ActualWidth" RelativeSource="{RelativeSource TemplatedParent}"/>
+                                </MultiBinding>
+                            </Rectangle.Width>
+                        </Rectangle>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ═══════════════ NAV RADIO ═══════════════
+         Пункт навигации: чистый текст; выбран — графит SemiBold
+         и линия 3px слева (язык выделения таблиц). -->
+
+    <Style x:Key="NavRadioStyle" TargetType="{x:Type RadioButton}">
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}"/>
+        <Setter Property="FontFamily" Value="{StaticResource UiFontFamily}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource KeyboardFocusVisual}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type RadioButton}">
+                    <Grid Background="Transparent">
+                        <Rectangle x:Name="ind" Width="3" HorizontalAlignment="Left"
+                                   Fill="{DynamicResource BrushTextPrimary}" Visibility="Collapsed"/>
+                        <ContentPresenter x:Name="content" Margin="24,8,8,8" VerticalAlignment="Center"/>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                            <Setter TargetName="ind" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ═══════════════ TABCONTROL ═══════════════
+         Плоские вкладки: текст Secondary → выбранный графит SemiBold
+         с подчёркиванием 2px. -->
+
+    <Style TargetType="{x:Type TabControl}">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="FontFamily" Value="{StaticResource UiFontFamily}"/>
+    </Style>
+
+    <Style TargetType="{x:Type TabItem}">
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource KeyboardFocusVisual}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type TabItem}">
+                    <Grid Margin="0,0,24,0">
+                        <ContentPresenter x:Name="header" ContentSource="Header" Margin="0,0,0,8"
+                                          HorizontalAlignment="Left"/>
+                        <Rectangle x:Name="underline" Height="2" VerticalAlignment="Bottom"
+                                   Fill="{DynamicResource BrushTextPrimary}" Visibility="Hidden"/>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="underline" Property="Visibility" Value="Visible"/>
+                            <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ═══════════════ EXPANDER ═══════════════
+         Заголовок с шевроном «>»; контент с отступом слева 24px. -->
+
+    <Style TargetType="{x:Type Expander}">
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+        <Setter Property="FontFamily" Value="{StaticResource UiFontFamily}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type Expander}">
+                    <StackPanel>
+                        <ToggleButton x:Name="header" IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}"
+                                      Focusable="False" Cursor="Hand">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="{x:Type ToggleButton}">
+                                    <StackPanel Orientation="Horizontal" Background="Transparent">
+                                        <Path x:Name="chevron" Data="M 0 0 L 4 4 L 0 8"
+                                              Stroke="{DynamicResource BrushTextSecondary}" StrokeThickness="1.4"
+                                              VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+                                            <Path.RenderTransform>
+                                                <RotateTransform Angle="0"/>
+                                            </Path.RenderTransform>
+                                        </Path>
+                                        <ContentPresenter Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter TargetName="chevron" Property="RenderTransform">
+                                                <Setter.Value>
+                                                    <RotateTransform Angle="90"/>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Trigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="chevron" Property="Stroke" Value="{DynamicResource BrushTextPrimary}"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                            <ContentPresenter Content="{TemplateBinding Header}"/>
+                        </ToggleButton>
+                        <ContentPresenter x:Name="body" Margin="24,16,0,0" Visibility="Collapsed"/>
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsExpanded" Value="True">
+                            <Setter TargetName="body" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ═══════════════ SEPARATOR / TOOLTIP ═══════════════ -->
+
+    <Style TargetType="{x:Type Separator}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type Separator}">
+                    <Rectangle Height="1" Fill="{DynamicResource BrushBorderLight}"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Margin" Value="0,8"/>
+    </Style>
+
+    <Style TargetType="{x:Type ToolTip}">
+        <Setter Property="Background" Value="{DynamicResource BrushBgMain}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}"/>
+        <Setter Property="FontFamily" Value="{StaticResource UiFontFamily}"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ToolTip}">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{DynamicResource BrushBorderLight}" BorderThickness="1"
+                            Padding="12,8">
+                        <ContentPresenter/>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ═══════════════ SCROLLBAR ═══════════════
+         Предельно тонкие (6px), светло-серые, без кнопок-стрелок. -->
+
+    <Style TargetType="{x:Type ScrollBar}">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Width" Value="6"/>
+        <Setter Property="MinWidth" Value="6"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ScrollBar}">
+                    <Grid Background="Transparent">
+                        <Track x:Name="PART_Track" IsDirectionReversed="True">
+                            <Track.Thumb>
+                                <Thumb>
+                                    <Thumb.Template>
+                                        <ControlTemplate TargetType="Thumb">
+                                            <Rectangle Fill="{DynamicResource BrushTextDisabled}" Opacity="0.55"/>
+                                        </ControlTemplate>
+                                    </Thumb.Template>
+                                </Thumb>
+                            </Track.Thumb>
+                        </Track>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Opacity" Value="0.9"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="Orientation" Value="Horizontal">
+                <Setter Property="Width" Value="Auto"/>
+                <Setter Property="MinWidth" Value="0"/>
+                <Setter Property="Height" Value="6"/>
+                <Setter Property="MinHeight" Value="6"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type ScrollBar}">
+                            <Grid Background="Transparent">
+                                <Track x:Name="PART_Track" IsDirectionReversed="False">
+                                    <Track.Thumb>
+                                        <Thumb>
+                                            <Thumb.Template>
+                                                <ControlTemplate TargetType="Thumb">
+                                                    <Rectangle Fill="{DynamicResource BrushTextDisabled}" Opacity="0.55"/>
+                                                </ControlTemplate>
+                                            </Thumb.Template>
+                                        </Thumb>
+                                    </Track.Thumb>
+                                </Track>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+</ResourceDictionary>

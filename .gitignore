@@ -1,0 +1,40 @@
+# Сборка
+bin/
+obj/
+releases/
+publish-bench/
+cli-out/
+
+# Черновики, логи, кэш
+_scratch/
+*.log
+*.tmp
+*.cache
+.cache/
+
+# Корпус текстов и результаты бенча (большие файлы; только в корне репозитория)
+/corpus/
+/bench/
+
+# Нативные библиотеки SQLite в publish: храним только Windows-версии
+# (остальные платформы не нужны и регенерируются публикацией)
+publish/runtimes/browser-wasm/
+publish/runtimes/linux-*/
+publish/runtimes/maccatalyst-*/
+publish/runtimes/osx-*/
+publish-cli/runtimes/browser-wasm/
+publish-cli/runtimes/linux-*/
+publish-cli/runtimes/maccatalyst-*/
+publish-cli/runtimes/osx-*/
+
+# Visual Studio
+.vs/
+*.user
+
+# Local test artifacts and generated user reports (never publish)
+TestResults/
+*.trx
+output/
+publish/output/
+cli_pid.txt
+*.pdb

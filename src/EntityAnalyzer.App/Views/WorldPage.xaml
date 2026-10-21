@@ -1,0 +1,546 @@
+<UserControl x:Class="EntityAnalyzer.App.Views.WorldPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Группа 4: «Мир» — визуализация пространства, времени и родства.
+         Вкладки: Древо (GEDCOM и связи кодекса), Иерархия, Хронология, География. -->
+    <Grid Margin="32,32,32,24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,8">
+            <TextBlock Text="МИР" Style="{DynamicResource SectionHeaderStyle}"/>
+            <TextBlock Style="{DynamicResource MetaStyle}" Margin="0,12,0,0" TextWrapping="Wrap"
+                       Text="Пространственно-временная картина мира: генеалогическое древо (GEDCOM или родственные связи кодекса с типами и уверенностью), древо иерархии, автособираемая хронология Мифов и география мест с картой. Все данные строятся из кодекса и текстов последнего прогона."/>
+        </StackPanel>
+
+        <TabControl Grid.Row="1" Background="Transparent" BorderThickness="0" Margin="0,8,0,0">
+
+            <!-- ═══════════════ ДРЕВО ═══════════════ -->
+            <TabItem Header="Древо">
+                <Grid Margin="0,16,0,0" DataContext="{Binding Tree}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0" LastChildFill="False">
+                        <TextBlock Text="Источник:" Style="{DynamicResource MetaStyle}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <ComboBox DockPanel.Dock="Left" Width="150" Margin="0,0,8,0"
+                                  ItemsSource="{Binding Sources}"
+                                  SelectedIndex="{Binding SourceIndex, Mode=TwoWay}"/>
+                        <ComboBox DockPanel.Dock="Left" Width="170" Margin="0,0,8,0"
+                                  ItemsSource="{Binding ComponentOptions}"
+                                  SelectedIndex="{Binding ComponentIndex, Mode=TwoWay}"
+                                  Visibility="{Binding HasMultipleComponents, Converter={StaticResource BoolToVis}}"
+                                  ToolTip="Ветвь (компонент связности): для больших разрозненных GEDCOM можно смотреть по одной семье"/>
+                        <Button DockPanel.Dock="Left" Content="Загрузить GEDCOM…" Margin="0,0,8,0"
+                                Style="{DynamicResource GhostButtonStyle}"
+                                Command="{Binding LoadGedcomCommand}"/>
+                        <Button DockPanel.Dock="Left" Content="Пересобрать" Margin="0,0,8,0"
+                                Style="{DynamicResource GhostButtonStyle}"
+                                Command="{Binding RebuildCommand}"/>
+                        <Button DockPanel.Dock="Left" Content="HTML…" Margin="0,0,8,0"
+                                Style="{DynamicResource GhostButtonStyle}"
+                                Command="{Binding ExportHtmlCommand}"
+                                ToolTip="Интерактивное древо: панорамирование, масштаб, поиск, читаемый текст."/>
+                        <Button DockPanel.Dock="Left" Content="Текст…"
+                                Style="{DynamicResource GhostButtonStyle}"
+                                Command="{Binding ExportTextCommand}"
+                                ToolTip="Экспорт читаемого описания древа в Markdown."/>
+                    </DockPanel>
+
+                    <Grid Grid.Row="1" Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="340"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" BorderThickness="1" CornerRadius="8"
+                                BorderBrush="{DynamicResource BrushBorderLight}"
+                                Background="{DynamicResource BrushBgNav}">
+                            <Grid>
+                                <ScrollViewer x:Name="TreeScroll" HorizontalScrollBarVisibility="Auto"
+                                              VerticalScrollBarVisibility="Auto" Padding="8">
+                                    <Canvas x:Name="TreeCanvas" Background="Transparent"
+                                            HorizontalAlignment="Left" VerticalAlignment="Top">
+                                        <Canvas.LayoutTransform>
+                                            <ScaleTransform ScaleX="{Binding Value, ElementName=ZoomSlider}"
+                                                            ScaleY="{Binding Value, ElementName=ZoomSlider}"/>
+                                        </Canvas.LayoutTransform>
+                                    </Canvas>
+                                </ScrollViewer>
+
+                                <TextBlock Text="{Binding CanvasNotice}"
+                                           Style="{DynamicResource MetaStyle}" TextWrapping="Wrap"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           MaxWidth="420" TextAlignment="Center"
+                                           Visibility="{Binding HasCanvasNotice, Converter={StaticResource BoolToVis}}"/>
+
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                                            VerticalAlignment="Bottom" Margin="0,0,10,10">
+                                    <Button Content="−" Width="28" Height="26" Padding="0"
+                                            Style="{DynamicResource MiniGhostButtonStyle}"
+                                            Click="TreeZoomOut_Click" ToolTip="Уменьшить"/>
+                                    <Slider x:Name="ZoomSlider" Width="110" Margin="4,0"
+                                            Minimum="0.35" Maximum="1.8" Value="1"
+                                            VerticalAlignment="Center" ToolTip="Масштаб древа"/>
+                                    <Button Content="+" Width="28" Height="26" Padding="0"
+                                            Style="{DynamicResource MiniGhostButtonStyle}"
+                                            Click="TreeZoomIn_Click" ToolTip="Увеличить"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <Grid Grid.Column="1" Margin="12,0,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <Border Grid.Row="0" BorderThickness="1" CornerRadius="8" Padding="10"
+                                    BorderBrush="{DynamicResource BrushBorderLight}"
+                                    Background="{DynamicResource BrushBgNav}">
+                                <StackPanel>
+                                    <DockPanel LastChildFill="False">
+                                        <TextBlock Text="Фокус" Style="{DynamicResource MetaStyle}"
+                                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <Button DockPanel.Dock="Left" Content="На выбранной" Margin="0,0,6,0"
+                                                Style="{DynamicResource MiniGhostButtonStyle}"
+                                                Command="{Binding FocusCommand}"
+                                                ToolTip="Показать предков, потомков и партнёров выбранной персоны"/>
+                                        <Button DockPanel.Dock="Left" Content="Сбросить"
+                                                Style="{DynamicResource MiniGhostButtonStyle}"
+                                                Command="{Binding ClearFocusCommand}"
+                                                ToolTip="Показать ветвь целиком"/>
+                                    </DockPanel>
+                                    <DockPanel Margin="0,8,0,0">
+                                        <TextBlock Text="Глубина:" Style="{DynamicResource MetaStyle}"
+                                                   VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <ComboBox Width="52" ItemsSource="{Binding FocusDepths}"
+                                                  SelectedItem="{Binding FocusDepth}"
+                                                  ToolTip="Сколько шагов родства показывать вокруг фокуса"/>
+                                        <CheckBox Content="{Binding HypothesesLabel}"
+                                                  IsChecked="{Binding ShowHypotheses}"
+                                                  Margin="14,0,0,0" VerticalAlignment="Center"
+                                                  ToolTip="Слой предполагаемых связей: отключение не меняет данные"/>
+                                    </DockPanel>
+                                    <TextBlock Text="{Binding FocusHint}" Style="{DynamicResource MetaStyle}"
+                                               TextWrapping="Wrap" Margin="0,8,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Row="1" BorderThickness="1" CornerRadius="8" Padding="12"
+                                    BorderBrush="{DynamicResource BrushBorderLight}"
+                                    Background="{DynamicResource BrushBgNav}"
+                                    Margin="0,10,0,0" MinHeight="120">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding SelectedTitle}" Style="{DynamicResource H2Style}"
+                                               TextWrapping="Wrap"/>
+                                    <TextBlock Text="{Binding SelectedSubtitle}" Style="{DynamicResource MetaStyle}"
+                                               Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                    <ScrollViewer MaxHeight="150" VerticalScrollBarVisibility="Auto" Margin="0,8,0,0">
+                                        <TextBlock Text="{Binding SelectedDetail}" Style="{DynamicResource BodyStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </ScrollViewer>
+                                </StackPanel>
+                            </Border>
+
+                            <TextBox Grid.Row="2" Margin="0,10,0,6" Text="{Binding Search, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{DynamicResource BareTextBoxStyle}"
+                                     ToolTip="Поиск человека по имени, годам и описанию"/>
+
+                            <ListBox Grid.Row="3" x:Name="TreePeopleList" ItemsSource="{Binding People}"
+                                     Background="Transparent" BorderThickness="0"
+                                     SelectionChanged="TreePeople_SelectionChanged"
+                                     VirtualizingPanel.IsVirtualizing="True"
+                                     VirtualizingPanel.VirtualizationMode="Recycling">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Display}" TextWrapping="Wrap" Margin="0,3"/>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="AutomationProperties.Name" Value="{Binding Display}"/>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                            </ListBox>
+
+                            <Expander Grid.Row="4" Margin="0,8,0,0" IsExpanded="False"
+                                      ToolTip="Наблюдения не меняют данные; нажмите на строку, чтобы перейти к персоне">
+                                <Expander.Header>
+                                    <TextBlock Text="{Binding IssuesHeader}" Style="{DynamicResource MetaStyle}"/>
+                                </Expander.Header>
+                                <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <ItemsControl ItemsSource="{Binding Issues}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Command="{Binding DataContext.SelectIssueCommand,
+                                                            RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}"
+                                                        Style="{DynamicResource GhostButtonStyle}"
+                                                        HorizontalContentAlignment="Left"
+                                                        HorizontalAlignment="Stretch"
+                                                        Margin="0,0,0,4" Padding="6,4"
+                                                        ToolTip="Перейти к первой персоне из наблюдения">
+                                                    <TextBlock Text="{Binding Display}" TextWrapping="Wrap"/>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock Style="{DynamicResource MetaStyle}" TextWrapping="Wrap" Margin="0,6,0,0"
+                                               Text="Обозначения: сплошная — биологическая связь; штрих — приёмная, опека, крёстная или названая; пунктир — партнёрство; бледная линия — гипотеза. Бейджи на карточках: дост., вер., гип., спор."/>
+                                </StackPanel>
+                                </ScrollViewer>
+                            </Expander>
+                        </Grid>
+                    </Grid>
+
+                    <Expander Grid.Row="2" Margin="0,10,0,0" IsExpanded="False"
+                              Visibility="{Binding HasReadableText, Converter={StaticResource BoolToVis}}">
+                        <Expander.Header>
+                            <TextBlock Text="Читаемое описание древа" Style="{DynamicResource MetaStyle}"/>
+                        </Expander.Header>
+                        <TextBox Text="{Binding ReadableText, Mode=OneWay}" IsReadOnly="True"
+                                 AcceptsReturn="True" TextWrapping="Wrap" Height="180"
+                                 VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                 Style="{DynamicResource BareTextBoxStyle}"
+                                 Background="{DynamicResource BrushBgNav}" Padding="10"/>
+                    </Expander>
+
+                    <TextBlock Grid.Row="3" Text="{Binding Status}" Style="{DynamicResource MetaStyle}"
+                               TextWrapping="Wrap" Margin="0,10,0,0"/>
+                </Grid>
+            </TabItem>
+
+            <!-- ═══════════════ ИЕРАРХИЯ ═══════════════ -->
+            <TabItem Header="Иерархия">
+                <Grid Margin="0,16,0,0" DataContext="{Binding Hierarchy}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0" LastChildFill="False">
+                        <TextBlock Text="Связи:" Style="{DynamicResource MetaStyle}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <ItemsControl DockPanel.Dock="Left" ItemsSource="{Binding RelationChoices}" VerticalAlignment="Center">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <CheckBox Content="{Binding Label}" IsChecked="{Binding IsChecked}"
+                                              Margin="0,0,12,0" VerticalAlignment="Center"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button DockPanel.Dock="Left" Content="Пересобрать" Margin="4,0,8,0"
+                                Style="{DynamicResource GhostButtonStyle}"
+                                Command="{Binding RebuildCommand}"/>
+                        <Button DockPanel.Dock="Left" Content="Markdown…" Margin="0,0,8,0"
+                                Style="{DynamicResource GhostButtonStyle}"
+                                Command="{Binding ExportMarkdownCommand}"/>
+                        <Button DockPanel.Dock="Left" Content="JSON…"
+                                Style="{DynamicResource GhostButtonStyle}"
+                                Command="{Binding ExportJsonCommand}"/>
+                    </DockPanel>
+
+                    <Grid Grid.Row="1" Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="320"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" BorderThickness="1" CornerRadius="8" Padding="6"
+                                BorderBrush="{DynamicResource BrushBorderLight}"
+                                Background="{DynamicResource BrushBgNav}">
+                            <TreeView x:Name="HierarchyTree" ItemsSource="{Binding Roots}"
+                                      Background="Transparent" BorderThickness="0"
+                                      SelectedItemChanged="HierarchyTree_SelectedItemChanged"
+                                      VirtualizingPanel.IsVirtualizing="True">
+                                <TreeView.ItemContainerStyle>
+                                    <Style TargetType="{x:Type TreeViewItem}">
+                                        <Setter Property="IsExpanded" Value="True"/>
+                                        <Setter Property="Padding" Value="2"/>
+                                    </Style>
+                                </TreeView.ItemContainerStyle>
+                                <TreeView.ItemTemplate>
+                                    <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                                            <Border Width="7" Height="7" CornerRadius="3.5" Margin="0,0,7,0"
+                                                    VerticalAlignment="Center" Background="{Binding Color}"/>
+                                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding Subtitle}" Style="{DynamicResource MetaStyle}"
+                                                       Margin="7,0,0,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding ReferenceNote}" Style="{DynamicResource MetaStyle}"
+                                                       Margin="7,0,0,0" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource BrushThemeMark}"/>
+                                        </StackPanel>
+                                    </HierarchicalDataTemplate>
+                                </TreeView.ItemTemplate>
+                            </TreeView>
+                        </Border>
+
+                        <Grid Grid.Column="1" Margin="12,0,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <Border Grid.Row="0" BorderThickness="1" CornerRadius="8" Padding="12"
+                                    BorderBrush="{DynamicResource BrushBorderLight}"
+                                    Background="{DynamicResource BrushBgNav}" MinHeight="120">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding SelectedTitle}" Style="{DynamicResource H2Style}" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{Binding SelectedSubtitle}" Style="{DynamicResource MetaStyle}"
+                                               Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                    <ScrollViewer MaxHeight="200" VerticalScrollBarVisibility="Auto" Margin="0,8,0,0">
+                                        <TextBlock Text="{Binding SelectedDetail}" Style="{DynamicResource BodyStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </ScrollViewer>
+                                </StackPanel>
+                            </Border>
+
+                            <TextBox Grid.Row="1" Margin="0,10,0,6" Text="{Binding Search, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{DynamicResource BareTextBoxStyle}"
+                                     ToolTip="Поиск узла иерархии"/>
+                            <ListBox Grid.Row="2" ItemsSource="{Binding SearchResults}"
+                                     Background="Transparent" BorderThickness="0"
+                                     SelectionChanged="HierarchySearch_SelectionChanged">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Margin="0,3">
+                                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding Kind}" Style="{DynamicResource MetaStyle}"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
+                    </Grid>
+
+                    <TextBlock Grid.Row="2" Text="{Binding Status}" Style="{DynamicResource MetaStyle}"
+                               TextWrapping="Wrap" Margin="0,10,0,0"/>
+                </Grid>
+            </TabItem>
+
+            <!-- ═══════════════ ХРОНОЛОГИЯ ═══════════════ -->
+            <TabItem Header="Хронология">
+                <Grid Margin="0,16,0,0" DataContext="{Binding Chronology}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0" LastChildFill="False">
+                        <Button DockPanel.Dock="Left" Content="Собрать хронологию" Margin="0,0,8,0"
+                                Style="{DynamicResource GhostButtonStyle}"
+                                Command="{Binding BuildCommand}"/>
+                        <ComboBox DockPanel.Dock="Left" Width="140" Margin="0,0,8,0"
+                                  ItemsSource="{Binding KindOptions}"
+                                  SelectedIndex="{Binding KindIndex, Mode=TwoWay}"/>
+                        <TextBox DockPanel.Dock="Left" Width="220" Margin="0,0,8,0"
+                                 Text="{Binding Search, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{DynamicResource BareTextBoxStyle}"
+                                 ToolTip="Поиск по дате, цитате или файлу"/>
+                        <Button DockPanel.Dock="Left" Content="Markdown…"
+                                Style="{DynamicResource GhostButtonStyle}"
+                                Command="{Binding ExportMarkdownCommand}"/>
+                    </DockPanel>
+
+                    <ListBox Grid.Row="1" Margin="0,10,0,0" ItemsSource="{Binding Rows}"
+                             Background="Transparent" BorderThickness="0"
+                             VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.VirtualizationMode="Recycling">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderThickness="1" CornerRadius="6" Padding="10,7" Margin="0,0,0,6"
+                                        BorderBrush="{DynamicResource BrushBorderLight}"
+                                        Background="{DynamicResource BrushBgNav}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Label}" FontWeight="SemiBold" FontSize="14"/>
+                                                <TextBlock Text="{Binding KindLabel}" Style="{DynamicResource MetaStyle}"
+                                                           Margin="10,0,0,0" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding SortLabel}" Style="{DynamicResource MetaStyle}"
+                                                           Margin="10,0,0,0" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                            <Border BorderThickness="2,0,0,0" Margin="0,5,0,0" Padding="8,0,0,0"
+                                                    BorderBrush="{DynamicResource BrushBranch1}">
+                                                <TextBlock Text="{Binding Snippet}" TextWrapping="Wrap" MaxHeight="52"/>
+                                            </Border>
+                                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                                <TextBlock Text="{Binding Source}" Style="{DynamicResource MetaStyle}"/>
+                                                <TextBlock Text="{Binding Entities}" Style="{DynamicResource MetaStyle}"
+                                                           Margin="10,0,0,0"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <Button Grid.Column="1" Content="Открыть" VerticalAlignment="Top"
+                                                Style="{DynamicResource MiniGhostButtonStyle}"
+                                                Command="{Binding DataContext.OpenFileCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                CommandParameter="{Binding}"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <TextBlock Grid.Row="2" Text="{Binding Status}" Style="{DynamicResource MetaStyle}"
+                               TextWrapping="Wrap" Margin="0,10,0,0"/>
+                </Grid>
+            </TabItem>
+
+            <!-- ═══════════════ ГЕОГРАФИЯ ═══════════════ -->
+            <TabItem Header="География">
+                <Grid Margin="0,16,0,0" DataContext="{Binding Geography}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0" LastChildFill="False">
+                        <Button DockPanel.Dock="Left" Content="Собрать географию" Margin="0,0,8,0"
+                                Style="{DynamicResource GhostButtonStyle}"
+                                Command="{Binding BuildCommand}"/>
+                        <ComboBox DockPanel.Dock="Left" Width="150" Margin="0,0,8,0"
+                                  ItemsSource="{Binding ClassOptions}"
+                                  SelectedIndex="{Binding ClassIndex, Mode=TwoWay}"/>
+                        <TextBox DockPanel.Dock="Left" Width="200" Margin="0,0,8,0"
+                                 Text="{Binding Search, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{DynamicResource BareTextBoxStyle}"
+                                 ToolTip="Поиск места по названию или написанию"/>
+                        <CheckBox DockPanel.Dock="Left" Content="только с координатами" Margin="0,0,12,0"
+                                  VerticalAlignment="Center"
+                                  IsChecked="{Binding OnlyWithCoordinates, Mode=TwoWay}"/>
+                        <Button DockPanel.Dock="Left" Content="Карта HTML…"
+                                Style="{DynamicResource GhostButtonStyle}"
+                                Command="{Binding ExportMapCommand}"
+                                ToolTip="Карта Leaflet с классами мест, фильтрами и цитатами."/>
+                    </DockPanel>
+
+                    <Grid Grid.Row="1" Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="360"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" BorderThickness="1" CornerRadius="8" Padding="4"
+                                BorderBrush="{DynamicResource BrushBorderLight}"
+                                Background="{DynamicResource BrushBgNav}">
+                            <ListBox x:Name="PlaceList" ItemsSource="{Binding Places}"
+                                     SelectedItem="{Binding Selected, Mode=TwoWay}"
+                                     Background="Transparent" BorderThickness="0"
+                                     VirtualizingPanel.IsVirtualizing="True"
+                                     VirtualizingPanel.VirtualizationMode="Recycling">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="4,3">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                                                    <TextBlock Text="⌖" Margin="6,0,0,0"
+                                                               Foreground="{DynamicResource BrushThemeMark}"
+                                                               Visibility="{Binding HasPoint, Converter={StaticResource BoolToVis}}"/>
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding KindLabel}" Style="{DynamicResource MetaStyle}"/>
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="1" Text="{Binding SourcesText}"
+                                                       Style="{DynamicResource MetaStyle}" VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+
+                        <Grid Grid.Column="1" Margin="12,0,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <Border Grid.Row="0" BorderThickness="1" CornerRadius="8" Padding="12"
+                                    BorderBrush="{DynamicResource BrushBorderLight}"
+                                    Background="{DynamicResource BrushBgNav}">
+                                <StackPanel>
+                                    <TextBlock Text="Выберите место в списке слева."
+                                               Style="{DynamicResource MetaStyle}" TextWrapping="Wrap"
+                                               Visibility="{Binding HasSelection, Converter={StaticResource InverseBoolToVis}}"/>
+                                    <StackPanel Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}}">
+                                        <TextBlock Text="{Binding SelectedTitle}" Style="{DynamicResource H2Style}" TextWrapping="Wrap"/>
+                                        <TextBlock Text="{Binding SelectedKind}" Style="{DynamicResource MetaStyle}"
+                                                   Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                        <TextBlock Text="{Binding SelectedCoords}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                        <TextBlock Text="{Binding SelectedNote}" Style="{DynamicResource MetaStyle}"
+                                                   Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                        <TextBlock Text="{Binding SelectedVariants}" Style="{DynamicResource MetaStyle}"
+                                                   Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                        <Button Content="Уточнить координаты online" Margin="0,8,0,0"
+                                                HorizontalAlignment="Left"
+                                                Style="{DynamicResource MiniGhostButtonStyle}"
+                                                Command="{Binding EnrichCommand}"
+                                                ToolTip="Nominatim (OpenStreetMap), только по явному нажатию; ответы кэшируются."/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Grid.Row="1" Text="Цитаты" Style="{DynamicResource MetaStyle}"
+                                       Margin="0,10,0,4"/>
+                            <ListBox Grid.Row="2" ItemsSource="{Binding Selected.Quotes}"
+                                     Background="Transparent" BorderThickness="0"
+                                     VirtualizingPanel.IsVirtualizing="True">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,0,0,6"
+                                                BorderBrush="{DynamicResource BrushBorderLight}">
+                                            <StackPanel>
+                                                <DockPanel LastChildFill="False">
+                                                    <TextBlock Text="{Binding Source}" Style="{DynamicResource MetaStyle}"/>
+                                                    <Button DockPanel.Dock="Right" Content="↗" Padding="5,0"
+                                                            Style="{DynamicResource MiniGhostButtonStyle}"
+                                                            Command="{Binding DataContext.OpenQuoteCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                            CommandParameter="{Binding}" ToolTip="Открыть файл"/>
+                                                </DockPanel>
+                                                <Border BorderThickness="2,0,0,0" Margin="0,5,0,0" Padding="8,0,0,0"
+                                                        BorderBrush="{DynamicResource BrushBranch1}">
+                                                    <TextBlock Text="{Binding Snippet}" TextWrapping="Wrap" MaxHeight="76"/>
+                                                </Border>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
+                    </Grid>
+
+                    <TextBlock Grid.Row="2" Text="{Binding Status}" Style="{DynamicResource MetaStyle}"
+                               TextWrapping="Wrap" Margin="0,10,0,0"/>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>

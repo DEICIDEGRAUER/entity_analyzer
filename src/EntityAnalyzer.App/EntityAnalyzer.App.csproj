@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>EntityAnalyzer.App</RootNamespace>
+    <AssemblyName>EntityAnalyzer</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+
+    <!-- Item 49: метаданные exe — описание для проводника и подсказки ярлыка.
+         Без них Windows показывает подсказку «?????». -->
+    <Version>1.0.0</Version>
+    <Title>Entity Analyzer</Title>
+    <Product>Entity Analyzer — анализ упоминаний сущностей</Product>
+    <Description>Поиск и анализ упоминаний сущностей в текстовом корпусе: кодекс, отчёты, граф совместных упоминаний.</Description>
+    <Company>Entity Analyzer</Company>
+    <Copyright>Entity Analyzer</Copyright>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\app.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\EntityAnalyzer.Core\EntityAnalyzer.Core.csproj" />
+  </ItemGroup>
+
+</Project>

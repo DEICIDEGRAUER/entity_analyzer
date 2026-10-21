@@ -1,0 +1,26 @@
+<Window x:Class="EntityAnalyzer.App.Views.PrintPreviewWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Предпросмотр печати" Width="900" Height="800"
+        Background="{DynamicResource BrushBgMain}">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Тулбар: волосяной разделитель снизу, как во всех окнах приложения -->
+        <Border Grid.Row="0" Background="{DynamicResource BrushBgNav}"
+                BorderBrush="{DynamicResource BrushBorderLight}" BorderThickness="0,0,0,1"
+                Padding="24,16">
+            <StackPanel Orientation="Horizontal">
+                <Button Content="🖨 Печать / PDF…" Style="{DynamicResource GhostButtonStyle}" Click="OnPrint"/>
+                <TextBlock Text="Колонтитулы и номера страниц добавляются при печати"
+                           VerticalAlignment="Center"
+                           Style="{DynamicResource MetaStyle}" Margin="24,0,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <FlowDocumentScrollViewer Grid.Row="1" x:Name="Viewer"/>
+    </Grid>
+</Window>

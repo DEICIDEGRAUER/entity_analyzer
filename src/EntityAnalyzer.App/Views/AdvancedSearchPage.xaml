@@ -1,0 +1,364 @@
+<UserControl x:Class="EntityAnalyzer.App.Views.AdvancedSearchPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Раздел «Поиск и паттерны» (вкладка на Обзоре):
+          1) обособленный скан паттернов без анализа сущностей;
+          2) совместные упоминания двух объектов;
+          3) редактор семантических паттернов (декларативные категории);
+         3c) редактор словарей (item 46/48: удаление слов из встроенных словарей);
+          4) находки последнего прогона/скана. -->
+    <UserControl.InputBindings>
+        <KeyBinding Key="S" Modifiers="Control" Command="{Binding SaveDraftCommand}"/>
+    </UserControl.InputBindings>
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="0,0,24,24" MaxWidth="1400" HorizontalAlignment="Left">
+
+            <!-- ═══ 1. Обособленный скан паттернов ═══ -->
+            <TextBlock Text="СКАН СЕМАНТИЧЕСКИХ ПАТТЕРНОВ" Style="{DynamicResource SectionHeaderStyle}"/>
+            <TextBlock Text="Поиск только конструкций (ритуалы, титулы, названия периодов…) по всему корпусу — без анализа сущностей. Результаты сохраняются в by_pattern/&lt;паттерн&gt;/ внутри папки отчётов."
+                       Style="{DynamicResource MetaStyle}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+            <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                <Button Content="{Binding IsScanning, Converter={StaticResource BoolToScanText}}"
+                        Style="{DynamicResource PrimaryButtonStyle}"
+                        Command="{Binding ScanPatternsOnlyCommand}"
+                        ToolTip="Просканировать корпус только семантическими паттернами"/>
+                <Button Content="Открыть конфигурацию" Style="{DynamicResource GhostButtonStyle}"
+                        Command="{Binding OpenPatternsFileCommand}" Margin="16,0,0,0"
+                        ToolTip="Файл semantic_patterns.json в AppData — расширенная настройка"/>
+                <Button Content="Перечитать" Style="{DynamicResource GhostButtonStyle}"
+                        Command="{Binding ReloadPatternsCommand}"/>
+                <Button Content="Сбросить к встроенным" Style="{DynamicResource GhostButtonStyle}"
+                        Command="{Binding ResetPatternsCommand}"/>
+            </StackPanel>
+
+            <!-- ═══ 2. Совместные упоминания ═══ -->
+            <TextBlock Text="СОВМЕСТНЫЕ УПОМИНАНИЯ" Style="{DynamicResource SectionHeaderStyle}" Margin="0,48,0,0"/>
+            <UniformGrid Columns="4" Margin="0,16,0,0">
+                <StackPanel Margin="0,0,16,0">
+                    <TextBlock Text="Первый объект" Style="{DynamicResource MetaStyle}"/>
+                    <ComboBox ItemsSource="{Binding EntityNames}" SelectedItem="{Binding EntityA}"
+                              MinWidth="220" Margin="0,8,0,0"
+                              ToolTip="Карточки кодекса: выберите первую сущность"/>
+                </StackPanel>
+                <StackPanel Margin="0,0,16,0">
+                    <TextBlock Text="Второй объект" Style="{DynamicResource MetaStyle}"/>
+                    <ComboBox ItemsSource="{Binding EntityNames}" SelectedItem="{Binding EntityB}"
+                              MinWidth="220" Margin="0,8,0,0"
+                              ToolTip="Карточки кодекса: выберите вторую сущность"/>
+                </StackPanel>
+                <StackPanel Margin="0,0,16,0">
+                    <TextBlock Text="Условие" Style="{DynamicResource MetaStyle}"/>
+                    <ComboBox ItemsSource="{Binding Modes}" SelectedItem="{Binding SelectedMode}"
+                              MinWidth="260" Margin="0,8,0,0"
+                              ToolTip="Вместе в одном файле · рядом ≤ N строк · разнесены ≥ N строк · первый без второго"/>
+                </StackPanel>
+                <StackPanel>
+                    <TextBlock Text="N строк" Style="{DynamicResource MetaStyle}"/>
+                    <TextBox Text="{Binding GapLines}" MinWidth="64" Margin="0,8,0,0"
+                             ToolTip="Порог близости/разнесённости для соответствующего режима"/>
+                </StackPanel>
+            </UniformGrid>
+            <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                <Button Content="Найти" Style="{DynamicResource PrimaryButtonStyle}"
+                        Command="{Binding FindCommand}"
+                        ToolTip="Искать файлы, где встречаются выбранные объекты (условие задаётся слева)"/>
+                <Button Content="Перейти к запуску анализа" Style="{DynamicResource GhostButtonStyle}"
+                        Command="{Binding GoRunAnalysisCommand}" Margin="16,0,0,0"
+                        Visibility="{Binding ShowRunHint, Converter={StaticResource BoolToVis}}"
+                        ToolTip="Результатов анализа ещё нет — откроется вкладка «Обзор» для запуска прогона"/>
+                <TextBlock Text="{Binding CoOccurSummary}" Style="{DynamicResource MetaStyle}"
+                           VerticalAlignment="Center" Margin="24,0,0,0" TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <TextBlock Text="Ничего не найдено — измените условие."
+                       Style="{DynamicResource MetaStyle}" Foreground="{DynamicResource BrushTextSecondary}"
+                       Margin="0,16,0,0"
+                       Visibility="{Binding HasCoOccurResults, Converter={StaticResource InverseBoolToVis}}"/>
+            <DataGrid ItemsSource="{Binding CoOccurResults}" IsReadOnly="True"
+                      MaxHeight="280" Margin="0,16,0,0"
+                      Visibility="{Binding HasCoOccurResults, Converter={StaticResource BoolToVis}}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="ФАЙЛ" Binding="{Binding FileName}" Width="2*"/>
+                    <DataGridTextColumn Header="СТРОКИ ПЕРВОГО" Binding="{Binding LinesA}" Width="1*"/>
+                    <DataGridTextColumn Header="СТРОКИ ВТОРОГО" Binding="{Binding LinesB}" Width="1*"/>
+                    <DataGridTextColumn Header="РАЗРЫВ" Binding="{Binding MinGapLines}" Width="70"
+                                        CellStyle="{DynamicResource RightAlignCell}"/>
+                    <DataGridTextColumn Header="ФРАГМЕНТ" Binding="{Binding Snippet}" Width="3*"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <!-- ═══ 3. Редактор паттернов ═══ -->
+            <TextBlock Text="РЕДАКТОР ПАТТЕРНОВ" Style="{DynamicResource SectionHeaderStyle}" Margin="0,48,0,0"/>
+            <TextBlock Text="Паттерны ищут конструкции, а не точные строки: последовательности грамматических классов (словари эпитетов, титулов, ритуальных терминов), капитализированных слов, имён собственных и регулярных выражений. Изменения сохраняются в пользовательский конфиг и переживают обновления приложения. Полный туториал — на странице «Справка»."
+                       Style="{DynamicResource MetaStyle}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+
+            <Grid Margin="0,16,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="340"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Левая колонка: фильтр + широкий список + действия -->
+                <DockPanel Grid.Column="0">
+                    <TextBox DockPanel.Dock="Top"
+                             Text="{Binding PatternFilter, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Фильтр по имени, id или описанию паттерна"/>
+                    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,12,0,0">
+                        <Button Content="Добавить" Style="{DynamicResource GhostButtonStyle}"
+                                Command="{Binding AddPatternCommand}"/>
+                        <Button Content="Дублировать" Style="{DynamicResource GhostButtonStyle}"
+                                Command="{Binding DuplicatePatternCommand}" Margin="8,0,0,0"/>
+                        <Button Content="Удалить" Style="{DynamicResource GhostButtonStyle}"
+                                Command="{Binding DeletePatternCommand}" Margin="8,0,0,0"/>
+                    </StackPanel>
+                    <ListBox ItemsSource="{Binding PatternsView}"
+                             SelectedItem="{Binding SelectedPatternRow}"
+                             MinHeight="320" MaxHeight="480" Margin="0,12,0,0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="0,2">
+                                    <StackPanel Orientation="Horizontal">
+                                        <CheckBox IsChecked="{Binding Enabled}" VerticalAlignment="Center"
+                                                  ToolTip="Включён ли паттерн в сканирование"/>
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                                   Margin="12,0,0,0" TextTrimming="CharacterEllipsis"/>
+                                        <!-- Индикатор встроенного паттерна -->
+                                        <TextBlock Text="🔒" FontSize="10" Margin="6,0,0,0" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource BrushTextDisabled}"
+                                                   ToolTip="Встроенный паттерн. Отредактируйте и нажмите «Сохранить в конфиг», чтобы создать пользовательскую копию."
+                                                   Visibility="{Binding IsEmbedded, Converter={StaticResource BoolToVis}}"/>
+                                        <!-- Группа 2 (item 30): заметка дневника с привязкой к паттерну -->
+                                        <Button Content="✎" FontSize="11" Padding="4,0" Margin="8,0,0,0"
+                                                Style="{DynamicResource MiniGhostButtonStyle}"
+                                                Command="{Binding DataContext.AddPatternNoteCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip="Добавить заметку в «Дневник» с привязкой к этому паттерну"/>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding Id}" Style="{DynamicResource TechStyle}"
+                                               Foreground="{DynamicResource BrushTextSecondary}" Margin="28,2,0,0"/>
+                                    <TextBlock Text="{Binding TokensText}" Style="{DynamicResource TechStyle}"
+                                               TextWrapping="Wrap" Margin="28,2,0,0"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+
+                <!-- Разделитель колонок -->
+                <Rectangle Grid.Column="1" Width="1" Fill="{DynamicResource BrushBorderLight}" Margin="24,0"/>
+
+                <!-- Правая колонка: форма редактирования выбранного паттерна -->
+                <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" MaxHeight="560">
+                    <StackPanel>
+                        <UniformGrid Columns="2" Margin="0,0,0,16">
+                            <StackPanel Margin="0,0,16,0">
+                                <TextBlock Text="Название" Style="{DynamicResource MetaStyle}"/>
+                                <TextBox Text="{Binding EditName, UpdateSourceTrigger=PropertyChanged}" Margin="0,8,0,0"/>
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="ID (латиницей, уникально)" Style="{DynamicResource MetaStyle}"/>
+                                <TextBox Text="{Binding EditId, UpdateSourceTrigger=PropertyChanged}" Margin="0,8,0,0"
+                                         FontFamily="{DynamicResource MonoFontFamily}" FontSize="12"/>
+                            </StackPanel>
+                        </UniformGrid>
+
+                        <TextBox Text="{Binding EditDescription, UpdateSourceTrigger=PropertyChanged}"
+                                 AcceptsReturn="True" TextWrapping="Wrap" MinHeight="44" MaxHeight="88"
+                                 VerticalScrollBarVisibility="Auto"
+                                 FontFamily="{DynamicResource SerifFontFamily}" FontSize="14"
+                                 ToolTip="Описание: что находит паттерн"/>
+
+                        <UniformGrid Columns="3" Margin="0,16,0,0">
+                            <StackPanel Margin="0,0,16,0">
+                                <TextBlock Text="Окно между токенами (слов)" Style="{DynamicResource MetaStyle}"/>
+                                <TextBox Text="{Binding EditWindow}" Margin="0,8,0,0"/>
+                            </StackPanel>
+                            <StackPanel Margin="0,0,16,0">
+                                <TextBlock Text="Общее окно (0 = нет)" Style="{DynamicResource MetaStyle}"/>
+                                <TextBox Text="{Binding EditTotalWindow}" Margin="0,8,0,0"/>
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="Включён" Style="{DynamicResource MetaStyle}"/>
+                                <CheckBox IsChecked="{Binding EditEnabled}" Margin="0,14,0,0"/>
+                            </StackPanel>
+                        </UniformGrid>
+
+                        <!-- Токены -->
+                        <TextBlock Text="ТОКЕНЫ (ПОСЛЕДОВАТЕЛЬНОСТЬ)" Style="{DynamicResource SectionHeaderStyle}" Margin="0,24,0,0"/>
+                        <DataGrid ItemsSource="{Binding DraftTokens}"
+                                  SelectedItem="{Binding SelectedToken}"
+                                  CanUserAddRows="False" CanUserDeleteRows="False"
+                                  MinHeight="96" MaxHeight="240" Margin="0,12,0,0"
+                                  AutoGenerateColumns="False">
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Header="ВИД" Width="130">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <ComboBox ItemsSource="{Binding DataContext.TokenKinds,
+                                                        RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                      SelectedItem="{Binding Kind, UpdateSourceTrigger=PropertyChanged}"
+                                                      BorderThickness="0" Background="Transparent"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="ЗНАЧЕНИЕ" Binding="{Binding Value, UpdateSourceTrigger=PropertyChanged}" Width="150"/>
+                                <DataGridCheckBoxColumn Header="ОБЯЗАТЕЛЕН" Binding="{Binding Required, UpdateSourceTrigger=PropertyChanged}" Width="100"/>
+                                <DataGridTextColumn Header="MIN" Binding="{Binding Min, UpdateSourceTrigger=PropertyChanged}" Width="56"/>
+                                <DataGridTextColumn Header="MAX" Binding="{Binding Max, UpdateSourceTrigger=PropertyChanged}" Width="56"/>
+                                <DataGridTemplateColumn Header="OPTIONS (JSON)" Width="*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBox Text="{Binding OptionsJson, UpdateSourceTrigger=PropertyChanged}"
+                                                     IsEnabled="{Binding NeedsOptions}"
+                                                     FontFamily="{DynamicResource MonoFontFamily}" FontSize="11"
+                                                     BorderThickness="0" Background="Transparent"
+                                                     ToolTip="JSON-массив вложенных токенов для any_of / not"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                            <Button Content="+ Токен" Style="{DynamicResource GhostButtonStyle}"
+                                    Command="{Binding AddTokenCommand}"/>
+                            <Button Content="− Убрать токен" Style="{DynamicResource GhostButtonStyle}"
+                                    Command="{Binding RemoveTokenCommand}" Margin="8,0,0,0"/>
+                            <Button Content="Пример «Год Красной Луны»" Style="{DynamicResource GhostButtonStyle}"
+                                    Command="{Binding FillExampleCommand}" Margin="16,0,0,0"
+                                    ToolTip="Заполнить форму учебным примером паттерна названий периодов"/>
+                        </StackPanel>
+
+                        <!-- JSON предпросмотр / ввод -->
+                        <TextBlock Text="JSON ЦЕПОЧКИ ТОКЕНОВ" Style="{DynamicResource SectionHeaderStyle}" Margin="0,24,0,0"/>
+                        <TextBox Text="{Binding JsonPreview, UpdateSourceTrigger=LostFocus}"
+                                 AcceptsReturn="True" TextWrapping="Wrap"
+                                 MinHeight="72" MaxHeight="160"
+                                 FontFamily="{DynamicResource MonoFontFamily}" FontSize="11"
+                                 VerticalScrollBarVisibility="Auto" Margin="0,12,0,0"
+                                 ToolTip="Можно редактировать цепочку прямо как JSON и применить кнопкой ниже"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                            <Button Content="Применить JSON → форму" Style="{DynamicResource GhostButtonStyle}"
+                                    Command="{Binding ApplyJsonCommand}"/>
+                            <Button Content="Сохранить в конфиг" Style="{DynamicResource PrimaryButtonStyle}"
+                                    Command="{Binding SaveDraftCommand}" Margin="16,0,0,0"/>
+                        </StackPanel>
+
+                        <TextBlock Text="{Binding ValidationMessage}" Style="{DynamicResource TechStyle}"
+                                   TextWrapping="Wrap" Margin="0,12,0,0"
+                                   Foreground="{DynamicResource BrushBranch4}"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+
+            <!-- ═══ 3c. Редактор словарей (item 46/48) ═══ -->
+            <TextBlock Text="РЕДАКТОР СЛОВАРЕЙ" Style="{DynamicResource SectionHeaderStyle}" Margin="0,48,0,0"/>
+            <TextBlock Text="Словари (epithets, titles, ritual, periods…) используются токенами «lexicon» в паттернах. Удалённое слово сохраняется в пользовательском конфиге пометкой «!слово» — встроенный словарь не изменяется и переживает обновления приложения. Изменения применяются к следующему сканированию и анализу."
+                       Style="{DynamicResource MetaStyle}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+            <Grid Margin="0,16,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="280"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <ListBox Grid.Column="0" ItemsSource="{Binding LexiconNames}"
+                         SelectedItem="{Binding SelectedLexicon}"
+                         MinHeight="220" MaxHeight="360"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ToolTip="Словари встроенные и пользовательские после слияния">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" FontFamily="{DynamicResource MonoFontFamily}" FontSize="12"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <Rectangle Grid.Column="1" Width="1" Fill="{DynamicResource BrushBorderLight}" Margin="24,0"/>
+
+                <DockPanel Grid.Column="2">
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                        <TextBox Text="{Binding NewWord, UpdateSourceTrigger=PropertyChanged}"
+                                 MinWidth="200"
+                                 ToolTip="Новое слово для выбранного словаря (нормализация — нижний регистр)"/>
+                        <Button Content="Добавить" Style="{DynamicResource GhostButtonStyle}"
+                                Command="{Binding AddLexiconWordCommand}" Margin="12,0,0,0"
+                                ToolTip="Добавить слово в пользовательское дополнение словаря"/>
+                        <Button Content="Сбросить словарь" Style="{DynamicResource GhostButtonStyle}"
+                                Command="{Binding ResetLexiconCommand}" Margin="12,0,0,0"
+                                ToolTip="Убрать все пользовательские правки выбранного словаря — вернуть встроенный состав"/>
+                        <Button Content="Открыть файл словарей" Style="{DynamicResource GhostButtonStyle}"
+                                Command="{Binding OpenLexiconsFileCommand}" Margin="12,0,0,0"
+                                ToolTip="Открыть semantic_lexicons.json в AppData для ручной правки"/>
+                    </StackPanel>
+                    <TextBlock DockPanel.Dock="Bottom" Text="{Binding LexiconSummary}"
+                               Style="{DynamicResource MetaStyle}" Margin="0,12,0,0"/>
+                    <TextBlock DockPanel.Dock="Bottom" Text="{Binding LexiconValidation}"
+                               Style="{DynamicResource MetaStyle}" TextWrapping="Wrap"
+                               Foreground="{DynamicResource BrushBranch4}" Margin="0,4,0,0"/>
+                    <ListBox ItemsSource="{Binding LexiconWords}" Margin="0,12,0,0"
+                             MinHeight="180" MaxHeight="320"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ToolTip="Эффективный состав словаря после слияния встроенных слов с пользовательскими правками">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Content="✕" FontSize="11"
+                                            Style="{DynamicResource GhostButtonStyle}" Padding="4,0"
+                                            Command="{Binding DataContext.RemoveLexiconWordCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                            CommandParameter="{Binding}"
+                                            ToolTip="Исключить слово из словаря (в пользовательском конфиге появится пометка «!слово»); вернуть — добавить его снова"/>
+                                    <TextBlock Text="{Binding}" VerticalAlignment="Center"
+                                               FontFamily="{DynamicResource MonoFontFamily}" FontSize="12"/>
+                                </DockPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Grid>
+
+            <!-- ═══ 3b. Песочница паттернов (R1-8): live-превью ═══ -->
+            <TextBlock Text="ПЕСОЧНИЦА ПАТТЕРНОВ" Style="{DynamicResource SectionHeaderStyle}" Margin="0,48,0,0"/>
+            <TextBlock Text="Вставьте предложение — включённые паттерны найдут конструкции прямо здесь, без запуска анализа."
+                       Style="{DynamicResource MetaStyle}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+            <TextBox Text="{Binding SandboxText, UpdateSourceTrigger=PropertyChanged}"
+                     AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" MaxHeight="160"
+                     VerticalScrollBarVisibility="Auto" Margin="0,12,0,0"
+                     ToolTip="Текст для проверки паттернов (R1-8)"/>
+            <TextBlock Text="{Binding SandboxSummary}" Style="{DynamicResource MetaStyle}" Margin="0,8,0,0"/>
+            <DataGrid ItemsSource="{Binding SandboxResults}" IsReadOnly="True"
+                      MaxHeight="220" Margin="0,8,0,0" AutoGenerateColumns="False"
+                      Visibility="{Binding HasSandboxResults, Converter={StaticResource BoolToVis}}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="ПАТТЕРН" Binding="{Binding PatternName}" Width="200"/>
+                    <DataGridTextColumn Header="СТРОКА" Binding="{Binding Line}" Width="70"
+                                        CellStyle="{DynamicResource RightAlignCell}"/>
+                    <DataGridTextColumn Header="ФРАГМЕНТ" Binding="{Binding Snippet}" Width="*"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <!-- ═══ 4. Находки ═══ -->
+            <TextBlock Text="НАХОДКИ ПОСЛЕДНЕГО ПРОГОНА ИЛИ СКАНА" Style="{DynamicResource SectionHeaderStyle}" Margin="0,48,0,0"/>
+            <TextBlock Text="{Binding SemanticSummary}" Style="{DynamicResource MetaStyle}" Margin="0,8,0,0"/>
+            <TextBlock Text="Находок нет. Запустите анализ или скан паттернов."
+                       Style="{DynamicResource MetaStyle}" Foreground="{DynamicResource BrushTextSecondary}"
+                       Margin="0,16,0,0"
+                       Visibility="{Binding HasSemanticResults, Converter={StaticResource InverseBoolToVis}}"/>
+            <DataGrid ItemsSource="{Binding SemanticResults}" IsReadOnly="True"
+                      MaxHeight="360" Margin="0,16,0,0"
+                      Visibility="{Binding HasSemanticResults, Converter={StaticResource BoolToVis}}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="ПАТТЕРН" Binding="{Binding PatternName}" Width="180"/>
+                    <DataGridTextColumn Header="ФАЙЛ" Binding="{Binding FilePath}" Width="2*"/>
+                    <DataGridTextColumn Header="СТРОКА" Binding="{Binding Line}" Width="80"
+                                        CellStyle="{DynamicResource RightAlignCell}"/>
+                    <DataGridTextColumn Header="ФРАГМЕНТ" Binding="{Binding Snippet}" Width="3*"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -1,0 +1,204 @@
+<Window x:Class="EntityAnalyzer.App.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:EntityAnalyzer.App.ViewModels"
+        xmlns:views="clr-namespace:EntityAnalyzer.App.Views"
+        Title="Entity Analyzer — анализ упоминаний сущностей"
+        Icon="pack://application:,,,/Assets/app.ico"
+        Height="760" Width="1220" MinHeight="600" MinWidth="980"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource BrushBgMain}"
+        TextOptions.TextFormattingMode="Ideal" UseLayoutRounding="True"
+        ToolTip="Entity Analyzer — поиск упоминаний сущностей в текстовых корпусах (Лавкрафтианский пантеон и пользовательские кодексы). Анализ совместных упоминаний, семантические паттерны, экспорт отчётов.">
+
+    <Window.Resources>
+        <DataTemplate DataType="{x:Type vm:DashboardViewModel}">
+            <views:DashboardPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ResultsViewModel}">
+            <views:ResultsPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:CodexViewModel}">
+            <views:CodexPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SchemaViewModel}">
+            <views:SchemaPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ReportsViewModel}">
+            <views:ReportsPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:HistoryViewModel}">
+            <views:HistoryPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ExportViewModel}">
+            <views:ExportPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:HelpViewModel}">
+            <views:HelpPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:QuoteBookViewModel}">
+            <views:QuoteBookPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:DiaryViewModel}">
+            <views:DiaryPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:FilePassportViewModel}">
+            <views:FilePassportPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:DictionariesViewModel}">
+            <views:DictionariesPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:CorpusViewModel}">
+            <views:CorpusPage/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:WorldViewModel}">
+            <views:WorldPage/>
+        </DataTemplate>
+    </Window.Resources>
+
+    <!-- Оболочка: навигационная колонка (Bg-Nav) + контент (Bg-Main).
+         Единственная рамка — волосяной разделитель между колонками. -->
+    <Grid x:Name="RootGrid">
+        <Grid.LayoutTransform>
+            <ScaleTransform x:Name="RootTransform" ScaleX="{Binding Zoom}" ScaleY="{Binding Zoom}"/>
+        </Grid.LayoutTransform>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="212" MinWidth="212" x:Name="RailColumn"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- ─── Навигация ─── -->
+        <Border Grid.Column="0" Background="{DynamicResource BrushBgNav}"
+                BorderBrush="{DynamicResource BrushBorderLight}" BorderThickness="0,0,1,0"
+                x:Name="RailBorder">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Top" Margin="24,32,16,48">
+                    <DockPanel>
+                        <!-- Свернуть рейку: QA-UX #17 — подпись рядом с шевроном -->
+                        <Button DockPanel.Dock="Right" Style="{DynamicResource GhostButtonStyle}"
+                                Click="CollapseRail_Click" VerticalAlignment="Top" Padding="8,2"
+                                ToolTip="Скрыть панель навигации">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="‹" FontSize="12"/>
+                                <TextBlock Text="СВЕРНУТЬ ПАНЕЛЬ" Style="{DynamicResource SectionHeaderStyle}" Margin="6,1,0,0"/>
+                            </StackPanel>
+                        </Button>
+                        <TextBlock Text="ENTITY ANALYZER"
+                                   Style="{DynamicResource SectionHeaderStyle}"
+                                   Foreground="{DynamicResource BrushTextPrimary}"/>
+                    </DockPanel>
+                    <TextBlock Text="поиск сущностей в корпусе"
+                               Style="{DynamicResource MetaStyle}" Margin="0,8,0,0"/>
+                    <!-- R1-7: палитра не должна быть секретом для тех, кто не знает Ctrl+K. -->
+                    <Button x:Name="OpenPaletteButton" Style="{DynamicResource GhostButtonStyle}"
+                            Click="OpenPalette_Click" HorizontalAlignment="Left"
+                            Margin="0,14,0,0" Padding="0,4"
+                            AutomationProperties.Name="Поиск и команды"
+                            ToolTip="Открыть палитру команд (Ctrl+K)">
+                        <TextBlock Text="⌕ ПОИСК И КОМАНДЫ"
+                                   Style="{DynamicResource SectionHeaderStyle}"
+                                   Foreground="{DynamicResource BrushTextSecondary}"/>
+                    </Button>
+                </StackPanel>
+
+                <StackPanel DockPanel.Dock="Bottom" Margin="24,16">
+                    <Separator Margin="0,0,0,16"/>
+                    <!-- UX: аффорданс масштаба — раньше функция была известна только из документации -->
+                    <TextBlock Text="МАСШТАБ"
+                               Style="{DynamicResource SectionHeaderStyle}"
+                               Foreground="{DynamicResource BrushTextDisabled}" Margin="0,0,0,4"
+                               ToolTip="Масштаб интерфейса: Ctrl + колесо мыши или ползунок (0.8×–1.6×). Настройка сохраняется."/>
+                    <Slider Minimum="0.8" Maximum="1.6" TickFrequency="0.1"
+                            IsSnapToTickEnabled="True" Width="120"
+                            HorizontalAlignment="Left" Margin="0,0,0,12"
+                            Value="{Binding Zoom, Mode=TwoWay}"
+                            AutomationProperties.Name="Масштаб интерфейса"/>
+                    <TextBlock Text="CTRL + КОЛЕСО — МАСШТАБ"
+                               Style="{DynamicResource SectionHeaderStyle}"
+                               Foreground="{DynamicResource BrushTextDisabled}" Margin="0,0,0,12"
+                               ToolTip="Удерживайте Ctrl и крутите колесо мыши (0.8×–1.6×). Настройка сохраняется."/>
+                    <TextBlock Text="{Binding StatusText}"
+                               Style="{DynamicResource MetaStyle}"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+
+                <StackPanel Margin="0,16,0,0">
+                    <RadioButton Style="{DynamicResource NavRadioStyle}" GroupName="nav"
+                                 Content="Обзор"
+                                 IsChecked="{Binding NavDashboard, Mode=TwoWay}"/>
+                    <RadioButton Style="{DynamicResource NavRadioStyle}" GroupName="nav"
+                                 Content="Результаты"
+                                 IsChecked="{Binding NavResults, Mode=TwoWay}"/>
+                    <RadioButton Style="{DynamicResource NavRadioStyle}" GroupName="nav"
+                                 Content="Кодекс"
+                                 IsChecked="{Binding NavCodex, Mode=TwoWay}"/>
+                    <!-- Группа 4: мир — древо, иерархия, хронология, география. -->
+                    <RadioButton Style="{DynamicResource NavRadioStyle}" GroupName="nav"
+                                 Content="Мир"
+                                 IsChecked="{Binding NavWorld, Mode=TwoWay}"/>
+                    <RadioButton Style="{DynamicResource NavRadioStyle}" GroupName="nav"
+                                 Content="Схемы"
+                                 IsChecked="{Binding NavSchema, Mode=TwoWay}"/>
+                    <RadioButton Style="{DynamicResource NavRadioStyle}" GroupName="nav"
+                                 Content="Отчёты"
+                                 IsChecked="{Binding NavReports, Mode=TwoWay}"/>
+                    <RadioButton Style="{DynamicResource NavRadioStyle}" GroupName="nav"
+                                 Content="История"
+                                 IsChecked="{Binding NavHistory, Mode=TwoWay}"/>
+                    <!-- Группа 2: пользовательские данные — цитатник (item 26) и дневник (item 22/30). -->
+                    <RadioButton Style="{DynamicResource NavRadioStyle}" GroupName="nav"
+                                 Content="Цитатник"
+                                 IsChecked="{Binding NavQuoteBook, Mode=TwoWay}"/>
+                    <RadioButton Style="{DynamicResource NavRadioStyle}" GroupName="nav"
+                                 Content="Дневник"
+                                 IsChecked="{Binding NavDiary, Mode=TwoWay}"/>
+                    <!-- Группа 3: паспорт файла (item 24) — исследование одного файла. -->
+                    <RadioButton Style="{DynamicResource NavRadioStyle}" GroupName="nav"
+                                 Content="Паспорт"
+                                 IsChecked="{Binding NavPassport, Mode=TwoWay}"/>
+                    <!-- Группа 3: словари (items 23/25/8) — эпитеты, глоссарий, каталог. -->
+                    <RadioButton Style="{DynamicResource NavRadioStyle}" GroupName="nav"
+                                 Content="Словари"
+                                 IsChecked="{Binding NavDictionaries, Mode=TwoWay}"/>
+                    <!-- Группа 3: корпус (items 31/28/29/53) — поиск по фрагменту, годы, интертекст, темы. -->
+                    <RadioButton Style="{DynamicResource NavRadioStyle}" GroupName="nav"
+                                 Content="Корпус"
+                                 IsChecked="{Binding NavCorpus, Mode=TwoWay}"/>
+                    <!-- UX: «Экспорт» слит с «Отчётами» (вкладка «Выгрузка»); вместо них появился пункт «Справка». -->
+                    <RadioButton Style="{DynamicResource NavRadioStyle}" GroupName="nav"
+                                 Content="Справка"
+                                 IsChecked="{Binding NavHelp, Mode=TwoWay}"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- ─── Контент ─── -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- R2-19: одноразовая контекстная подсказка (закрывается крестиком) -->
+            <Border Grid.Row="0" x:Name="HintBar" Padding="16,10"
+                    Background="{DynamicResource BrushBgNav}"
+                    BorderBrush="{DynamicResource BrushBorderLight}" BorderThickness="0,0,0,1"
+                    Visibility="{Binding HintVisible, Converter={StaticResource BoolToVis}}">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="✕" Style="{DynamicResource GhostButtonStyle}"
+                            Command="{Binding DismissHintCommand}" ToolTip="Больше не показывать"/>
+                    <TextBlock Text="{Binding ActiveHint}" TextWrapping="Wrap"
+                               VerticalAlignment="Center" Margin="0,0,12,0"/>
+                </DockPanel>
+            </Border>
+
+            <ContentControl Grid.Row="1" Content="{Binding CurrentPage}"/>
+            <!-- Плавающая кнопка возврата рейки (видна только в свёрнутом состоянии) -->
+            <Button x:Name="ExpandRailButton" Content="›" Style="{DynamicResource GhostButtonStyle}"
+                    HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8,8,0,0"
+                    Padding="8,2" Visibility="Collapsed"
+                    Click="ExpandRail_Click"
+                    ToolTip="Показать панель навигации"/>
+        </Grid>
+    </Grid>
+</Window>
