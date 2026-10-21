@@ -3,7 +3,7 @@ import sys
 import os
 
 # Change to the project directory
-os.chdir(r"C:\Users\malin\Desktop\entity_analyzer")
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # Create venv
 result = subprocess.run([sys.executable, "-m", "venv", ".venv_test"], capture_output=True, text=True)

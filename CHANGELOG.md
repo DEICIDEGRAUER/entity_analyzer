@@ -28,6 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the next-file action start from the same state as the per-file list.
 
 ### Fixed
+- The legacy-config integration test no longer embeds a developer-specific
+  absolute path: it searches upward from the test output directory for
+  `config.yaml` and skips cleanly in the app-only CI layout. The legacy
+  `run_tests.ps1` and `test_install.py` now use their own directory instead of
+  a hardcoded desktop path.
 - The Export tab's review hint now refreshes immediately after a single
   verdict, a bulk verdict, or an undo. It could previously still say
   «0 проверено» until the next analysis even though the verdict was saved.
@@ -45,6 +50,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the full context does not score.
 
 ### Changed
+- Repository hygiene: local-only artifacts (`TestResults/*.trx` with machine
+  paths, `publish/output` with a corpus report, `cli_pid.txt`, PDBs,
+  `.earepro`, `.mcp.json`, `.tessera`, `output_dotnet`, `reports`) are no
+  longer tracked; they remain on disk and are ignored. A sanitized orphan
+  snapshot is published as `sanitized/v18.1`: source and docs only, without
+  prebuilt publish binaries; the app-only `main` branch keeps its own layout.
 - Review and quote-book toolbars use `WrapPanel`, so controls wrap instead of
   being clipped on narrow windows.
 - Command-palette ranking moved from the WPF window to

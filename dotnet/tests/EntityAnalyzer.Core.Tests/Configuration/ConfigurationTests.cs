@@ -160,9 +160,23 @@ public class LegacyYamlImporterTests
     [Fact]
     public void Imports_real_legacy_config_when_available()
     {
-        // The real config.yaml of this project lives two levels above the solution.
-        const string path = @"C:\Users\malin\Desktop\entity_analyzer\config.yaml";
-        if (!File.Exists(path)) return; // portable: skip when repo layout differs
+        // Search upward from the test output directory so the test stays portable
+        // and never depends on a developer-specific absolute path.
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        string? path = null;
+        while (dir is not null)
+        {
+            var candidate = Path.Combine(dir.FullName, "config.yaml");
+            if (File.Exists(candidate))
+            {
+                path = candidate;
+                break;
+            }
+
+            dir = dir.Parent;
+        }
+
+        if (path is null) return; // portable: skip when repo layout differs
 
         var yaml = File.ReadAllText(path);
         var entities = LegacyYamlImporter.ImportEntities(yaml);

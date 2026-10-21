@@ -2,7 +2,7 @@
 $ErrorActionPreference = "Stop"
 
 # Change to project directory
-Set-Location "C:\Users\malin\Desktop\entity_analyzer"
+Set-Location $PSScriptRoot
 
 # Install requirements
 Write-Host "Installing requirements..."
