@@ -34,6 +34,7 @@ publish-cli/runtimes/osx-*/
 # Local test artifacts and generated user reports (never publish)
 TestResults/
 *.trx
+output/
 publish/output/
 cli_pid.txt
 *.pdb

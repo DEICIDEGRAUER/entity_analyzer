@@ -51,11 +51,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Repository hygiene: local-only artifacts (`TestResults/*.trx` with machine
-  paths, `publish/output` with a corpus report, `cli_pid.txt`, PDBs,
-  `.earepro`, `.mcp.json`, `.tessera`, `output_dotnet`, `reports`) are no
-  longer tracked; they remain on disk and are ignored. A sanitized orphan
-  snapshot is published as `sanitized/v18.1`: source and docs only, without
-  prebuilt publish binaries; the app-only `main` branch keeps its own layout.
+  paths, top-level `output/` and `publish/output` with corpus reports,
+  `cli_pid.txt`, PDBs, `.earepro`, `.mcp.json`, `.tessera`, `output_dotnet`,
+  `reports`) are no longer tracked; they remain on disk and are ignored. A
+  sanitized orphan snapshot is published as
+  [`sanitized/v18.1`](https://github.com/DEICIDEGRAUER/entity_analyzer/tree/sanitized/v18.1):
+  source and docs only, 407 files, without prebuilt publish binaries; the
+  app-only `main` branch keeps its own layout.
 - Review and quote-book toolbars use `WrapPanel`, so controls wrap instead of
   being clipped on narrow windows.
 - Command-palette ranking moved from the WPF window to
