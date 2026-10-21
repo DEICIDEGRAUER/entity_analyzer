@@ -90,7 +90,13 @@ public sealed class ResultsViewModel : ObservableObject
             ? $"Корпус проверен: {_corpusReview.Reviewed} из {_corpusReview.Total}"
             : $"По корпусу: {_corpusReview.Reviewed} из {_corpusReview.Total} · осталось файлов: {_corpusReview.FilesWithUnreviewed}";
 
-    private void RefreshCorpusReview() => _corpusReview = ReviewNavigator.Summarize(Files);
+    private void RefreshCorpusReview()
+    {
+        _corpusReview = ReviewNavigator.Summarize(Files);
+        // Подсказка на «Выгрузке» зависит от тех же вердиктов; держим её
+        // синхронной с прогрессом, не дожидаясь повторного входа на страницу.
+        _main.Export.RefreshReviewInfo();
+    }
 
     private void NotifyReviewProgress()
     {

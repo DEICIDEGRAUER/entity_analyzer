@@ -60,6 +60,19 @@ function Select-Radio($win, [int]$idx) {
     if ($radios[$idx].TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern, [ref]$sp)) { $sp.Select() }
     Start-Sleep -Milliseconds 1400
 }
+function Select-Tab($win, [string]$name) {
+    foreach ($t in (Get-AllOf $win ([System.Windows.Automation.ControlType]::TabItem))) {
+        if ($t.Current.Name -eq $name) {
+            $sp = $null
+            if ($t.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern, [ref]$sp)) {
+                $sp.Select()
+                Start-Sleep -Milliseconds 700
+                return $true
+            }
+        }
+    }
+    return $false
+}
 function Find-Button($win, $substr) {
     $cond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)
     for ($try = 0; $try -lt 8; $try++) {
@@ -305,7 +318,38 @@ if (-not $paletteButtonAfter -or -not $paletteButtonAfter.Current.HasKeyboardFoc
 }
 Write-Output "OK palette restores focus"
 
+# 12 ── Протокол проверки: вердикт сразу обновляет подсказку на «Выгрузке»
+Select-Radio $win 0
+$runBtn = Find-Button $win "Запустить анализ"
+if (-not $runBtn) { Fail "analysis button missing" }
+[void](Invoke-One $runBtn)
+$reports = Join-Path $env:TEMP "ea_smoke_reports"
+$analysisDone = $false
+for ($i = 0; $i -lt 90; $i++) {
+    if (Test-Path (Join-Path $reports "entities_data.json")) { $analysisDone = $true; break }
+    Start-Sleep -Milliseconds 500
+}
+if (-not $analysisDone) { Fail "analysis did not finish" }
+Start-Sleep -Seconds 1
+Select-Radio $win 1
+Start-Sleep -Seconds 1
+$confirm = Find-Button $win "подтверждено"
+if (-not $confirm) { Fail "confirm button missing" }
+[void](Invoke-One $confirm)
+Start-Sleep -Milliseconds 800
+if (-not (Test-Path (Join-Path $profileDir "verdicts.jsonl"))) { Fail "verdict not saved" }
+Write-Output "OK verdict saved"
+
+Select-Radio $win 5
+if (-not (Select-Tab $win "ВЫГРУЗКА")) { Fail "export tab missing" }
+$hintOk = $false
+foreach ($tx in (Get-AllOf $win ([System.Windows.Automation.ControlType]::Text))) {
+    if ($tx.Current.Name -like "*review_report.md и review_report.csv*") { $hintOk = $true; break }
+}
+if (-not $hintOk) { Fail "review protocol hint missing or stale after verdict" }
+Write-Output "OK review protocol hint after verdict"
+
 Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
-Write-Output "SMOKE V13 PASSED"
+Write-Output "SMOKE V14 PASSED"
 
 

@@ -37,6 +37,8 @@ public sealed class ExportViewModel : ObservableObject
     public string ReviewReportInfo { get => _reviewReportInfo; private set => Set(ref _reviewReportInfo, value); }
 
     /// <summary>Сводка проверки для подсказки на странице экспорта.</summary>
+    internal void RefreshReviewInfo() => RefreshReviewInfo(_main.Session);
+
     private void RefreshReviewInfo(AnalysisSession? session)
     {
         ReviewReportInfo = session is null

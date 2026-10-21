@@ -168,7 +168,7 @@ if ($WithGuiSmoke) {
         $t = [System.Diagnostics.Stopwatch]::StartNew()
         $code = Run-Detached "powershell" @('-NoProfile','-ExecutionPolicy','Bypass','-File',$smokeScript) $root (Join-Path $scratch "verify_smoke.log") (Join-Path $scratch "verify_smoke.err.log")
         $t.Stop()
-        Add-Step "gui-smoke" $code "exit=$code (SMOKE V13)" $t.Elapsed.TotalSeconds
+        Add-Step "gui-smoke" $code "exit=$code (SMOKE V14)" $t.Elapsed.TotalSeconds
     } else {
         Add-Step "gui-smoke" 9 "скрипт не найден: $smokeScript" 0
     }

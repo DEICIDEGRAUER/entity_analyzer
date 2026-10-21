@@ -28,6 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the next-file action start from the same state as the per-file list.
 
 ### Fixed
+- The Export tab's review hint now refreshes immediately after a single
+  verdict, a bulk verdict, or an undo. It could previously still say
+  «0 проверено» until the next analysis even though the verdict was saved.
 - Bulk verdicts are now undone as one action: `Ctrl+Z` restores the whole
   selection instead of only the last card. Batch storage uses a single
   `VerdictStore.RemoveRange` rewrite.
@@ -84,7 +87,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Local CI culture matrix: 843/843 tests pass in ru-RU, en-US, and tr-TR.
 - `verify.ps1 -WithGuiSmoke`: build, tests, GUI/CLI publish, CLI smoke with an
   explicit `<output>/.cache` location check, performance gate, GUI smoke
-  (including the palette empty state, ranking, execute button, and focus return), and
+  (including the palette empty state, ranking, execute button, focus return,
+  and the review-protocol hint after a real analysis and verdict), and
   real-profile-untouched check.
 - Isolated GUI smokes: bulk verdict undo, recent-project pruning.
 - Full-corpus baseline recorded on `8d87b13` (10,489 analyzed files): cold run
