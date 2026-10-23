@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the next-file action start from the same state as the per-file list.
 
 ### Fixed
+- The GUI smoke brings the main window to the foreground and retries palette
+  focus before asserting focus restoration. A background verification run could
+  otherwise fail or hang when another window owned focus, even though the
+  application itself was healthy.
 - The legacy-config integration test no longer embeds a developer-specific
   absolute path: it searches upward from the test output directory for
   `config.yaml` and skips cleanly in the app-only CI layout. The legacy
@@ -73,6 +77,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   empty queries. E5 uses XLM-R SentencePiece rather than BERT/`vocab.txt`.
   BoW remains default; `Microsoft.ML.OnnxRuntime` and model files are not
   added. Core suite is now 862 tests.
+- ONNX Phase B step 3 adds the separate `EntityAnalyzer.Embedders.Onnx`
+  project without touching the analysis pipeline: `Microsoft.ML.OnnxRuntime`
+  1.31.0 and stable `Microsoft.ML.Tokenizers` 2.0.1 implement
+  `OnnxE5Embedder` / `OnnxE5Options`. SentencePiece IDs are remapped to the
+  XLM-R fairseq layout (`+1` for regular tokens; `<s>`/`<pad>`/`</s>`/`<unk>`
+  become 0/1/2/3), BOS/EOS are emitted explicitly, and truncation preserves
+  EOS. The Xenova model requires `input_ids`, `attention_mask`, and
+  `token_type_ids` (int64); the output is [1, tokens, 384]. Pooling is masked
+  mean over `last_hidden_state` followed by L2 normalization, with a zero
+  vector for an empty mask. Missing files point to `scripts/fetch-model.ps1`;
+  there is no runtime download. BoW remains the default and
+  `entities_table.csv` is unaffected. The new suite has 15 tests (3 skipped
+  without weights): contract, masked pooling, role prefixes, truncation,
+  tokenizer ID tests, missing-model diagnostics, and a model-gated ONNX
+  session smoke test.
+  CI adds an `onnx-model-tests` job keyed by the `models/manifest.json` hash;
+  contributor PRs without a cached model skip cleanly, while a main push may
+  seed the cache through the explicit fetch script and verifies it with
+  `-Verify` first. Core remains 862 tests; total is 877.
+- `verify.ps1` now sums the final summary line of every test project instead of
+  taking the first match. Without this, the new ONNX project would make the
+  baseline see 15 tests and fail the `>=257` guard while 862 Core tests were
+  hidden later in the log.
 - ONNX Phase B model-fetch infrastructure is added without packages or
   committed weights: `dotnet/scripts/fetch-model.ps1` and `fetch-model.sh` pin
   `Xenova/multilingual-e5-small` at revision `3acb1fa4`, verify sizes and
@@ -182,6 +209,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Start-Process -Wait` hang at bench-gate. The full pipeline now completes in
   about 69 s.
 - Isolated GUI smokes: bulk verdict undo, recent-project pruning.
+- ONNX Phase B step 3 local verification: build 0 warnings/errors; 877/877
+  tests with the pinned E5 profile (862 Core + 15 ONNX); 12 passed and 3
+  model-gated skips when the model is absent; `verify.ps1 -WithGuiSmoke`
+  passed all seven steps (GUI smoke V15, 61.6 s) and the performance gate
+  reported 0 regressions. Full corpus on the current 10,547-file corpus
+  produced 915 mentions in 265 files and
+  `entities_table.csv` SHA-256 `06A3DE3BC9E84881F58CD8D567F736DE1888F5EC48F8D60AB8CDE3CC532C95D0`.
+  The historical `89203B6A...` baseline belongs to the older 10,489-file
+  snapshot, so it could not be reproduced byte-for-byte after the corpus grew;
+  Core/CLI source is unchanged and ONNX is not referenced by the pipeline.
 - Full-corpus baseline recorded on `8d87b13` (10,489 analyzed files): cold run
   about 30–36 s, steady warm run about 3.3 s. Cold and warm runs produced the
   same 913 mentions in 261 files and a byte-identical `entities_table.csv`;

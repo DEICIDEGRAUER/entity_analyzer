@@ -18,7 +18,8 @@ Excluded from this branch:
 The .NET application source is in `dotnet/`. The app-only public release branch
 is `main`, which uses the app repository layout (contents of `dotnet/` at the
 repository root).
-Validation: `dotnet build` (0 warnings, 0 errors), 862/862 Core tests in an
-isolated profile, and `fetch-model.ps1`/`fetch-model.sh -Verify` against the
-pinned six-file E5 set.
+Validation: `dotnet build` (0 warnings, 0 errors), 877/877 tests in an
+isolated profile with the pinned E5 profile (862 Core + 15 ONNX), 12 passed
+and 3 model-gated skips without weights, and
+`fetch-model.ps1`/`fetch-model.sh -Verify` against the pinned six-file E5 set.
 Source: root `release/v18.1`.
