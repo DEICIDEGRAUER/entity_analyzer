@@ -213,17 +213,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tests with the pinned E5 profile (862 Core + 15 ONNX); 12 passed and 3
   model-gated skips when the model is absent; `verify.ps1 -WithGuiSmoke`
   passed all seven steps (GUI smoke V15, 61.6 s) and the performance gate
-  reported 0 regressions. Full corpus on the current 10,547-file corpus
-  produced 915 mentions in 265 files and
-  `entities_table.csv` SHA-256 `06A3DE3BC9E84881F58CD8D567F736DE1888F5EC48F8D60AB8CDE3CC532C95D0`.
-  The historical `89203B6A...` baseline belongs to the older 10,489-file
-  snapshot, so it could not be reproduced byte-for-byte after the corpus grew;
-  Core/CLI source is unchanged and ONNX is not referenced by the pipeline.
-- Full-corpus baseline recorded on `8d87b13` (10,489 analyzed files): cold run
-  about 30–36 s, steady warm run about 3.3 s. Cold and warm runs produced the
-  same 913 mentions in 261 files and a byte-identical `entities_table.csv`;
-  methodology, output set, cache size, and caveats are in
-  `dotnet/docs/PERFORMANCE.md`.
+  reported 0 regressions. Full corpus on the current 10,547-file supported set
+  (10,531 after 16 exact duplicate groups) produced 915 mentions in 265 files
+  and `entities_table.csv` SHA-256
+  `06A3DE3BC9E84881F58CD8D567F736DE1888F5EC48F8D60AB8CDE3CC532C95D0`.
+  The historical baseline was reconstructed instead of being dismissed: the
+  58 files added on 2026-10-21 were excluded, leaving 10,489 files, and the
+  same published CLI produced exactly 913 mentions in 261 files and the old
+  hash `89203B6A...`. This proves that the difference is corpus growth, not a
+  pipeline regression. Snapshot Merkle roots, the exact excluded-file list,
+  and the deduplication policy are pinned in
+  `dotnet/docs/corpus-manifest.json`; the method is described in
+  `dotnet/docs/CORPUS.md`.
+- Historical full-corpus baseline recorded on `8d87b13` (10,489 analyzed
+  files): cold run about 30–36 s, steady warm run about 3.3 s. Cold and warm
+  runs produced the same 913 mentions in 261 files and a byte-identical
+  `entities_table.csv`; methodology, output set, cache size, and caveats are
+  in `dotnet/docs/PERFORMANCE.md`. The current snapshot's counts, one control
+  cold-run time, funnel, and hash are recorded in the same document.
 
 ## [18.1.0] - 2026-08-29
 

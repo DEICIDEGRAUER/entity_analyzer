@@ -1,0 +1,209 @@
+{
+  "schema_version": 1,
+  "description": "Pinned corpus snapshots for Entity Analyzer v18.1. Full-corpus entities_table.csv hashes are tied to these inputs; a synthetic pipeline anchor is a separate follow-up.",
+  "corpus_root": "ТЕКСТЫ",
+  "generated": "2026-10-23",
+  "extensions": [
+    ".txt",
+    ".md",
+    ".html",
+    ".htm",
+    ".rtf",
+    ".fb2",
+    ".epub",
+    ".docx",
+    ".odt",
+    ".pdf",
+    ".doc",
+    ".mobi",
+    ".prc",
+    ".azw",
+    ".azw3",
+    ".cbz",
+    ".cbr",
+    ".djvu",
+    ".lit"
+  ],
+  "merkle": {
+    "algorithm": "Leaves are SHA-256(UTF-8(relative_path) + 0x00 + lowercase_file_sha256_hex). Paths use '/' separators and are sorted by their UTF-8 bytes. A parent is SHA-256(left_digest_bytes + right_digest_bytes); an odd last node is promoted unchanged. The root is uppercase hex.",
+    "leaf": "SHA-256(path_utf8 || 0x00 || file_sha256_lower_hex)",
+    "path_normalization": "relative to corpus_root; forward slashes; no case folding; sorted by UTF-8 bytes",
+    "empty_root": "SHA-256(empty)"
+  },
+  "deduplication": {
+    "policy": "Skip exact content duplicates detected by SHA-256 of file bytes. One path is retained per hash; the retained path is the first path discovered by the engine, and the remaining paths are reported as skipped duplicates.",
+    "scope": "Only supported files are considered; unsupported files are scanned but not analyzed."
+  },
+  "snapshots": {
+    "baseline_2026-10-21": {
+      "date": "2026-10-21",
+      "scanned_files": 10491,
+      "supported_files": 10489,
+      "analyzed_files": 10489,
+      "total_bytes": 540924980,
+      "merkle_root": "9F232505BF83F83D8B596899DA92A89E2F58DFA4B6C5721802F74AC334D605CB",
+      "duplicate_groups": 0,
+      "duplicate_files_skipped": 0,
+      "entities_table_sha256": "89203B6A7FD0BB87819B0293326C0BF581B573D223ECF83E679E845714993934",
+      "mentions": 913,
+      "files_with_mentions": 261
+    },
+    "current_2026-10-23": {
+      "date": "2026-10-23",
+      "scanned_files": 10549,
+      "supported_files": 10547,
+      "analyzed_files": 10531,
+      "total_bytes": 816451570,
+      "merkle_root": "A83328DB3E9500D874D0A3D32B2EA20C188ECB467C577DAD24AE17E0E0110245",
+      "duplicate_groups": 16,
+      "duplicate_files_skipped": 16,
+      "entities_table_sha256": "06A3DE3BC9E84881F58CD8D567F736DE1888F5EC48F8D60AB8CDE3CC532C95D0",
+      "mentions": 915,
+      "files_with_mentions": 265,
+      "new_since_baseline": {
+        "files": 58,
+        "bytes": 275526590
+      }
+    }
+  },
+  "baseline_reconstruction": {
+    "method": "The baseline file set was recovered from the current corpus by excluding the 58 files created on 2026-10-21 (Windows creation time). The remaining 10,489 supported files were hardlinked into a temporary corpus preserving relative paths, then analyzed with the same published CLI, default extended preset, and isolated profile. The excluded relative paths are listed below, so the reconstruction does not depend on timestamps.",
+    "excluded_files": [
+      "Al-Rawi, Ahmed. The Mythical Ghoul in Arabic Culture.txt",
+      "Clendinnen, Inga. Aztecs - An Interpretation.pdf",
+      "Conze, Edward. Buddhism - Its Essence and Development. New York - Harper & Row Publishers, 1975.pdf",
+      "Cumont, Franz. Oriental Religions in Roman Paganism. New York - Dover Publications, 1956.txt",
+      "David-Neel, Alexandra. Magic and Mystery in Tibet. Baltimore - Penguin Books, 1973.txt",
+      "Detwiller, Dennis; Clancy, Adam Scott; Tynes, John. Deltagreen - Countdown.pdf",
+      "Detwiller, Dennis; Clancy, Adam Scott; Tynes, John. Deltagreen.pdf",
+      "Emrys, Ruthanna; Pillsworth, Anne M. The Weight of History and Also Cannibalism - “The Rats in the Walls”.txt",
+      "Grey, Dion. Запретные тексты древних (ver. X).pdf",
+      "Hapeksamendeus, Aa. Черная река.txt",
+      "Kiernan, Caitlín R. Daughter of Hounds.txt",
+      "Kiernan, Caitlín R. Low Red Moon.txt",
+      "Lorenzen, David N. The Kapalikas and Kalamukhas - Two Lost Shaivite Sects.txt",
+      "MacDougal, Renata. Remembrance and the Dead in Second Millennium BC Mesopotamia.txt",
+      "Malleus Monstrorum. Volume II - Deities of the Mythos.txt",
+      "McBride, Aidan. The Uncanniness of Regression in Lovecraft’s The Rats in the Walls.txt",
+      "McLeod, W. H. Guru Nanak and the Sikh Religion. Delhi - Oxford University Press, 1978.txt",
+      "Suleiman. Введение в традицию Великих Древних.txt",
+      "The Second Cthulhu Mythos Megapack Featuring Classic Tales by H.P. Lovecraft and His Disciples (H.P. Lovecraft, Shawn M. Garrett etc.) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+      "The Whisperer, no. 4 - Dreamland Special, Spring 2001.txt",
+      "Wise, Dennis Wilson. The Hesitation Principle in “The Rats in the Walls”.txt",
+      "Амбуэль, Джеймс. Проклятье Бьягуны..txt",
+      "Бадж, Э. У. Боги египтян. Царство света, или Тайны загробного мира.pdf",
+      "Блох, Роберт. Безликий бог - сборник.txt",
+      "Древнеегипетская книга мертвых - Шапошников А. К. - 2011.pdf",
+      "Картер, Лин. Аколит Пламени.txt",
+      "Картер, Лин. Зот-Оммог.txt",
+      "Картер, Лин. Книга Изгнаний..txt",
+      "Картер, Лин. Конец ночи (Dead of Night)..txt",
+      "Картер, Лин; Корнфорд, Лоренс Дж. Судьба Эноса Харкера.txt",
+      "Картер, Лин; Прайс, Роберт. Странная судьба Эноса Харкера.txt",
+      "Картер, Лин; Смит, Кларк Эштон. Нисхождение в бездну (The Descent into the Abyss).txt",
+      "Каттнер, Генри. Колокола ужаса (The Bells of Horror).txt",
+      "Каттнер, Генри. Салемский кошмар (The Salem Horror).txt",
+      "Книга Амдуат.txt",
+      "Книга Дагона  автор неизвестен; издательство A. M. C. Vendetta.txt",
+      "Корнфорд, Лоренс. Сфинкс Абормиса.txt",
+      "Лавкрафт, Говард. Грибы с Юггота; Древний Фарос.txt",
+      "Лавкрафт, Говард. Крысы в стенах.txt",
+      "Лавкрафт, Говард. Натура Пикмена.txt",
+      "Лавкрафт, Говард. Пес.txt",
+      "Лавкрафт, Говард. Сомнамбулический поиск Неведомого Кадата.txt",
+      "Лавкрафт, Говард. Хребты Безумия.txt",
+      "Лиготти, Томас. Вастариен.txt",
+      "Питерсен, Сэнди; Уиллис, Линн. Зов Ктулху книга правил, 5-е изд. (Call of Cthulhu Rulebook, 5th ed.)..pdf",
+      "Прайс, Роберт М. Чем являлся «культ трупоедов Ленга».txt",
+      "Прайс, Роберт М.; Джанцанг, Тани. Подлинная история народа чо-чо.txt",
+      "Превращение в вампира - сборник магических ритуалов (под ред. Tannarh’a).txt",
+      "Смит, Кларк Эштон. Безымянное потомство.txt",
+      "Смит, Кларк Эштон. Гиперборейский цикл.txt",
+      "Смит, Кларк Эштон. Попирающий прах.txt",
+      "Смит, Кларк Эштон. Цикл Зотика.txt",
+      "Смит, Кларк Эштон; Картер, Лин. Лестница в склепе история некроманта Авальзаунта.txt",
+      "Тайсон, Дональд. Некрономикон Странствия Альхазреда.txt",
+      "Хармс, Даниэль. Энциклопедия Ктулхианы.txt",
+      "Хендерсон, С. Дж. Чего только не бывает за монету (What Every Coin Has)..txt",
+      "Хербер, Кит. Замок Тьмы (Castle Dark)..pdf",
+      "Шарран, Тааббата. «Эй, кто донесет рассказ молодцам-фахмитам…» [Встреча с гулем].txt"
+    ],
+    "result": {
+      "analyzed_files": 10489,
+      "mentions": 913,
+      "files_with_mentions": 261,
+      "entities_table_sha256": "89203B6A7FD0BB87819B0293326C0BF581B573D223ECF83E679E845714993934"
+    },
+    "conclusion": "The reconstructed baseline matched the historical output exactly. The current 06A3... result is therefore explained by corpus growth, not a pipeline regression."
+  },
+  "duplicate_groups_current": [
+    [
+      "CthulhuFiles/H. P. Lovecraft, The Hound [Оригинал.txt].txt",
+      "Лавкрафт, Говард. Пес.txt"
+    ],
+    [
+      "CthulhuFiles/Henry Kuttner, Bells of Horror [Stories_963ea26a98.txt].txt",
+      "Каттнер, Генри. Колокола ужаса (The Bells of Horror).txt"
+    ],
+    [
+      "Malleus Monstrorum. Volume II - Deities of the Mythos.txt",
+      "malleus_monstrorum_cthulhu_mythos_bestiary_volume_ii_deities_of.txt"
+    ],
+    [
+      "Suleiman. Введение в традицию Великих Древних.txt",
+      "Документ №4 Введение в Традицию Великих Древних.txt"
+    ],
+    [
+      "THE NAMELESS OFFSPRING CAS.txt",
+      "Смит, Кларк Эштон. Безымянное потомство.txt"
+    ],
+    [
+      "flibusta_downloads/Говард Лавкрафт - В поисках неведомого Кадата [The Dream-Quest of Unknown Kadath-ru] [446078].txt",
+      "Лавкрафт, Говард. Сомнамбулический поиск Неведомого Кадата.txt"
+    ],
+    [
+      "flibusta_downloads/Говард Лавкрафт - Крысы в стенах [31764].txt",
+      "Лавкрафт, Говард. Крысы в стенах.txt"
+    ],
+    [
+      "flibusta_downloads/Говард Лавкрафт - Хребты безумия [452408] [Говард Лавкрафт - Хребты Безумия [70337].txt].txt",
+      "Лавкрафт, Говард. Хребты Безумия.txt"
+    ],
+    [
+      "scraped_texts/Stories_92096a77c9 [Henry Kuttner, The Salem Horror.txt].txt",
+      "Каттнер, Генри. Салемский кошмар (The Salem Horror).txt"
+    ],
+    [
+      "scraped_texts/Картер_Лин,_Прайс_Роберт_М.._Странная_судьба_Эноса_Харкера_d5bb9a5366.txt",
+      "Картер, Лин; Прайс, Роберт. Странная судьба Эноса Харкера.txt"
+    ],
+    [
+      "translations/Clark_Ashton_Smith/The_Treader_of_the_Dust/Оригинал.txt",
+      "Смит, Кларк Эштон. Попирающий прах.txt"
+    ],
+    [
+      "ГИПЕРБОРЕЯ КЭС.txt",
+      "Смит, Кларк Эштон. Гиперборейский цикл.txt"
+    ],
+    [
+      "КУЛЬТ ТРУПОЕДОВ НЕОЛУРК.txt",
+      "Прайс, Роберт М. Чем являлся «культ трупоедов Ленга».txt"
+    ],
+    [
+      "Картер, Лин; Корнфорд, Лоренс Дж. Судьба Эноса Харкера.txt",
+      "СУДЬБА ЭНОСА ХАРКЕРА КОРНФОРД.txt"
+    ],
+    [
+      "ПОДЛИННАЯ СУДЬБА НАРОДА ЧО-ЧО ПРАЙС.txt",
+      "Прайс, Роберт М.; Джанцанг, Тани. Подлинная история народа чо-чо.txt"
+    ],
+    [
+      "Хармс, Даниэль. Энциклопедия Ктулхианы.txt",
+      "Энциклопедия Дэниэля Хармса.txt"
+    ]
+  ],
+  "unsupported_files_current": [
+    "Lovecraft_Wiki/scraping.log",
+    "scraped_texts/works_index.jsonl"
+  ]
+}
