@@ -3,8 +3,10 @@
     <Project Path="src/EntityAnalyzer.App/EntityAnalyzer.App.csproj" />
     <Project Path="src/EntityAnalyzer.Cli/EntityAnalyzer.Cli.csproj" />
     <Project Path="src/EntityAnalyzer.Core/EntityAnalyzer.Core.csproj" />
+    <Project Path="src/EntityAnalyzer.Embedders.Onnx/EntityAnalyzer.Embedders.Onnx.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/EntityAnalyzer.Core.Tests/EntityAnalyzer.Core.Tests.csproj" />
+    <Project Path="tests/EntityAnalyzer.Embedders.Onnx.Tests/EntityAnalyzer.Embedders.Onnx.Tests.csproj" />
   </Folder>
 </Solution>

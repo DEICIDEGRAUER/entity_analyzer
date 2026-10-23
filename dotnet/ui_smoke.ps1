@@ -32,6 +32,15 @@ $p = Start-Process -FilePath ".\publish\EntityAnalyzer.exe" -PassThru
 Start-Sleep -Seconds 7
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
+Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+public static class SmokeWindow
+{
+    [DllImport("user32.dll")]
+    public static extern bool SetForegroundWindow(IntPtr hWnd);
+}
+'@
 
 function Get-MainWindow([int]$procId) {
     $root = [System.Windows.Automation.AutomationElement]::RootElement
@@ -197,7 +206,17 @@ $tabCombos = @($linksTab.FindAll([System.Windows.Automation.TreeScope]::Descenda
 if ($tabCombos.Count -lt 2) { Fail ("link combos=" + $tabCombos.Count) }
 $r1 = Select-ComboItem $tabCombos[0] "Наг и Йеб"
 $r2 = Select-ComboItem $tabCombos[1] "владеет"
+if (-not $r1 -or -not $r2) { Fail "link combo item missing" }
+Start-Sleep -Milliseconds 1200
 $linkBtn = Find-Button $win "Связать"
+if (-not $linkBtn) {
+    # A WPF ComboBox can occasionally accept the UIA selection before the
+    # command's CanExecute has refreshed. Re-select once and let the UI settle.
+    [void](Select-ComboItem $tabCombos[0] "Наг и Йеб")
+    [void](Select-ComboItem $tabCombos[1] "владеет")
+    Start-Sleep -Milliseconds 1200
+    $linkBtn = Find-Button $win "Связать"
+}
 if (-not $linkBtn) { Fail "link button missing" }
 [void](Invoke-One $linkBtn)
 Start-Sleep -Milliseconds 1200
@@ -267,7 +286,20 @@ Write-Output "OK world page renders"
 $paletteButton = Find-Button $win "Поиск и команды"
 if (-not $paletteButton) { Fail "palette button missing" }
 Write-Output ("palette button: " + $paletteButton.Current.Name)
-$paletteButton.SetFocus()
+# UIA SetFocus requires an active top-level window; otherwise a background
+# smoke can throw or hang depending on which window currently owns focus.
+[void][SmokeWindow]::SetForegroundWindow([IntPtr]$win.Current.NativeWindowHandle)
+Start-Sleep -Milliseconds 300
+$paletteFocused = $false
+for ($attempt = 0; $attempt -lt 5 -and -not $paletteFocused; $attempt++) {
+    try {
+        $paletteButton.SetFocus()
+        $paletteFocused = $true
+    } catch {
+        Start-Sleep -Milliseconds 250
+    }
+}
+if (-not $paletteFocused) { Fail "palette button cannot receive focus" }
 Start-Sleep -Milliseconds 200
 if (-not (Invoke-One $paletteButton)) { Fail "palette button has no invoke pattern" }
 Start-Sleep -Seconds 3

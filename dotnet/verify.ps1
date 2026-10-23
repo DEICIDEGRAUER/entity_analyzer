@@ -97,10 +97,18 @@ if (Test-Path $testLog) {
     # ВАЖНО: вывод dotnet — UTF-8 без BOM; без явной кодировки PS 5.1
     # читает его в ANSI, кириллица ломается и regex не совпадает.
     $txt = Get-Content $testLog -Raw -Encoding UTF8
-    if ($txt -match 'не пройдено\s+(\d+),\s*пройдено\s+(\d+),\s*пропущено\s+(\d+),\s*всего\s+(\d+)') {
-        $failed = [int]$Matches[1]; $passed = [int]$Matches[2]; $total = [int]$Matches[4]
-    } elseif ($txt -match 'failed:\s*(\d+),\s*passed:\s*(\d+),\s*skipped:\s*(\d+),\s*total:\s*(\d+)') {
-        $failed = [int]$Matches[1]; $passed = [int]$Matches[2]; $total = [int]$Matches[4]
+    # Решение содержит несколько тестовых проектов: суммируем все итоговые
+    # строки, а не берём первую (иначе baseline видит только ONNX-проект).
+    $summaryMatches = @()
+    $summaryMatches += [regex]::Matches($txt, 'не пройдено\s+(\d+),\s*пройдено\s+(\d+),\s*пропущено\s+(\d+),\s*всего\s+(\d+)')
+    $summaryMatches += [regex]::Matches($txt, 'failed:\s*(\d+),\s*passed:\s*(\d+),\s*skipped:\s*(\d+),\s*total:\s*(\d+)')
+    if ($summaryMatches.Count -gt 0) {
+        $failed = 0; $passed = 0; $total = 0
+        foreach ($match in $summaryMatches) {
+            $failed += [int]$match.Groups[1].Value
+            $passed += [int]$match.Groups[2].Value
+            $total  += [int]$match.Groups[4].Value
+        }
     }
 }
 $ok = ($code -eq 0) -and ($failed -eq 0) -and ($total -ge 257)
