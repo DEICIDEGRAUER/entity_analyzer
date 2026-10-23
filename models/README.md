@@ -85,20 +85,32 @@
 E5 использует XLM-R SentencePiece, а не BERT WordPiece/`vocab.txt`. В набор
 входят:
 
-- `tokenizer.json` — основной Hugging Face-токенизатор;
+- `tokenizer.json` — справочный Hugging Face-токенизатор;
 - `tokenizer_config.json`, `special_tokens_map.json`, `config.json`;
 - `sentencepiece.bpe.model` — модель SentencePiece, нужная
-  `Microsoft.ML.Tokenizers.SentencePieceTokenizer`.
+  `Microsoft.ML.Tokenizers.SentencePieceTokenizer`; **именно она используется
+  рантаймом**, `tokenizer.json` не парсится production-кодом.
 
-Префиксы `query: ` и `passage: ` обязательны для retrieval. В коде они уже
-применяются через `IRoleAwareEmbedder` / `EmbeddingRole`; ONNX-эмбеддер не
-должен добавлять их повторно или полагаться на вызывающий код.
+Сырой SentencePiece использует ID `0=<unk>, 1=<s>, 2=</s>, 3=','`, а E5
+ожидает раскладку XLM-R/`tokenizer.json`: `0=<s>, 1=<pad>, 2=</s>,
+3=<unk>`, остальные токены сдвинуты на `+1`. `OnnxE5Embedder` применяет этот
+fairseq-сдвиг после токенизации; иначе BOS/EOS и все обычные токены попадут
+в embedding-матрицу не туда. BOS/EOS добавляются явно, при обрезке до 512
+токенов EOS сохраняется.
+
+Префиксы `query: ` и `passage: ` обязательны для retrieval. В коде они
+применяются через `IRoleAwareEmbedder` / `EmbeddingRole` до токенизации;
+ONNX-эмбеддер не добавляет их повторно и не полагается на вызывающий код.
+ONNX-модель также требует `token_type_ids`; эмбеддер передаёт нулевой тензор.
 
 ## Границы
 
-- `Microsoft.ML.OnnxRuntime` и `Microsoft.ML.Tokenizers` сюда не добавлены.
-- Отдельный проект `EntityAnalyzer.Embedders.Onnx` появится на следующем шаге.
-- Если модель не найдена, ONNX-эмбеддер должен явно сообщить:
-  «запустите `scripts/fetch-model.ps1 -Model e5-small`», а не скачивать её в
+- `Microsoft.ML.OnnxRuntime` и `Microsoft.ML.Tokenizers` подключены только в
+  отдельном `EntityAnalyzer.Embedders.Onnx`; Core и основной пайплайн их не
+  знают.
+- ONNX — явный opt-in, BoW остаётся дефолтом; `entities_table.csv` не зависит
+  от ONNX.
+- Если модель не найдена, ONNX-эмбеддер явно сообщает:
+  «запустите `scripts/fetch-model.ps1 -Model e5-small`», а не скачивает её в
   фоне.
 - `models/` исключён из git и не попадает в publish.

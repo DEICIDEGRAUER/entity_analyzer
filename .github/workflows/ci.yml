@@ -43,6 +43,13 @@ jobs:
           Set-Content -Path "$env:RUNNER_TEMP/ea-test-exit.txt" -Value $code
           exit $code
 
+      - name: Test ONNX contract (model-gated tests skip without weights)
+        shell: pwsh
+        env:
+          ENTITYANALYZER_DATA_DIR: ${{ runner.temp }}/ea-ci-profile
+          EA_SEMANTIC_USER_DIR: ${{ runner.temp }}/ea-ci-semantic
+        run: dotnet test tests/EntityAnalyzer.Embedders.Onnx.Tests/EntityAnalyzer.Embedders.Onnx.Tests.csproj -c Release --nologo --logger "console;verbosity=normal"
+
       - name: Test failure details
         if: failure()
         shell: pwsh
@@ -90,3 +97,68 @@ jobs:
           dotnet publish src/EntityAnalyzer.Cli/EntityAnalyzer.Cli.csproj -c Release -o cli-out --nologo
           & "./cli-out/EntityAnalyzer.Cli" --corpus $corpus --out "$corpus/_out" --preset light --no-incremental
           if ($LASTEXITCODE -ne 0) { exit 1 }
+
+  # ONNX is an explicit opt-in layer. This job never downloads a model on a
+  # contributor PR: it uses the hash-keyed cache or skips. A push to main may
+  # fetch the pinned revision once to seed that cache; the fetch script still
+  # verifies every size and SHA-256 before the model becomes available.
+  onnx-model-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      EA_ONNX_MODEL_DIR: ${{ github.workspace }}/models/e5-small-int8
+      ENTITYANALYZER_DATA_DIR: ${{ runner.temp }}/ea-onnx-profile
+      EA_SEMANTIC_USER_DIR: ${{ runner.temp }}/ea-onnx-semantic
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore hash-keyed E5 model cache
+        id: model-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: models/e5-small-int8
+          key: e5-small-int8-${{ hashFiles('models/manifest.json') }}
+
+      - name: Ensure E5 model is available
+        id: model
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f models/e5-small-int8/onnx/model_int8.onnx ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            bash scripts/fetch-model.sh -Model e5-small
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=ONNX model tests skipped::No hash-keyed model cache is available for this run. Run scripts/fetch-model.sh locally or seed the cache from a main push. Default behavior is a non-blocking skip."
+          fi
+
+      - name: Verify cached E5 model hashes
+        if: steps.model.outputs.available == 'true'
+        shell: bash
+        run: bash scripts/fetch-model.sh -Model e5-small -Verify
+
+      - name: Save hash-keyed E5 model cache
+        if: steps.model.outputs.available == 'true' && steps.model-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: models/e5-small-int8
+          key: e5-small-int8-${{ hashFiles('models/manifest.json') }}
+
+      - name: Test ONNX embedder with model
+        if: steps.model.outputs.available == 'true'
+        run: dotnet test tests/EntityAnalyzer.Embedders.Onnx.Tests/EntityAnalyzer.Embedders.Onnx.Tests.csproj -c Release --nologo --logger "console;verbosity=normal"
+
+      - name: Report skipped ONNX job
+        if: steps.model.outputs.available != 'true'
+        run: |
+          echo "ONNX model tests skipped: model weights are absent. This is expected for a contributor PR without the cache." >> "$GITHUB_STEP_SUMMARY"
