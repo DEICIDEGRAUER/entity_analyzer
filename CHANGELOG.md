@@ -44,15 +44,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   measured int8-vs-fp32 minimum is `0.979531` (mean `0.985313`), so the
   documented loose floor is `0.975`, not 0.99. A separate
   `onnx-golden-tests` CI job keeps numerical failures out of the fast
-  `onnx-model-tests` job; model weights remain uncommitted.
-- Added an end-to-end semantic usefulness test through `VectorIndex` and the
-  real int8 E5 embedder. It asserts that «Лев Толстой написал роман „Война и
-  мир“» ranks above the Pushkin document for the matching query, and runs in a
-  separate `onnx-semantic-tests` CI job. The test deliberately uses an
-  unambiguous query: with the pinned int8 model the bare query `Наг` ranks the
-  dog-breed document (`0.906874`) above the ancient-priest document
-  (`0.895978`), which is documented as a model-quality limit rather than
-  hidden as a passing homonym test.
+  `onnx-model-tests` job; it runs on Ubuntu x64 and macOS 14 ARM64. The
+  Linux/macOS `0.99` floor detects catastrophes, not regressions; the strict
+  `0.9999` correctness check remains Windows-only until kernel parity. The
+  generator refuses non-pinned Python/ONNX Runtime versions, and the documented
+  ORT-bump policy is regenerate-both-fixtures-and-re-baseline, never just raise
+  a tolerance. Model weights remain uncommitted.
+- Added two end-to-end retrieval tests through `VectorIndex` and the real int8
+  E5 embedder, in the separate `onnx-retrieval-tests` job. The first asserts
+  that «Лев Толстой написал роман „Война и мир“» ranks above the Pushkin
+  document for the matching title query; the second uses the title-free
+  paraphrase «произведение о войне 1812 года» and gets the same ranking. The
+  layer is named retrieval, not semantic understanding, and is documented as
+  topical retrieval rather than homonym disambiguation. The bare query `Наг`
+  ranks the dog-breed document (`0.906874`) above the ancient-priest document
+  (`0.895978`), so `HomonymClassifier`, not E5-small, is the disambiguation
+  mechanism. A longer paraphrase is honestly recorded as a ceiling: it is
+  effectively tied and flips by `0.0003` (`pushkin=0.824651`,
+  `tolstoy=0.824333`), so it is not used as a passing test.
+- The fp32-reference assertion now states that a floor failure is a
+  model-quality result, not a C# correctness bug: the resolution is to
+  re-evaluate int8 against fp16/fp32 or regenerate the reference, never to
+  loosen the C# pipeline check.
 - Saved verdicts are restored for every mention when a session loads, using
   SHA-256 from the incremental index when available, so the corpus counter and
   the next-file action start from the same state as the per-file list.
