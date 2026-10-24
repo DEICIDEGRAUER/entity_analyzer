@@ -124,5 +124,5 @@ the pipeline output changed; investigate it, then record the reason.
 
 This is not a unit-test replacement and not an ONNX golden fixture. It is a
 fast end-to-end pipeline anchor. The ONNX model-gated sanity tests and the
-future Python `sentence-transformers` golden fixture are documented in
-[`../../docs/EMBEDDINGS.md`](../../docs/EMBEDDINGS.md).
+separate int8/fp32 golden fixture in `test-fixtures/onnx-golden/` are
+documented in [`../../docs/EMBEDDINGS.md`](../../docs/EMBEDDINGS.md).

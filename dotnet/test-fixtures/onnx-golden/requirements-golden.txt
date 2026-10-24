@@ -1,0 +1,8 @@
+# Pinned environment for generating test-fixtures/onnx-golden/*.json.
+# Python 3.14.2 was used for the committed fixtures.
+onnxruntime==1.31.0
+tokenizers==0.22.2
+sentence-transformers==3.0.1
+transformers==4.57.6
+torch==2.13.0
+numpy==2.5.2
