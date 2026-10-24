@@ -118,14 +118,25 @@ public static partial class ContextBuilder
     /// <summary>Collapses all whitespace runs into single spaces (shared helper).</summary>
     public static string CollapseWhitespace(string s) => Whitespace().Replace(s, " ").Trim();
 
-    /// <summary>Drops items whose context repeats an earlier one (whitespace-insensitive).</summary>
-    public static List<T> Deduplicate<T>(IEnumerable<T> items, Func<T, string> contextSelector)
+    /// <summary>
+    /// Drops items whose context repeats an earlier one (whitespace-insensitive).
+    /// When <paramref name="entitySelector"/> is supplied, deduplication is scoped
+    /// to one entity: two different entities that share a sentence or context
+    /// window must both survive. The same entity in the same context is still
+    /// collapsed, which removes duplicate aliases of one mention.
+    /// </summary>
+    public static List<T> Deduplicate<T>(
+        IEnumerable<T> items,
+        Func<T, string> contextSelector,
+        Func<T, string>? entitySelector = null)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var result = new List<T>();
         foreach (var item in items)
         {
-            var key = AllWhitespace().Replace(contextSelector(item) ?? string.Empty, string.Empty);
+            var entity = AllWhitespace().Replace(entitySelector?.Invoke(item) ?? string.Empty, string.Empty);
+            var context = AllWhitespace().Replace(contextSelector(item) ?? string.Empty, string.Empty);
+            var key = entity + "\u001F" + context;
             if (seen.Add(key)) result.Add(item);
         }
         return result;

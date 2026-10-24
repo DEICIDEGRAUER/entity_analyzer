@@ -27,6 +27,12 @@ between `0.99` and `0.9999` can hide on Linux/macOS; the token-ID test and the
 aggregated cosine message narrow that gap, but they do not replace the strict
 Windows run. Do not present the non-Windows floor as equivalent to `0.9999`.
 
+**Platform buckets:** `{Windows-x64: strict 0.9999; Linux-x64, macOS-arm64: sanity 0.99}`.
+Adding a new platform (for example `macos-15` or `ubuntu-24.04-arm`) requires
+measuring int8-vs-int8 cross-platform cosine on the pinned fixtures before
+assigning a bucket. Do not assume a new runner inherits the x64 or Apple
+Silicon bucket without that measurement.
+
 `reference_fp32.json` не используется для проверки C#. Он нужен, чтобы
 количественно знать цену int8 и иметь базу для будущего перехода на fp16/fp32.
 Измеренная деградация на этих 12 случаях: min `0.979531`, mean `0.985313`.

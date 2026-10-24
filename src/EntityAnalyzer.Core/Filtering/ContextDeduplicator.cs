@@ -22,7 +22,9 @@ public static class ContextDeduplicator
             var kept = new List<Mention>(files[fi].Mentions.Count);
             foreach (var m in files[fi].Mentions)
             {
-                var key = NormalizeKey(m.Context);
+                // Scope the key to the entity: identical context windows can contain
+                // several different entities, and collapsing them loses mentions.
+                var key = NormalizeKey(m.Entity) + "\u001F" + NormalizeKey(m.Context);
                 if (firstLocation.TryGetValue(key, out var original))
                 {
                     grouped++;

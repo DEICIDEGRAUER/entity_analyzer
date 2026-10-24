@@ -53,6 +53,13 @@ SHA-256 в манифесте защищает от подмены, но не о
 только после такого подтверждения; ослаблять хеши нельзя. Зеркало пока не
 зафиксировано — это осознанный fallback-план, а не runtime-загрузка.
 
+**Single point of failure:** `Xenova/multilingual-e5-small @
+3acb1fa45c83e69002b1641b37f3cccc132cdd63`. If the repository is removed,
+`fetch-model.*` will fail until a byte-identical mirror is established. SHA-256
+verification makes substitution detectable but not recovery automatic. No
+`fallback_url` is configured: this is a known risk, not a hidden automatic
+recovery path.
+
 ## Загрузка
 
 Загрузка только явная, без автозагрузки в рантайме:
