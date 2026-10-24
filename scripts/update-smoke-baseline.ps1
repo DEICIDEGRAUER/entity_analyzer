@@ -333,8 +333,8 @@ try {
     $snapshot.entities_table_sha256 = $stats.entities_table_sha256
     $snapshot.mentions = $stats.mentions
     $snapshot.files_with_mentions = $stats.files_with_mentions
-    $snapshot.catalog = $catalogRelative
-    $snapshot.catalog_sha256 = $catalogHash
+    $snapshot | Add-Member -NotePropertyName catalog -NotePropertyValue $catalogRelative -Force
+    $snapshot | Add-Member -NotePropertyName catalog_sha256 -NotePropertyValue $catalogHash -Force
 
     $history = @($manifestData.history)
     $history += [pscustomobject][ordered]@{
