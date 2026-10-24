@@ -110,6 +110,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   at `2e38a13`, tracked at `a16215d`/`a16215dec7f9c88f80167dd5d46b998b93cfff8e`),
   and verified `690644...` was produced by the `publish-cli` from `2e130ff`,
   not a debug build. The old source build reproduces `06A3...`.
+- Documented `fuzzy` as a known, bounded cost rather than a generic
+  `extended` slowdown: growth is linear in `(files × missing-cards)` with a
+  large constant, 37-card `extended` on 10k+ files takes tens of minutes, and
+  the future optimization trigger is an early exit in `FuzzyFinder` based on
+  scanned sentences without a hit (reducing variants would silently lower
+  recall). This is the documented reason Phase C uses `minimal`/a dedicated
+  retrieval pass. Also made the local bench-gate environment explicit:
+  `.github/workflows/ci.yml` does not run it, while `verify.ps1` blocks it with
+  a clear error unless the Windows High performance scheme is active
+  (`powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c`); the scheme is
+  switched and restored manually, and `bench/baseline.json` and the ×1.5
+  threshold were not changed. Balanced/1.9 GHz runs produced a false
+  regression (app: `sentence split` ×2.34/×1.64); app and sanitized
+  High-performance runs both passed 6/6.
 - Re-baselined the full-corpus anchor after the deduplication fix.
   `entities_table.csv` SHA-256 changed from
   `06A3DE3BC9E84881F58CD8D567F736DE1888F5EC48F8D60AB8CDE3CC532C95D0` to
