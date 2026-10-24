@@ -22,4 +22,7 @@ Validation: `dotnet build` (0 warnings, 0 errors), 877/877 tests in an
 isolated profile with the pinned E5 profile (862 Core + 15 ONNX), 12 passed
 and 3 model-gated skips without weights, and
 `fetch-model.ps1`/`fetch-model.sh -Verify` against the pinned six-file E5 set.
+The synthetic pipeline anchor was also verified twice: 11 mentions in 11 files,
+canonical `entities_table.csv` SHA-256
+`E590663A6A78D60FE7DF9CC97D7E7B5DDDF659979ED4758BA6C17B534E2528A1`.
 Source: root `release/v18.1`.
