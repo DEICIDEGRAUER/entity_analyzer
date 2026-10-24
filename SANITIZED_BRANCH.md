@@ -18,13 +18,19 @@ Excluded from this branch:
 The .NET application source is in `dotnet/`. The app-only public release branch
 is `main`, which uses the app repository layout (contents of `dotnet/` at the
 repository root).
-Validation: `dotnet build` (0 warnings, 0 errors), 883/883 tests in an
-isolated profile with the pinned E5 profile (862 Core + 21 ONNX); without
-weights 876 pass and 7 model-gated tests skip, and
+Validation: `dotnet build` (0 warnings, 0 errors), 886/886 tests in an
+isolated profile with the pinned E5 profile (865 Core + 21 ONNX); without
+weights 879 pass and 7 model-gated tests skip, and
 `fetch-model.ps1`/`fetch-model.sh -Verify` against the pinned six-file E5 set.
 The synthetic pipeline anchor was also verified twice: 11 mentions in 11 files,
 canonical `entities_table.csv` SHA-256
 `A81A1086EA7D6028EC6F20C3E34C20F8434D00B8E5CB223BAB36ADE207E8C68A`.
+Context-window deduplication is scoped to `(entity, context)`, so distinct
+entities sharing one sentence are preserved; on a full-corpus diagnostic with a
+37-card codex and the `minimal` preset the old key produced 36,012 mentions and
+the fixed key produces 37,406 (+1,394 across 1,260 multi-entity contexts). This
+diagnostic is not a corpus anchor. The smoke `Наг и Йеб` result is one canonical
+pair card, not a conjunction merge.
 The fixture explicitly covers `ё`/`е`, case, and Latin diacritics.
 The ONNX golden layer is also included: 12 int8 vectors generated from the same
 `model_int8.onnx` (C# cosine > 0.9999 on Windows, >= 0.99 on Linux/macOS; one

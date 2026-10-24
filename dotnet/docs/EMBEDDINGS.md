@@ -152,7 +152,67 @@ retrieval, cross-lingual поиска и поиска связанных док�
 Потолок тоже зафиксирован честно: более длинный парафраз «автор
 романа-эпопеи о войне 1812 года» даёт `pushkin=0.824651` против
 `tolstoy=0.824333` — фактическое равенство с микроскопическим переворотом.
-Тест использует устойчивый парафраз, а не выдаёт этот случай за успех.
+Разница `0.000318` на два порядка меньше intra-model noise pinned int8 между
+ядрами (~`0.003`), поэтому это не «сложный парафраз», а **binary failure
+mode**: модель не различает этот класс запросов вообще.
+
+> Long paraphrases without canonical names are outside the operating envelope
+> of E5-small. This is not a gradient of degradation — it is a binary failure
+> mode. `VectorIndex` on this profile is suitable for topical retrieval,
+> entity-name-to-passage matching, and cross-lingual search; it is not suitable
+> for query-to-passage matching on descriptive paraphrases. Do not extend the
+> model tier to fix this; extend the query representation (e.g., entity-name
+> extraction before embedding) instead.
+
+Тест использует только устойчивый парафраз; длинный случай остаётся
+зафиксированным потолком и не выдаётся за успех. Расширять профиль до
+e5-base/granite-r2 ради него не нужно: проблема в представлении запроса, а не
+в размере модели.
+
+## Phase C: контракт `semantic_neighbors.csv` (до кода)
+
+Phase C не начинается, пока не зафиксированы выходной формат, метрика и
+политика регрессий. `entities_table.csv` остаётся без изменений; соседи
+пишутся в отдельный opt-in-файл.
+
+**Формат.** Тот же CSV-writer и quoting, что у `entities_table.csv`;
+разделитель `;`. Одна строка на `(query, rank)`, top-N = 5–10, без пропусков
+рангов:
+
+```text
+query_entity_id;query_entity_text;rank;neighbor_entity_id;neighbor_text;score_bow;score_onnx
+```
+
+`query_entity_id`/`neighbor_entity_id` — стабильные идентификаторы каталога, а
+не номера строк и не позиция в top-N. `score_bow` и `score_onnx` считаются на
+**одних и тех же парах**; нельзя сравнивать разные top-N. Сырые шкалы BoW и
+ONNX не объявляются взаимно калиброванными — они нужны для ранжирования и
+диффа, а не для вычитания одного score из другого. При равенстве score
+порядок детерминированный: score по убыванию, затем `neighbor_entity_id` по
+ordinal-сравнению.
+
+**Метрика полезности (фиксируется до первой строки).**
+
+1. **Cross-lingual pairs — главный go/no-go.** Пары «ru-сущность ↔
+   en-сущность, обозначающие один объект». BoW структурно не может их
+   сопоставить (нулевое лексическое пересечение), поэтому это единственный
+   тест, который доказывает пользу ONNX, а не перестановку уже найденных
+   соседей. Считать `Precision@5` и `nDCG@10` отдельно для BoW и ONNX на
+   одинаковых парах. Если ONNX не выигрывает, Phase C на этом корпусе не
+   раскатывается.
+2. **Labeled set:** 20–30 пар `entity → relevant neighbor` с бинарной
+   релевантностью, вручную. Те же `Precision@5`/`nDCG@10`, оба метода.
+3. **Stability:** пересечение `top-10` BoW и ONNX на 100 сущностях. Если оно
+   >80%, ONNX не даёт новой информации на этом корпусе; это фиксируется как
+   результат, а не замалчивается.
+
+**Регрессии.** На старте `semantic_neighbors.csv` — **exploratory output, не
+anchor**. Pinned baseline на шум не ставится; когда сигнал воспроизведётся,
+для него заводится отдельный manifest/history и только тогда — отдельный
+скрипт обновления. `entities_table.csv` и его smoke/полный anchor не должны
+зависеть от Phase C. Длинные описательные парафразы не считаются успехом:
+лечение — представление запроса (извлечение имени сущности до эмбеддинга), а
+не переход на модель больше.
 
 ## Тесты и CI
 
@@ -215,8 +275,8 @@ Linux/macOS floor `0.99` — sanity, а не correctness-check: настояща
 
 ## Текущая проверка
 
-Phase A/Phase B: 883 теста (862 Core + 21 ONNX), из них семь тестов с моделью
+Phase A/Phase B: 886 тестов (865 Core + 21 ONNX), из них семь тестов с моделью
 (три обычных ONNX, два golden и два retrieval) пропускаются при отсутствии
-весов. Локально с `models/e5-small-int8` проходят все 883. Загрузчик проверен в PowerShell и Git Bash: `-RecordHashes` заполнил
+весов. Локально с `models/e5-small-int8` проходят все 886. Загрузчик проверен в PowerShell и Git Bash: `-RecordHashes` заполнил
 manifest/README, `-Verify` офлайн подтвердил все шесть файлов, включая
 SHA-256 `model_int8.onnx`. `entities_table.csv` остаётся вне ONNX-пути.

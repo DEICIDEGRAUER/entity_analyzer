@@ -66,11 +66,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   model-quality result, not a C# correctness bug: the resolution is to
   re-evaluate int8 against fp16/fp32 or regenerate the reference, never to
   loosen the C# pipeline check.
+- Documented the Phase C retrieval contract before implementation:
+  `semantic_neighbors.csv` uses one row per `(query, rank)`, top-N 5–10, and
+  carries `score_bow` and `score_onnx` on the same pairs. The go/no-go metric is
+  cross-lingual entity matching, where BoW has zero lexical overlap; the
+  labeled-set and top-10 stability checks are secondary. The file is explicitly
+  exploratory, not an anchor, until a signal is established.
+- Strengthened the E5 retrieval boundary: long descriptive paraphrases without
+  canonical names are a **binary failure mode**, not a hard case; the
+  `0.000318` tie is two orders below int8 cross-kernel noise (~`0.003`). The
+  documented fix is query representation (entity-name extraction before
+  embedding), not a larger model tier.
+- Recorded the golden platform buckets (`Windows-x64: 0.9999`; `Linux-x64`,
+  `macOS-arm64: 0.99`) and required a fresh cross-platform int8 measurement
+  before adding a new runner. Documented the model repository as a single point
+  of failure: SHA-256 detects substitution but does not make recovery automatic,
+  and no `fallback_url` is configured.
 - Saved verdicts are restored for every mention when a session loads, using
   SHA-256 from the incremental index when available, so the corpus counter and
   the next-file action start from the same state as the per-file list.
 
 ### Fixed
+- Context-window deduplication no longer drops distinct entities that share a
+  sentence or context window. The key is now `(entity, context)` both within a
+  file and across files; the same entity in the same context is still collapsed,
+  but distinct entities in one context (for example, `Толстой и Пушкин` and
+  `Москва и Санкт-Петербург`) produce one mention per entity. Comma-separated
+  name lists can still be rejected by the separate listing filter. On a
+  full-corpus diagnostic with a 37-card codex and the `minimal` preset, the old
+  key produced 36,012 mentions; the fixed key produces 37,406, preserving 1,394
+  mentions across 1,260 multi-entity contexts. The smoke `Наг и Йеб` result is a
+  single canonical pair card, not evidence of a conjunction merge. Added unit
+  and engine regression tests for within-file and cross-file deduplication.
 - The GUI smoke brings the main window to the foreground and retries palette
   focus before asserting focus restoration. A background verification run could
   otherwise fail or hang when another window owned focus, even though the
