@@ -26,7 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a committed synthetic smoke-corpus pipeline anchor, independent of the
   real corpus: 15 documented edge-case files, 13 analyzed, 11 mentions in 11
   files, and a pinned canonical `entities_table.csv` SHA-256
-  `E590663A6A78D60FE7DF9CC97D7E7B5DDDF659979ED4758BA6C17B534E2528A1`.
+  `A81A1086EA7D6028EC6F20C3E34C20F8434D00B8E5CB223BAB36ADE207E8C68A`.
+  The fixture explicitly covers `ё`/`е` as well as case and Latin diacritics.
   `verify.ps1` and the Windows/Linux CI matrix run it twice and compare the
   hashes; `scripts/update-smoke-baseline.ps1 -Reason` is the only supported
   re-baseline path and refuses a dirty working tree.

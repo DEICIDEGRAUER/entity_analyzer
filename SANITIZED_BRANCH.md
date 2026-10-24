@@ -24,5 +24,6 @@ and 3 model-gated skips without weights, and
 `fetch-model.ps1`/`fetch-model.sh -Verify` against the pinned six-file E5 set.
 The synthetic pipeline anchor was also verified twice: 11 mentions in 11 files,
 canonical `entities_table.csv` SHA-256
-`E590663A6A78D60FE7DF9CC97D7E7B5DDDF659979ED4758BA6C17B534E2528A1`.
+`A81A1086EA7D6028EC6F20C3E34C20F8434D00B8E5CB223BAB36ADE207E8C68A`.
+The fixture explicitly covers `ё`/`е`, case, and Latin diacritics.
 Source: root `release/v18.1`.
