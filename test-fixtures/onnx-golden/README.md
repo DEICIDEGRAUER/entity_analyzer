@@ -83,4 +83,6 @@ python test-fixtures/onnx-golden/generate.py --model-dir models/e5-small-int8
 job `onnx-golden-tests`, а не вместе с `onnx-model-tests`. Обычный
 `onnx-model-tests` и test-matrix исключают эту категорию. Без весов
 model-gated golden-тесты пропускаются с явной причиной; тест согласованности
-двух JSON выполняется всегда.
+двух JSON выполняется всегда. Полезность ranking проверяется отдельно
+(категория `OnnxSemantic`, job `onnx-semantic-tests`) и не выдаёт голый запрос
+`Наг` за разрешённую омонимию: pinned int8 ставит породу собак выше жреца.

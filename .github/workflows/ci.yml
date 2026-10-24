@@ -48,7 +48,7 @@ jobs:
         env:
           ENTITYANALYZER_DATA_DIR: ${{ runner.temp }}/ea-ci-profile
           EA_SEMANTIC_USER_DIR: ${{ runner.temp }}/ea-ci-semantic
-        run: dotnet test tests/EntityAnalyzer.Embedders.Onnx.Tests/EntityAnalyzer.Embedders.Onnx.Tests.csproj -c Release --nologo --filter "Category!=OnnxGolden" --logger "console;verbosity=normal"
+        run: dotnet test tests/EntityAnalyzer.Embedders.Onnx.Tests/EntityAnalyzer.Embedders.Onnx.Tests.csproj -c Release --nologo --filter "Category!=OnnxGolden&Category!=OnnxSemantic" --logger "console;verbosity=normal"
 
       - name: Test failure details
         if: failure()
@@ -165,7 +165,7 @@ jobs:
         env:
           ENTITYANALYZER_DATA_DIR: ${{ runner.temp }}/ea-onnx-profile
           EA_SEMANTIC_USER_DIR: ${{ runner.temp }}/ea-onnx-semantic
-        run: dotnet test tests/EntityAnalyzer.Embedders.Onnx.Tests/EntityAnalyzer.Embedders.Onnx.Tests.csproj -c Release --nologo --filter "Category!=OnnxGolden" --logger "console;verbosity=normal"
+        run: dotnet test tests/EntityAnalyzer.Embedders.Onnx.Tests/EntityAnalyzer.Embedders.Onnx.Tests.csproj -c Release --nologo --filter "Category!=OnnxGolden&Category!=OnnxSemantic" --logger "console;verbosity=normal"
 
       - name: Report skipped ONNX job
         if: steps.model.outputs.available != 'true'
@@ -229,3 +229,63 @@ jobs:
         if: steps.model.outputs.available != 'true'
         run: |
           echo "ONNX golden model tests skipped: model weights are absent. The reference-fixture consistency test ran; this is expected for a contributor PR without the cache." >> "$GITHUB_STEP_SUMMARY"
+
+  # Usefulness is a different question from numeric correctness. This test uses
+  # the real int8 embedder through VectorIndex and asserts a ranking; it is
+  # intentionally separate from both the contract and golden jobs. The pinned
+  # small int8 model is not trusted to resolve every homonym: a bare query
+  # "Наг" ranks the dog-breed document above the priest document in the local
+  # probe, so the test uses an unambiguous, context-rich query instead.
+  onnx-semantic-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      EA_ONNX_MODEL_DIR: ${{ github.workspace }}/models/e5-small-int8
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore hash-keyed E5 model cache
+        id: model-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: models/e5-small-int8
+          key: e5-small-int8-${{ hashFiles('models/manifest.json') }}
+
+      - name: Ensure E5 model is available
+        id: model
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f models/e5-small-int8/onnx/model_int8.onnx ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            bash scripts/fetch-model.sh -Model e5-small
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=ONNX semantic model tests skipped::No hash-keyed model cache is available for this run. The semantic VectorIndex test skips."
+          fi
+
+      - name: Verify cached E5 model hashes
+        if: steps.model.outputs.available == 'true'
+        shell: bash
+        run: bash scripts/fetch-model.sh -Model e5-small -Verify
+
+      - name: Test ONNX semantic ranking
+        env:
+          ENTITYANALYZER_DATA_DIR: ${{ runner.temp }}/ea-onnx-semantic-profile
+          EA_SEMANTIC_USER_DIR: ${{ runner.temp }}/ea-onnx-semantic-user
+        run: dotnet test tests/EntityAnalyzer.Embedders.Onnx.Tests/EntityAnalyzer.Embedders.Onnx.Tests.csproj -c Release --nologo --filter "Category=OnnxSemantic" --logger "console;verbosity=normal"
+
+      - name: Report skipped semantic model tests
+        if: steps.model.outputs.available != 'true'
+        run: |
+          echo "ONNX semantic model tests skipped: model weights are absent. This is expected for a contributor PR without the cache." >> "$GITHUB_STEP_SUMMARY"
