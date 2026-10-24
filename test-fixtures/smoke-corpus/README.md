@@ -15,22 +15,34 @@ The real-corpus snapshots are documented separately in
 test-fixtures/smoke-corpus/
 ├── README.md              # this file (outside the analyzed corpus)
 ├── manifest.json          # pinned hash, Merkle root, counts, history
+├── catalog.json           # three-entity catalog used by the smoke run
 ├── .gitattributes         # LF for every fixture file
 └── corpus/                # the actual analyzed input
     ├── 01-russian.txt
     ├── ...
-    └── 15-html.html
+    ├── 15-html.html
+    └── 16-multi-entity-context.txt
 ```
 
-`README.md` and `manifest.json` live outside `corpus/` on purpose: they are
-metadata, not input documents. `corpus/` contains only files whose effect on the
-pipeline is intentional.
+`README.md`, `manifest.json`, and `catalog.json` live outside `corpus/` on
+purpose: they are metadata/input configuration, not input documents. `corpus/`
+contains only files whose effect on the pipeline is intentional.
+
+## Catalog
+
+The production default is a one-card codex, so it cannot exercise a sentence
+with two *different* entities. The smoke run therefore uses the frozen
+`catalog.json` next to `corpus/`: the `Наг и Йеб` card preserves the existing
+edge cases, and the `Толстой` / `Пушкин` cards make the multi-entity regression
+observable. This catalog is a fixture input, not the production codex. Its
+SHA-256 is pinned in `manifest.json`; changing it requires a deliberate
+re-baseline.
 
 ## What each file covers
 
 | File | Purpose |
 |---|---|
-| `01-russian.txt` | Pure Russian text; Russian aliases of the default entity at sentence boundaries. |
+| `01-russian.txt` | Pure Russian text; Russian aliases of the smoke catalog entity at sentence boundaries. |
 | `02-english.txt` | Pure English text; English aliases (`Nug and Yeb`, `Yeb`). |
 | `03-mixed.txt` | Russian and English in one sentence; no language-specific branch should be required. |
 | `04-mixed-entity.txt` | The same entity written with Russian and English aliases in one sentence; alias normalization and overlap handling. |
@@ -45,6 +57,7 @@ pipeline is intentional.
 | `13-duplicate-a.txt` | First half of an exact-content duplicate pair. |
 | `14-duplicate-b.txt` | Second half of the same exact-content pair; one path must be skipped by dedup. |
 | `15-html.html` | `.html` extension and HTML tags around an entity. |
+| `16-multi-entity-context.txt` | Two distinct entities (`Толстой`, `Пушкин`) in one sentence. With the pre-fix context-only dedup key this produced one row; the fixed `(entity, context)` key produces two. |
 
 The duplicate pair is intentionally **mention-free**. This keeps the pinned CSV
 hash independent of which duplicate path is chosen as canonical, while the
@@ -58,21 +71,29 @@ The current snapshot is in `manifest.json` under `snapshots.smoke_current`:
 
 | Metric | Value |
 |---|---:|
-| Scanned files | 15 |
-| Supported files | 15 |
+| Scanned files | 16 |
+| Supported files | 16 |
 | Empty files | 1 |
 | Exact duplicate groups | 1 |
 | Duplicate files skipped | 1 |
-| Analyzed files | 13 |
-| Mentions | 11 |
-| Files with mentions | 11 |
-| `entities_table.csv` SHA-256 (canonical LF) | `A81A1086EA7D6028EC6F20C3E34C20F8434D00B8E5CB223BAB36ADE207E8C68A` |
+| Analyzed files | 14 |
+| Mentions | 13 |
+| Files with mentions | 12 |
+| `entities_table.csv` SHA-256 (canonical LF) | `E50A1559695D13CED7708C640CDD4A73E5C42C3C1EEBF568B1933196AE71B34C` |
+| `catalog.json` SHA-256 | `15C4DA523724011167CC9E470A5E549D0D5A99E192258A85B49DA5A3FF34D5F7` |
 
 The CSV writer uses `Environment.NewLine`; the anchor normalizes `CRLF`/`CR` to
 `LF` before hashing, so the same semantic output has the same hash on Windows and
 Linux. This is documented as `hash_normalization` in the manifest. The Merkle
 root covers all supported files, including the empty file, using the same
-algorithm as the real-corpus manifest.
+algorithm as the real-corpus manifest. The catalog is outside the Merkle root and
+is pinned separately by `catalog_sha256`.
+
+The old anchor `A81A1086...` is historical: it could not detect the
+context-only dedup bug because no smoke file contained two distinct catalog
+entities in one context. The current anchor `E50A1559...` is expected to differ.
+The pre-fix CLI produces 12 mentions on this fixture (only `Толстой` survives
+the second dedup); the fixed CLI produces 13 (both `Толстой` and `Пушкин`).
 
 ## Determinism rules
 
@@ -112,10 +133,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/update-smoke-baselin
 The update command:
 
 1. refuses to run on a dirty Git working tree;
-2. runs `publish-cli` on `corpus/`;
-3. recomputes counts, Merkle root, and the `entities_table.csv` hash;
+2. runs `publish-cli` on `corpus/` with `catalog.json` (auto-detected, or pass
+   `-Catalog`);
+3. recomputes counts, Merkle root, the `entities_table.csv` hash, and the
+   catalog hash;
 4. updates `manifest.json` and appends a history entry with the previous hash,
-   the new hash, and the required `-Reason`.
+   the new hash, the catalog hash, and the required `-Reason`.
 
 Never edit the pinned hash by hand just to make CI green. A changed hash means
 the pipeline output changed; investigate it, then record the reason.
