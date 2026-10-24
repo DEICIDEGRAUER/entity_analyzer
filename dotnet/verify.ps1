@@ -156,7 +156,7 @@ try { Remove-Item $cliWork -Recurse -Force } catch { }
 # ── 4a. Synthetic smoke-corpus pipeline anchor ─────────────────────
 # Pinned 15-file fixture + SHA-256 entities_table.csv; independent of the real
 # corpus. The check runs publish-cli twice and fails on drift or non-determinism.
-Mark "step4a smoke-anchor: старт"
+Mark "step4a smoke-corpus-anchor: старт"
 $t = [System.Diagnostics.Stopwatch]::StartNew()
 $anchorScript = Join-Path $root "scripts\update-smoke-baseline.ps1"
 $anchorCorpus = Join-Path $root "test-fixtures\smoke-corpus"
@@ -169,7 +169,7 @@ $anchorHash = ""
 $anchorMatch = [regex]::Match($anchorText, 'SHA-256 ([A-Fa-f0-9]{64})')
 if ($anchorMatch.Success) { $anchorHash = $anchorMatch.Groups[1].Value.ToUpperInvariant() }
 $detail = "exit=$code; two runs identical=$($code -eq 0 -and $anchorHash.Length -eq 64); hash=$anchorHash"
-Add-Step "smoke-anchor" $code $detail $t.Elapsed.TotalSeconds
+Add-Step "smoke-corpus-anchor" $code $detail $t.Elapsed.TotalSeconds
 if ($code -ne 0) { break verify_pipeline }
 
 # ── 4b. Performance-gate (R1-14): замедление стадии > порога = провал ──
