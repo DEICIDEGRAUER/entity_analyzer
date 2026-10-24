@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "description": "Pinned synthetic smoke corpus for Entity Analyzer v18.1. This is a pipeline anchor, independent of the real corpus: it pins the observable entities_table.csv output for a small set of documented edge cases.",
+  "corpus_root": "corpus",
+  "generated": "2026-10-24",
+  "hash_normalization": "CRLF and CR are normalized to LF before SHA-256; this keeps the anchor identical on Windows and Linux without changing the published CLI.",
+  "extensions": [
+    ".txt",
+    ".md",
+    ".html"
+  ],
+  "merkle": {
+    "algorithm": "Leaves are SHA-256(UTF-8(relative_path) + 0x00 + lowercase_file_sha256_hex). Paths use '/' separators and are sorted by their UTF-8 bytes. A parent is SHA-256(left_digest_bytes + right_digest_bytes); an odd last node is promoted unchanged. The root is uppercase hex.",
+    "leaf": "SHA-256(path_utf8 || 0x00 || file_sha256_lower_hex)",
+    "path_normalization": "relative to corpus_root; forward slashes; no case folding; sorted by UTF-8 bytes",
+    "empty_root": "SHA-256(empty)"
+  },
+  "deduplication": {
+    "policy": "Skip exact content duplicates detected by SHA-256 of file bytes. One path is retained per hash; the retained path is the first path discovered by the engine, and the remaining paths are reported as skipped duplicates.",
+    "scope": "Only supported files are considered; unsupported files are scanned but not analyzed.",
+    "smoke_note": "The smoke-corpus duplicate pair is intentionally mention-free so the pinned entities_table.csv hash does not depend on which duplicate path is canonical. The anchor check still asserts one duplicate group and one skipped file."
+  },
+  "snapshots": {
+    "smoke_current": {
+      "date": "2026-10-24",
+      "scanned_files": 15,
+      "supported_files": 15,
+      "analyzed_files": 13,
+      "empty_files": 1,
+      "total_bytes": 985,
+      "merkle_root": "7CB4EA4C28AB183924F293FEA4C925D66F3866D9878AF4D0C8BFCBF5EF061D66",
+      "duplicate_groups": 1,
+      "duplicate_files_skipped": 1,
+      "entities_table_sha256": "E590663A6A78D60FE7DF9CC97D7E7B5DDDF659979ED4758BA6C17B534E2528A1",
+      "mentions": 11,
+      "files_with_mentions": 11
+    }
+  },
+  "history": [
+    {
+      "date": "2026-10-24",
+      "previous_sha256": null,
+      "new_sha256": "E590663A6A78D60FE7DF9CC97D7E7B5DDDF659979ED4758BA6C17B534E2528A1",
+      "reason": "Initial pinned synthetic smoke corpus: 15 files, 13 analyzed, 11 mentions; independent of the real corpus."
+    }
+  ]
+}
