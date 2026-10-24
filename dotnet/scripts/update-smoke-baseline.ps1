@@ -26,6 +26,11 @@
     Published CLI executable. Default: <repo>/publish-cli/EntityAnalyzer.Cli.exe
     (or the extension-less executable on non-Windows hosts).
 
+.PARAMETER Catalog
+    Optional JSON catalog used for the smoke run. Default: catalog.json next to
+    the analyzed corpus/ directory when it exists. The catalog is an input of
+    the anchor and its SHA-256 is pinned in the manifest.
+
 .PARAMETER Reason
     Required in update mode. Recorded verbatim in the manifest history.
 
@@ -39,6 +44,7 @@ param(
     [string]$Corpus,
     [string]$Manifest,
     [string]$CliPath,
+    [string]$Catalog,
     [Parameter(ParameterSetName = 'Update', Mandatory = $true)]
     [string]$Reason,
     [Parameter(ParameterSetName = 'Check', Mandatory = $true)]
@@ -72,6 +78,26 @@ if (-not (Test-Path -LiteralPath $corpusPath -PathType Container)) {
 }
 if (-not (Test-Path -LiteralPath $Manifest -PathType Leaf)) {
     throw "Manifest not found: $Manifest"
+}
+
+if ([string]::IsNullOrWhiteSpace($Catalog)) {
+    $defaultCatalog = Join-Path $smokeRoot 'catalog.json'
+    if (Test-Path -LiteralPath $defaultCatalog -PathType Leaf) {
+        $Catalog = $defaultCatalog
+    }
+}
+if (-not [string]::IsNullOrWhiteSpace($Catalog)) {
+    if (-not (Test-Path -LiteralPath $Catalog -PathType Leaf)) {
+        throw "Catalog not found: $Catalog"
+    }
+    $Catalog = (Resolve-Path -LiteralPath $Catalog).Path
+}
+
+$catalogRelative = $null
+$catalogHash = $null
+if (-not [string]::IsNullOrWhiteSpace($Catalog)) {
+    $catalogRelative = $Catalog.Substring($smokeRoot.Length).TrimStart('\', '/').Replace('\', '/')
+    $catalogHash = (Get-FileHash -LiteralPath $Catalog -Algorithm SHA256).Hash.ToUpperInvariant()
 }
 
 if (-not $PSBoundParameters.ContainsKey('CliPath') -or [string]::IsNullOrWhiteSpace($CliPath)) {
@@ -222,6 +248,9 @@ function Invoke-SmokeCli([string]$OutputDir, [string]$LogPath) {
         '--preset', 'extended',
         '--no-incremental'
     )
+    if (-not [string]::IsNullOrWhiteSpace($Catalog)) {
+        $cliArgs += @('--catalog', $Catalog)
+    }
     & $CliPath @cliArgs *> $LogPath
     if ($LASTEXITCODE -ne 0) {
         throw "publish-cli failed with exit code $LASTEXITCODE. See $LogPath"
@@ -270,12 +299,14 @@ try {
             'scanned_files', 'supported_files', 'analyzed_files', 'empty_files',
             'total_bytes', 'merkle_root', 'duplicate_groups',
             'duplicate_files_skipped', 'entities_table_sha256', 'mentions',
-            'files_with_mentions'
+            'files_with_mentions', 'catalog', 'catalog_sha256'
         )
         $mismatches = @()
         foreach ($field in $fields) {
             $expected = $snapshot.$field
-            $actual = $stats.$field
+            $actual = if ($field -eq 'catalog') { $catalogRelative }
+                      elseif ($field -eq 'catalog_sha256') { $catalogHash }
+                      else { $stats.$field }
             if ([string]$expected -ne [string]$actual) {
                 $mismatches += "$field expected=$expected actual=$actual"
             }
@@ -302,12 +333,16 @@ try {
     $snapshot.entities_table_sha256 = $stats.entities_table_sha256
     $snapshot.mentions = $stats.mentions
     $snapshot.files_with_mentions = $stats.files_with_mentions
+    $snapshot | Add-Member -NotePropertyName catalog -NotePropertyValue $catalogRelative -Force
+    $snapshot | Add-Member -NotePropertyName catalog_sha256 -NotePropertyValue $catalogHash -Force
 
     $history = @($manifestData.history)
     $history += [pscustomobject][ordered]@{
         date = $date
         previous_sha256 = $previousHash
         new_sha256 = $stats.entities_table_sha256
+        catalog = $catalogRelative
+        catalog_sha256 = $catalogHash
         reason = $Reason
     }
     $manifestData.generated = $date

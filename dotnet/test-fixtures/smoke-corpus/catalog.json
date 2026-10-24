@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "entities": [
+    {
+      "name": "Наг и Йеб",
+      "canon": "Nug and Yeb",
+      "irregular": [
+        "Nug and Yeb",
+        "Nug",
+        "Yeb",
+        "Yēb",
+        "Наг и Йеб",
+        "Наг и Йёб",
+        "НАГ И ЙЕБ",
+        "Нага",
+        "Наг",
+        "Нуг"
+      ],
+      "titles": []
+    },
+    {
+      "name": "Толстой",
+      "canon": "Tolstoy",
+      "irregular": [
+        "Толстой",
+        "Лев Толстой",
+        "Tolstoy"
+      ],
+      "titles": []
+    },
+    {
+      "name": "Пушкин",
+      "canon": "Pushkin",
+      "irregular": [
+        "Пушкин",
+        "Александр Пушкин",
+        "Pushkin"
+      ],
+      "titles": []
+    }
+  ]
+}

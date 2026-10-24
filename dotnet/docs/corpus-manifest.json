@@ -1,8 +1,9 @@
 {
   "schema_version": 1,
-  "description": "Pinned corpus snapshots for Entity Analyzer v18.1. Full-corpus entities_table.csv hashes are tied to these inputs; a synthetic pipeline anchor is a separate follow-up.",
+  "description": "Pinned corpus snapshots for Entity Analyzer v18.1. Full-corpus entities_table.csv hashes are tied to these inputs; a synthetic pipeline anchor is separate.",
   "corpus_root": "ТЕКСТЫ",
-  "generated": "2026-10-23",
+  "generated": "2026-10-24",
+  "hash_normalization": "Full-corpus entities_table.csv hashes are raw SHA-256 of the file bytes (no line-ending canonicalization). The synthetic smoke anchor uses LF canonicalization and is documented in test-fixtures/smoke-corpus/README.md.",
   "extensions": [
     ".txt",
     ".md",
@@ -46,7 +47,9 @@
       "duplicate_files_skipped": 0,
       "entities_table_sha256": "89203B6A7FD0BB87819B0293326C0BF581B573D223ECF83E679E845714993934",
       "mentions": 913,
-      "files_with_mentions": 261
+      "files_with_mentions": 261,
+      "superseded_by": "dedup_fix_2026-10-24",
+      "superseded_reason": "Hash changed due to pipeline change (ContextBuilder.Deduplicate keying and current source after the old published CLI), not due to corpus drift. The corpus Merkle root is unchanged; this historical hash is reproducible only with the old CLI."
     },
     "current_2026-10-23": {
       "date": "2026-10-23",
@@ -63,7 +66,27 @@
       "new_since_baseline": {
         "files": 58,
         "bytes": 275526590
-      }
+      },
+      "superseded_by": "dedup_fix_2026-10-24",
+      "superseded_reason": "Hash changed due to pipeline change (ContextBuilder.Deduplicate keying and current source after the old published CLI), not due to corpus drift. The corpus Merkle root is unchanged; this historical hash is reproducible only with the old CLI."
+    },
+    "dedup_fix_2026-10-24": {
+      "date": "2026-10-24",
+      "scanned_files": 10549,
+      "supported_files": 10547,
+      "analyzed_files": 10531,
+      "total_bytes": 816451570,
+      "merkle_root": "A83328DB3E9500D874D0A3D32B2EA20C188ECB467C577DAD24AE17E0E0110245",
+      "duplicate_groups": 16,
+      "duplicate_files_skipped": 16,
+      "entities_table_sha256": "690644D690C8B4FDCB44D699B4BA7F904FEB8DD6D10473F4C9632D29EAAB8EEE",
+      "mentions": 915,
+      "files_with_mentions": 265,
+      "pipeline": "Current source with ContextBuilder.Deduplicate keyed by (entity, context); default one-card codex; preset extended; isolated ENTITYANALYZER_DATA_DIR / EA_SEMANTIC_USER_DIR; --no-incremental.",
+      "supersedes": [
+        "baseline_2026-10-21",
+        "current_2026-10-23"
+      ]
     }
   },
   "baseline_reconstruction": {
@@ -134,7 +157,7 @@
       "files_with_mentions": 261,
       "entities_table_sha256": "89203B6A7FD0BB87819B0293326C0BF581B573D223ECF83E679E845714993934"
     },
-    "conclusion": "The reconstructed baseline matched the historical output exactly. The current 06A3... result is therefore explained by corpus growth, not a pipeline regression."
+    "conclusion": "The reconstructed baseline matched the historical output exactly with the old published CLI. This proves that corpus growth explained the 89203... -> 06A3... difference at that time, but 06A3... is not a current anchor: the current source (dedup fix and later changes) produces 6906... on the same 10,531-file corpus. The old hashes are reproducible only with the old CLI and are marked superseded."
   },
   "duplicate_groups_current": [
     [
