@@ -1,0 +1,6 @@
+# The smoke corpus is a byte-pinned pipeline anchor.
+# Keep every text file LF-only: CRLF can change token boundaries.
+* text=auto eol=lf
+corpus/** text eol=lf
+*.md text eol=lf
+*.json text eol=lf

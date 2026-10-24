@@ -98,6 +98,14 @@ jobs:
           & "./cli-out/EntityAnalyzer.Cli" --corpus $corpus --out "$corpus/_out" --preset light --no-incremental
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
+      - name: Smoke-corpus pipeline anchor
+        shell: pwsh
+        run: |
+          $cli = Join-Path $PWD "cli-out/EntityAnalyzer.Cli"
+          if (Test-Path "$cli.exe") { $cli = "$cli.exe" }
+          & (Join-Path $PWD "scripts/update-smoke-baseline.ps1") -Check -Corpus "test-fixtures/smoke-corpus" -CliPath $cli
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
   # ONNX is an explicit opt-in layer. This job never downloads a model on a
   # contributor PR: it uses the hash-keyed cache or skips. A push to main may
   # fetch the pinned revision once to seed that cache; the fetch script still
