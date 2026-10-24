@@ -142,8 +142,11 @@ public class OnnxGoldenTests
             similarities.Add(similarity);
             Assert.True(
                 similarity >= reference.Comparison.Tolerance.CosineMin,
-                $"Int8/fp32 reference mismatch for '{testCase.Id}': cosine={similarity:R}, " +
-                $"required>={reference.Comparison.Tolerance.CosineMin:R}.");
+                $"Int8/fp32 model-quality floor failed for '{testCase.Id}': " +
+                $"cosine={similarity:R}, required>={reference.Comparison.Tolerance.CosineMin:R}. " +
+                "This is not a C# pipeline bug: int8 is no longer adequate for this model. " +
+                "Re-evaluate int8 vs fp16/fp32 or regenerate the reference; " +
+                "do not loosen the C# correctness check.");
         }
 
         var measuredMin = similarities.Min();

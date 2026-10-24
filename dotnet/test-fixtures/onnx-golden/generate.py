@@ -49,6 +49,37 @@ REFERENCE_MODEL = "intfloat/multilingual-e5-small"
 REFERENCE_REVISION = "614241f622f53c4eeff9890bdc4f31cfecc418b3"
 REFERENCE_COSINE_MIN = 0.975
 
+# These are part of the numerical contract, not just convenience pins. A
+# different ONNX Runtime can select a different int8 kernel and silently move
+# the vectors. Regenerating with another version requires an explicit review of
+# both fixtures and the platform-specific thresholds.
+INT8_RUNTIME = {
+    "onnxruntime": "1.31.0",
+    "numpy": "2.5.2",
+    "tokenizers": "0.22.2",
+}
+REFERENCE_RUNTIME = {
+    "sentence-transformers": "3.0.1",
+    "transformers": "4.57.6",
+    "torch": "2.13.0",
+    "numpy": "2.5.2",
+}
+
+
+def assert_runtime(expected: dict[str, str]) -> None:
+    mismatches = [
+        f"{name}: installed {version(name)}, expected {wanted}"
+        for name, wanted in expected.items()
+        if version(name) != wanted
+    ]
+    if mismatches:
+        raise SystemExit(
+            "golden generator runtime does not match its pinned contract:\n  "
+            + "\n  ".join(mismatches)
+            + "\nUpdate requirements-golden.txt and this guard, regenerate both fixtures, "
+            "and re-baseline the documented thresholds. Do not only raise a test tolerance."
+        )
+
 LONG_TEXT = (
     "Древний жрец Наг и его спутник Йеб шли через пустыню. "
     "The priest Nag and his companion Yeb walked through the desert. "
@@ -166,6 +197,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    assert_runtime(INT8_RUNTIME)
     model_dir = args.model_dir.resolve()
     output_dir = args.output_dir.resolve()
     profile, _manifest = load_verified_profile(model_dir, repo_root)
@@ -252,6 +284,7 @@ def main() -> int:
     if args.skip_reference:
         return 0
 
+    assert_runtime(REFERENCE_RUNTIME)
     from sentence_transformers import SentenceTransformer
 
     reference = SentenceTransformer(

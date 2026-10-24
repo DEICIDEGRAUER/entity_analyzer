@@ -19,9 +19,13 @@
 ONNX Runtime. На Windows C#-пайплайн совпадает с эталоном строже `0.9999`. На
 Ubuntu один GitHub-runner дал `0.996705` для `ru-query`, а следующий runner
 прошёл строгий порог; token IDs при этом совпадали. Поэтому Windows-эталон
-остаётся `0.9999`, а для Linux/macOS зафиксирован `0.99`. Это всё ещё ловит
-префикс/pooling/обрезку; `0.9999` на гетерогенных int8-ядрах был бы
-непереносимым тестом.
+остаётся `0.9999`, а для Linux/macOS зафиксирован `0.99`.
+
+**Linux/macOS threshold detects catastrophes, not regressions; correctness
+check is Windows-only until kernel parity is established.** A real regression
+between `0.99` and `0.9999` can hide on Linux/macOS; the token-ID test and the
+aggregated cosine message narrow that gap, but they do not replace the strict
+Windows run. Do not present the non-Windows floor as equivalent to `0.9999`.
 
 `reference_fp32.json` не используется для проверки C#. Он нужен, чтобы
 количественно знать цену int8 и иметь базу для будущего перехода на fp16/fp32.
@@ -85,12 +89,33 @@ python test-fixtures/onnx-golden/generate.py --model-dir models/e5-small-int8
 Версии и ревизии также записаны в самих JSON. Точные SHA-256 модели и
 токенизатора берутся из `models/manifest.json`.
 
+## Политика при смене ONNX Runtime
+
+Golden int8 жёстко привязан к `onnxruntime==1.31.0`. При бампе ORT корректная
+последовательность такая:
+
+1. обновить версию в `requirements-golden.txt` и в guard внутри `generate.py`;
+2. перегенерировать **оба** JSON из того же проверенного `model_int8.onnx` и
+   `tokenizer.json`;
+3. проверить, что `input_ids` не изменились;
+4. заново замерить cosine по платформам и пере-зафиксировать пороги с
+   объяснением в истории/CHANGELOG.
+
+Нельзя просто поднять tolerance, чтобы CI стал зелёным: это скрывает смену
+чисел. `generate.py` отказывается работать с версиями, отличными от
+ожидаемых, поэтому случайный drift требует явного решения.
+
 ## CI
 
 Тесты помечены `[Trait("Category", "OnnxGolden")]` и запускаются отдельным
-job `onnx-golden-tests`, а не вместе с `onnx-model-tests`. Обычный
-`onnx-model-tests` и test-matrix исключают эту категорию. Без весов
+job `onnx-golden-tests`, а не вместе с `onnx-model-tests`. Job идёт матрицей
+по `ubuntu-latest` (x64) и `macos-14` (Apple Silicon, arm64); это покрывает
+четвёртую платформу, но не превращает не-Windows floor в correctness-check.
+Обычный `onnx-model-tests` и test-matrix исключают эту категорию. Без весов
 model-gated golden-тесты пропускаются с явной причиной; тест согласованности
-двух JSON выполняется всегда. Полезность ranking проверяется отдельно
-(категория `OnnxSemantic`, job `onnx-semantic-tests`) и не выдаёт голый запрос
-`Наг` за разрешённую омонимию: pinned int8 ставит породу собак выше жреца.
+двух JSON выполняется всегда.
+
+Retrieval-полезность проверяется отдельно (категория `OnnxRetrieval`, job
+`onnx-retrieval-tests`). Это topical retrieval, а не disambiguation: тесты не
+выдают голый запрос `Наг` за разрешённую омонимию, потому что pinned int8
+ставит породу собак выше жреца. Омонимы — зона `HomonymClassifier`.
