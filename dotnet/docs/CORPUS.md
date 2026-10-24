@@ -75,11 +75,11 @@ parent = SHA-256(left_digest_bytes || right_digest_bytes)
   1 группа точных дубликатов (1 пропущен), 13 проанализировано, 11 упоминаний
   в 11 файлах.
 - `entities_table.csv` SHA-256 после канонизации переводов строк в LF:
-  `E590663A6A78D60FE7DF9CC97D7E7B5DDDF659979ED4758BA6C17B534E2528A1`.
+  `A81A1086EA7D6028EC6F20C3E34C20F8434D00B8E5CB223BAB36ADE207E8C68A`.
   Канонизация нужна потому, что CSV-писатель использует `Environment.NewLine`;
   без неё хеш различался бы на Windows и Linux.
 - Merkle root:
-  `7CB4EA4C28AB183924F293FEA4C925D66F3866D9878AF4D0C8BFCBF5EF061D66`.
+  `2DD4E536C4DC03E4B0E473C999E1D36C5E291E80F88451941D7E64E5C7F7B068`.
 - `verify.ps1` запускает `scripts/update-smoke-baseline.ps1 -Check`; проверка
   прогоняет CLI дважды, сравнивает хеши между прогонами и затем с манифестом.
 - Обновление — только явной командой с обязательным `-Reason` и чистым рабочим

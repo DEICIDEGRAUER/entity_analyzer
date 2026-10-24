@@ -66,7 +66,7 @@ The current snapshot is in `manifest.json` under `snapshots.smoke_current`:
 | Analyzed files | 13 |
 | Mentions | 11 |
 | Files with mentions | 11 |
-| `entities_table.csv` SHA-256 (canonical LF) | `E590663A6A78D60FE7DF9CC97D7E7B5DDDF659979ED4758BA6C17B534E2528A1` |
+| `entities_table.csv` SHA-256 (canonical LF) | `A81A1086EA7D6028EC6F20C3E34C20F8434D00B8E5CB223BAB36ADE207E8C68A` |
 
 The CSV writer uses `Environment.NewLine`; the anchor normalizes `CRLF`/`CR` to
 `LF` before hashing, so the same semantic output has the same hash on Windows and
