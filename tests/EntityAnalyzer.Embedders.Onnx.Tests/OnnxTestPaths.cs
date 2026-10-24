@@ -16,6 +16,11 @@ internal static class OnnxTestPaths
         ? Path.Combine(directory, "sentencepiece.bpe.model")
         : null;
 
+    public const string GoldenFixtureDirectoryName = "onnx-golden";
+
+    public static string GoldenFixturePath(string fileName) =>
+        Path.Combine(AppContext.BaseDirectory, GoldenFixtureDirectoryName, fileName);
+
     public static string SkipReason =>
         "ONNX model is not available. Run `scripts/fetch-model.ps1 -Model e5-small` " +
         "(Windows) or `scripts/fetch-model.sh -Model e5-small` (Linux/macOS), " +
@@ -61,5 +66,22 @@ internal sealed class TokenizerFactAttribute : FactAttribute
     {
         if (OnnxTestPaths.TokenizerPath is null)
             Skip = OnnxTestPaths.SkipReason;
+    }
+}
+
+internal sealed class GoldenFactAttribute : FactAttribute
+{
+    public GoldenFactAttribute()
+    {
+        if (OnnxTestPaths.ModelPath is null)
+        {
+            Skip = OnnxTestPaths.SkipReason;
+            return;
+        }
+
+        if (!File.Exists(OnnxTestPaths.GoldenFixturePath("golden_int8.json")))
+        {
+            Skip = "ONNX golden fixture is missing. Run test-fixtures/onnx-golden/generate.py.";
+        }
     }
 }
