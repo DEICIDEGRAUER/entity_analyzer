@@ -18,9 +18,9 @@ Excluded from this branch:
 The .NET application source is in `dotnet/`. The app-only public release branch
 is `main`, which uses the app repository layout (contents of `dotnet/` at the
 repository root).
-Validation: `dotnet build` (0 warnings, 0 errors), 886/886 tests in an
-isolated profile with the pinned E5 profile (865 Core + 21 ONNX); without
-weights 879 pass and 7 model-gated tests skip, and
+Validation: `dotnet build` (0 warnings, 0 errors), 888/888 tests in an
+isolated profile with the pinned E5 profile (867 Core + 21 ONNX); without
+weights 881 pass and 7 model-gated tests skip, and
 `fetch-model.ps1`/`fetch-model.sh -Verify` against the pinned six-file E5 set.
 The synthetic pipeline anchor was also verified twice: 11 mentions in 11 files,
 canonical `entities_table.csv` SHA-256

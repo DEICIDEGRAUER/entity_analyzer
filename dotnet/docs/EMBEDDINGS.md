@@ -275,8 +275,8 @@ Linux/macOS floor `0.99` — sanity, а не correctness-check: настояща
 
 ## Текущая проверка
 
-Phase A/Phase B: 886 тестов (865 Core + 21 ONNX), из них семь тестов с моделью
+Phase A/Phase B: 888 тестов (867 Core + 21 ONNX), из них семь тестов с моделью
 (три обычных ONNX, два golden и два retrieval) пропускаются при отсутствии
-весов. Локально с `models/e5-small-int8` проходят все 886. Загрузчик проверен в PowerShell и Git Bash: `-RecordHashes` заполнил
+весов. Локально с `models/e5-small-int8` проходят все 888. Загрузчик проверен в PowerShell и Git Bash: `-RecordHashes` заполнил
 manifest/README, `-Verify` офлайн подтвердил все шесть файлов, включая
 SHA-256 `model_int8.onnx`. `entities_table.csv` остаётся вне ONNX-пути.
