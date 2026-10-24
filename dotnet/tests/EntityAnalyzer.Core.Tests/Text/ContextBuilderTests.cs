@@ -96,4 +96,21 @@ public class ContextBuilderTests
         var result = ContextBuilder.Deduplicate(items, i => i.Ctx);
         Assert.Equal(new[] { 1, 3 }, result.Select(i => i.Id));
     }
+
+    private record EntityItem(int Id, string Entity, string Ctx);
+
+    [Fact]
+    public void Deduplicate_is_scoped_to_entity_when_entity_selector_is_supplied()
+    {
+        var items = new List<EntityItem>
+        {
+            new(1, "Толстой", "Толстой и Пушкин беседовали"),
+            new(2, "Пушкин", "Толстой и Пушкин беседовали"),
+            new(3, "Толстой", "Толстой и Пушкин беседовали"),
+        };
+
+        var result = ContextBuilder.Deduplicate(items, i => i.Ctx, i => i.Entity);
+
+        Assert.Equal(new[] { 1, 2 }, result.Select(i => i.Id));
+    }
 }

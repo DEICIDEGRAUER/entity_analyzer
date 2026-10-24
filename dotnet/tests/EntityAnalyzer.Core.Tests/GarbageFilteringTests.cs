@@ -189,6 +189,28 @@ public class CrossFileDeduplicationTests
     }
 
     [Fact]
+    public void Different_entities_in_identical_context_survive()
+    {
+        const string context = "Толстой и Пушкин беседовали в библиотеке";
+        var files = new List<FileResult>
+        {
+            new("a.txt", "a",
+            [
+                M(context),
+                new Mention(2, "Пушкин", "Пушкин", 1, context),
+            ], 2, 10, 100, 0),
+        };
+
+        var (result, grouped) = ContextDeduplicator.Apply(files);
+
+        Assert.Equal(0, grouped);
+        Assert.Equal(2, result[0].Mentions.Count);
+        Assert.Equal(
+            new[] { "Азатот", "Пушкин" },
+            result[0].Mentions.Select(m => m.Entity));
+    }
+
+    [Fact]
     public void Mention_repeats_defaults_to_one()
     {
         Assert.Equal(1, new Mention(1, "E", "V", 1, "ctx").Repeats);

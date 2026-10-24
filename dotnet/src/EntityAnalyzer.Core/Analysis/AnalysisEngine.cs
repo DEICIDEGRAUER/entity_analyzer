@@ -784,7 +784,7 @@ public sealed class AnalysisEngine
         }
 
         var beforeDedup = mentions.Count;
-        var deduped = ContextBuilder.Deduplicate(mentions, x => x.Context)
+        var deduped = ContextBuilder.Deduplicate(mentions, x => x.Context, x => x.Entity)
             .Select((m, i) => m with { Num = i + 1 })
             .ToList();
         mentions.Clear();
