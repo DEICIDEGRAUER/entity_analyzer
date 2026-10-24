@@ -1,6 +1,7 @@
 ﻿# ═══════════════════════════════════════════════════════════════════
 # verify.ps1 — R1-16: вся верификация одной командой.
 # build -> test -> publish -> CLI-проверка на изолированном корпусе ->
+# synthetic smoke-corpus anchor ->
 # [опционально GUI-смоук] -> JSON-итог.
 #
 # Запуск:  powershell -File verify.ps1 [-WithGuiSmoke] [-SkipPublish]
@@ -151,6 +152,25 @@ $ok = ($code -eq 0) -and $reportExists -and $cacheInOutput -and (-not $cacheInCw
 Add-Step "cli" $(if ($ok) { 0 } else { 4 }) "exit=$code; отчёт создан=$reportExists; кэш в output=$cacheInOutput; кэш в cwd=$cacheInCwd; корпус=$tmpCorpus" $t.Elapsed.TotalSeconds
 try { Remove-Item $tmpCorpus -Recurse -Force } catch { }
 try { Remove-Item $cliWork -Recurse -Force } catch { }
+
+# ── 4a. Synthetic smoke-corpus pipeline anchor ─────────────────────
+# Pinned 15-file fixture + SHA-256 entities_table.csv; independent of the real
+# corpus. The check runs publish-cli twice and fails on drift or non-determinism.
+Mark "step4a smoke-anchor: старт"
+$t = [System.Diagnostics.Stopwatch]::StartNew()
+$anchorScript = Join-Path $root "scripts\update-smoke-baseline.ps1"
+$anchorCorpus = Join-Path $root "test-fixtures\smoke-corpus"
+$anchorLog = Join-Path $scratch "verify_smoke_anchor.log"
+$code = Run-Detached "powershell" @('-NoProfile','-ExecutionPolicy','Bypass','-File',$anchorScript,'-Check','-Corpus',$anchorCorpus,'-CliPath',$cliExe) $root $anchorLog (Join-Path $scratch "verify_smoke_anchor.err.log")
+$t.Stop()
+$anchorText = ""
+if (Test-Path $anchorLog) { $anchorText = Get-Content $anchorLog -Raw -Encoding UTF8 }
+$anchorHash = ""
+$anchorMatch = [regex]::Match($anchorText, 'SHA-256 ([A-Fa-f0-9]{64})')
+if ($anchorMatch.Success) { $anchorHash = $anchorMatch.Groups[1].Value.ToUpperInvariant() }
+$detail = "exit=$code; two runs identical=$($code -eq 0 -and $anchorHash.Length -eq 64); hash=$anchorHash"
+Add-Step "smoke-anchor" $code $detail $t.Elapsed.TotalSeconds
+if ($code -ne 0) { break verify_pipeline }
 
 # ── 4b. Performance-gate (R1-14): замедление стадии > порога = провал ──
 # Эталон bench/baseline.json; при его отсутствии первый прогон фиксирует

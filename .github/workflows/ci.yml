@@ -97,3 +97,12 @@ jobs:
           dotnet publish src/EntityAnalyzer.Cli/EntityAnalyzer.Cli.csproj -c Release -o cli-out --nologo
           & "./cli-out/EntityAnalyzer.Cli" --corpus $corpus --out "$corpus/_out" --preset light --no-incremental
           if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Smoke-corpus pipeline anchor
+        shell: pwsh
+        working-directory: dotnet
+        run: |
+          $cli = Join-Path $PWD "cli-out/EntityAnalyzer.Cli"
+          if (Test-Path "$cli.exe") { $cli = "$cli.exe" }
+          & (Join-Path $PWD "scripts/update-smoke-baseline.ps1") -Check -Corpus "test-fixtures/smoke-corpus" -CliPath $cli
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
