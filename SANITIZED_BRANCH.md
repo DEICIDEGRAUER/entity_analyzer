@@ -27,9 +27,11 @@ canonical `entities_table.csv` SHA-256
 `A81A1086EA7D6028EC6F20C3E34C20F8434D00B8E5CB223BAB36ADE207E8C68A`.
 The fixture explicitly covers `ё`/`е`, case, and Latin diacritics.
 The ONNX golden layer is also included: 12 int8 vectors generated from the same
-`model_int8.onnx` (C# cosine > 0.9999), plus the fp32 sentence-transformers
-reference with measured int8 minimum `0.979531` and documented floor `0.975`;
-golden tests run in the separate `onnx-golden-tests` CI job. A separate
+`model_int8.onnx` (C# cosine > 0.9999 on Windows, >= 0.99 on Linux/macOS; one
+Ubuntu runner measured `0.996705` with exact token IDs, so the portable floor
+is documented), plus the fp32 sentence-transformers reference with measured
+int8 minimum `0.979531` and documented floor `0.975`; golden tests run in the
+separate `onnx-golden-tests` CI job. A separate
 `onnx-semantic-tests` job exercises `VectorIndex` with the real embedder; the
 bare query `Наг` is documented as ambiguous (`0.906874` dog vs `0.895978`
 priest), so the semantic test uses an unambiguous query.
