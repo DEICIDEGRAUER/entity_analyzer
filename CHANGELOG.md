@@ -99,6 +99,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the next-file action start from the same state as the per-file list.
 
 ### Fixed
+- Diagnosed the 20-minute 37-card `extended` timeout as fuzzy-rescue cost,
+  not the `(entity, context)` dedup change: on a 1,000-file subset, old/new
+  `minimal` runs took 5.13/4.73 s (505/521 rows, max count 1), while
+  `extended` took 305.89 s with 3,504,068 ms cumulative `fuzzy` stage time
+  (99.4% of measured stages). `minimal` scaling 1k/3k/10k was 4.73/8.03/23.82 s.
+  Phase C must use `minimal`/a dedicated retrieval pass, not 37-card `extended`
+  as its implicit baseline. Recorded `old_cli_ref`
+  `c570ffd1944ac35bd158103d0ae8879762f43447` (pre-fix source; old binary built
+  at `2e38a13`, tracked at `a16215d`/`a16215dec7f9c88f80167dd5d46b998b93cfff8e`),
+  and verified `690644...` was produced by the `publish-cli` from `2e130ff`,
+  not a debug build. The old source build reproduces `06A3...`.
 - Re-baselined the full-corpus anchor after the deduplication fix.
   `entities_table.csv` SHA-256 changed from
   `06A3DE3BC9E84881F58CD8D567F736DE1888F5EC48F8D60AB8CDE3CC532C95D0` to

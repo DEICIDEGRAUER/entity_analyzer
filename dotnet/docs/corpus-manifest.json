@@ -49,7 +49,10 @@
       "mentions": 913,
       "files_with_mentions": 261,
       "superseded_by": "dedup_fix_2026-10-24",
-      "superseded_reason": "Hash changed due to pipeline change (ContextBuilder.Deduplicate keying and current source after the old published CLI), not due to corpus drift. The corpus Merkle root is unchanged; this historical hash is reproducible only with the old CLI."
+      "superseded_reason": "Hash changed due to pipeline change (ContextBuilder.Deduplicate keying and current source after the old published CLI), not due to corpus drift. The corpus Merkle root is unchanged; this historical hash is reproducible only with the old CLI.",
+      "old_cli_ref": "c570ffd1944ac35bd158103d0ae8879762f43447",
+      "old_cli_binary_ref": "a16215dec7f9c88f80167dd5d46b998b93cfff8e",
+      "old_cli_note": "c570ffd is the last source commit before the dedup fix (8c390e1). The pre-fix publish binaries were built at 2e38a13 and stayed unchanged through c570ffd/a16215d; rebuilding c570ffd reproduces the historical hash. a16215d is the last commit that still carries the pre-fix binary; its source already contains the dedup fix, so do not rebuild from a16215d to reproduce the old hash. Verified 2026-10-24: a c570ffd build produced 06A3DE... for the one-card full corpus."
     },
     "current_2026-10-23": {
       "date": "2026-10-23",
@@ -68,7 +71,10 @@
         "bytes": 275526590
       },
       "superseded_by": "dedup_fix_2026-10-24",
-      "superseded_reason": "Hash changed due to pipeline change (ContextBuilder.Deduplicate keying and current source after the old published CLI), not due to corpus drift. The corpus Merkle root is unchanged; this historical hash is reproducible only with the old CLI."
+      "superseded_reason": "Hash changed due to pipeline change (ContextBuilder.Deduplicate keying and current source after the old published CLI), not due to corpus drift. The corpus Merkle root is unchanged; this historical hash is reproducible only with the old CLI.",
+      "old_cli_ref": "c570ffd1944ac35bd158103d0ae8879762f43447",
+      "old_cli_binary_ref": "a16215dec7f9c88f80167dd5d46b998b93cfff8e",
+      "old_cli_note": "c570ffd is the last source commit before the dedup fix (8c390e1). The pre-fix publish binaries were built at 2e38a13 and stayed unchanged through c570ffd/a16215d; rebuilding c570ffd reproduces the historical hash. a16215d is the last commit that still carries the pre-fix binary; its source already contains the dedup fix, so do not rebuild from a16215d to reproduce the old hash. Verified 2026-10-24: a c570ffd build produced 06A3DE... for the one-card full corpus."
     },
     "dedup_fix_2026-10-24": {
       "date": "2026-10-24",
@@ -83,6 +89,9 @@
       "mentions": 915,
       "files_with_mentions": 265,
       "pipeline": "Current source with ContextBuilder.Deduplicate keyed by (entity, context); default one-card codex; preset extended; isolated ENTITYANALYZER_DATA_DIR / EA_SEMANTIC_USER_DIR; --no-incremental.",
+      "cli_ref": "2e130ff4292168cc8fd6ccf200709f44438e5a62",
+      "cli_kind": "publish-cli",
+      "cli_note": "Produced by the freshly rebuilt publish-cli from 2e130ff (binary unchanged at f822bf8), not by a debug build. The 2026-10-24 run logged 25.38 s, 915 mentions in 265 files, and a fresh recheck produced the same CSV hash 690644D690C8B4FDCB44D699B4BA7F904FEB8DD6D10473F4C9632D29EAAB8EEE.",
       "supersedes": [
         "baseline_2026-10-21",
         "current_2026-10-23"
