@@ -5,6 +5,7 @@
 # [опционально GUI-смоук] -> JSON-итог.
 #
 # Запуск:  powershell -File verify.ps1 [-WithGuiSmoke] [-SkipPublish]
+# Bench-gate (шаг 4b) локально требует Windows High performance; см. docs/PERFORMANCE.md.
 # Коды возврата: 0 — всё зелёное; 1 — есть провал (какой шаг — в итоговом JSON).
 # Итог: _scratch\verify_result.json (машиночитаемая сводка).
 # Требование PowerShell 5.1: файл сохранён с BOM (кириллица в строках).
@@ -180,8 +181,35 @@ if ($code -ne 0) { break verify_pipeline }
 # (два инцидента ложных срабатываний на шумных стадиях зафиксированы).
 # Порог ×1.5: микробенчмарки decode utf8 / sentence split дают ложные
 # срабатывания ×1.3 на холостой машине (подтверждено 3 раундами).
+# Bench-gate is local-only (CI does not run it) and CPU-frequency sensitive.
+# It is blocked on a non-High-performance scheme instead of reporting a false
+# regression; correctness steps above are unaffected.
+$benchPowerHint = ""
+$benchPowerOk = $true
+if ($env:OS -eq "Windows_NT") {
+    try {
+        $benchScheme = (& powercfg /getactivescheme 2>$null) -join " "
+        $benchMhz = (Get-CimInstance Win32_Processor -ErrorAction Stop |
+            Select-Object -First 1).CurrentClockSpeed
+        # powercfg output is localized; match the High performance GUID, not its name.
+        if ($benchScheme -notmatch '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c') {
+            $benchPowerOk = $false
+            $benchPowerHint = "active power scheme is not High performance (${benchMhz} MHz): $benchScheme"
+            Write-Host "[bench] ERROR: $benchPowerHint; local bench-gate is CPU-frequency sensitive"
+            Write-Host "[bench] switch: powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c; restore Balanced after verification; baseline/threshold unchanged"
+        } else {
+            Write-Host "[bench] power scheme: High performance (${benchMhz} MHz)"
+        }
+    } catch { }
+}
+
 Mark "step4b bench-gate: старт"
 $t = [System.Diagnostics.Stopwatch]::StartNew()
+if (-not $benchPowerOk) {
+    $t.Stop()
+    Add-Step "bench-gate" 2 "blocked: $benchPowerHint; switch to High performance (powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c) and rerun; baseline/threshold unchanged" $t.Elapsed.TotalSeconds
+    break verify_pipeline
+}
 $benchProj = Join-Path $root "tools\Bench\Bench.csproj"
 $code = Run-Detached "dotnet" @('run','--project',$benchProj,'-c','Release','-p:UseSharedCompilation=false','--','--gate','--n','9') $root (Join-Path $scratch "verify_bench.log") (Join-Path $scratch "verify_bench.err.log")
 if ($code -ne 0) {
@@ -190,7 +218,9 @@ if ($code -ne 0) {
     $code = Run-Detached "dotnet" @('run','--project',$benchProj,'-c','Release','-p:UseSharedCompilation=false','--','--gate','--n','9') $root (Join-Path $scratch "verify_bench_retry.log") (Join-Path $scratch "verify_bench_retry.err.log")
 }
 $t.Stop()
-Add-Step "bench-gate" $code "exit=$code (порог ×1.5, n=9, автоповтор при провале)" $t.Elapsed.TotalSeconds
+$benchDetail = "exit=$code (порог ×1.5, n=9, автоповтор при провале)"
+if ($benchPowerHint) { $benchDetail += "; $benchPowerHint" }
+Add-Step "bench-gate" $code $benchDetail $t.Elapsed.TotalSeconds
 if ($code -ne 0) { break verify_pipeline }
 
 # ── 5. GUI-смоук (опционально; отсоединённый запуск с бэкапом данных) ──
