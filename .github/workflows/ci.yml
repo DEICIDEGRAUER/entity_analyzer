@@ -223,7 +223,26 @@ jobs:
         env:
           ENTITYANALYZER_DATA_DIR: ${{ runner.temp }}/ea-onnx-golden-profile
           EA_SEMANTIC_USER_DIR: ${{ runner.temp }}/ea-onnx-golden-semantic
-        run: dotnet test tests/EntityAnalyzer.Embedders.Onnx.Tests/EntityAnalyzer.Embedders.Onnx.Tests.csproj -c Release --nologo --filter "Category=OnnxGolden" --logger "console;verbosity=normal"
+        run: dotnet test tests/EntityAnalyzer.Embedders.Onnx.Tests/EntityAnalyzer.Embedders.Onnx.Tests.csproj -c Release --nologo --filter "Category=OnnxGolden" --logger "console;verbosity=normal" --logger "trx;LogFileName=golden.trx" --results-directory TestResults/onnx-golden
+
+      # The public Actions log endpoint requires admin rights; annotations are
+      # public. Surface the actual xUnit assertion (including the measured
+      # cosine) when the numerical job fails, instead of only "exit code 1".
+      - name: Surface golden failure details
+        if: failure()
+        shell: pwsh
+        run: |
+          $trx = Get-ChildItem TestResults/onnx-golden -Filter *.trx -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $trx) { Write-Output "No TRX file was produced."; exit 0 }
+
+          [xml]$xml = Get-Content $trx.FullName
+          $failed = $xml.SelectNodes('//*[local-name()="UnitTestResult"]') | Where-Object { $_.outcome -eq 'Failed' }
+          foreach ($test in $failed) {
+            $messageNode = $test.SelectSingleNode('.//*[local-name()="ErrorInfo"]/*[local-name()="Message"]')
+            $message = if ($messageNode) { $messageNode.InnerText } else { 'No assertion message.' }
+            $message = ($message -replace "`r?`n", ' ') -replace '%', '%25'
+            Write-Output "::error title=Golden failure: $($test.testName)::$message"
+          }
 
       - name: Report skipped golden model tests
         if: steps.model.outputs.available != 'true'
