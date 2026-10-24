@@ -103,6 +103,16 @@ fairseq-сдвиг после токенизации; иначе BOS/EOS и вс
 ONNX-эмбеддер не добавляет их повторно и не полагается на вызывающий код.
 ONNX-модель также требует `token_type_ids`; эмбеддер передаёт нулевой тензор.
 
+## Golden-эталон
+
+В `test-fixtures/onnx-golden/` лежат `golden_int8.json` (эталонные векторы того
+же `model_int8.onnx`) и `reference_fp32.json` (fp32-база
+`intfloat/multilingual-e5-small`). Они не содержат весов и не входят в
+publish. Генератор, версии Python-зависимостей, ревизии и допуски описаны в
+`test-fixtures/onnx-golden/README.md`. C#-тесты сверяют int8-векторы с
+допуском cosine > 0.9999; измеренная деградация int8 относительно fp32 —
+min `0.979531`, mean `0.985313`, поэтому loose-порог зафиксирован на `0.975`.
+
 ## Границы
 
 - `Microsoft.ML.OnnxRuntime` и `Microsoft.ML.Tokenizers` подключены только в

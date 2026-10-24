@@ -78,6 +78,10 @@ parent = SHA-256(left_digest_bytes || right_digest_bytes)
   `A81A1086EA7D6028EC6F20C3E34C20F8434D00B8E5CB223BAB36ADE207E8C68A`.
   Канонизация нужна потому, что CSV-писатель использует `Environment.NewLine`;
   без неё хеш различался бы на Windows и Linux.
+- Известное ограничение: нормализация CRLF→LF не различает `\r\n` внутри
+  quoted-ячеек CSV. Сейчас таких полей нет; если появятся, хеш может скрыть
+  реальный байтовый diff внутри значения. Это осознанное ограничение, а не
+  обещание полной байтовой идентичности.
 - Merkle root:
   `2DD4E536C4DC03E4B0E473C999E1D36C5E291E80F88451941D7E64E5C7F7B068`.
 - `verify.ps1` запускает `scripts/update-smoke-baseline.ps1 -Check`; проверка
