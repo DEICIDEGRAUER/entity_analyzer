@@ -154,7 +154,7 @@ try { Remove-Item $tmpCorpus -Recurse -Force } catch { }
 try { Remove-Item $cliWork -Recurse -Force } catch { }
 
 # ── 4a. Synthetic smoke-corpus pipeline anchor ─────────────────────
-# Pinned 15-file fixture + SHA-256 entities_table.csv; independent of the real
+# Pinned 16-file fixture + SHA-256 entities_table.csv; independent of the real
 # corpus. The check runs publish-cli twice and fails on drift or non-determinism.
 Mark "step4a smoke-corpus-anchor: старт"
 $t = [System.Diagnostics.Stopwatch]::StartNew()
