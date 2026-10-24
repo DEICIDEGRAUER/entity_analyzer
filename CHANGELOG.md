@@ -42,6 +42,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   documented loose floor is `0.975`, not 0.99. A separate
   `onnx-golden-tests` CI job keeps numerical failures out of the fast
   `onnx-model-tests` job; model weights remain uncommitted.
+- Added an end-to-end semantic usefulness test through `VectorIndex` and the
+  real int8 E5 embedder. It asserts that «Лев Толстой написал роман „Война и
+  мир“» ranks above the Pushkin document for the matching query, and runs in a
+  separate `onnx-semantic-tests` CI job. The test deliberately uses an
+  unambiguous query: with the pinned int8 model the bare query `Наг` ranks the
+  dog-breed document (`0.906874`) above the ancient-priest document
+  (`0.895978`), which is documented as a model-quality limit rather than
+  hidden as a passing homonym test.
 - Saved verdicts are restored for every mention when a session loads, using
   SHA-256 from the incremental index when available, so the corpus counter and
   the next-file action start from the same state as the per-file list.
