@@ -113,9 +113,14 @@ ONNX-эмбеддер реализует `IRoleAwareEmbedder`; префикс д
 - `golden_int8.json` — 12 случаев, сгенерированных Python `onnxruntime` из
   **того же** `model_int8.onnx` и `tokenizer.json`. Python-код явно повторяет
   префикс, BOS/EOS, обрезку с резервом EOS, masked mean pooling (включая
-  BOS/EOS) и L2. C#-тест требует cosine > 0.9999 к этим векторам и отдельно
-  сверяет `input_ids` с `E5Tokenizer`/`PrepareIds`. Это ловит ошибки в
-  pooling и префиксах, которые sanity-тесты формы и детерминизма пропускают.
+  BOS/EOS) и L2. C#-тест требует cosine > 0.9999 на Windows и >= 0.99 на
+  Linux/macOS и отдельно сверяет `input_ids` с
+  `E5Tokenizer`/`PrepareIds`. Это ловит ошибки в pooling и префиксах, которые
+  sanity-тесты формы и детерминизма пропускают. Жёсткий 0.9999 на Ubuntu
+  оказался непереносимым: один GitHub-runner дал `0.996705` для `ru-query`,
+  следующий прошёл строгий порог; причина — разные int8-ядра ONNX Runtime, а
+  не расхождение токенизации (token IDs точные). Поэтому floor для
+  не-Windows рантаймов — `0.99`, а не молчаливое ослабление всей проверки.
 - `reference_fp32.json` — те же тексты через `sentence-transformers` и
   fp32-модель `intfloat/multilingual-e5-small @
   614241f622f53c4eeff9890bdc4f31cfecc418b3`. Это не проверка C#, а
@@ -158,8 +163,9 @@ ONNX-эмбеддер реализует `IRoleAwareEmbedder`; префикс д
 - `sentencepiece.bpe.model` загружается, BOS/EOS и ожидаемые ID проверяются;
 - ONNX-сессия загружается и возвращает нормализованный 384-мерный вектор;
 - эмбеддинг детерминирован между запусками и различается для ролей;
-- `golden_int8.json`: `input_ids` после `PrepareIds` и векторы совпадают с
-  Python-эталоном того же int8-профиля (cosine > 0.9999);
+- `golden_int8.json`: `input_ids` после `PrepareIds` точные, а векторы
+  совпадают с Python-эталоном того же int8-профиля (Windows: cosine >
+  0.9999; Linux/macOS: >= 0.99 из-за разных int8-ядер);
 - `reference_fp32.json`: int8-векторы лежат в документированном допуске
   `cosine >= 0.975` к fp32-эталону;
 - `VectorIndex` + реальный int8-эмбеддер: правильный документ стоит первым
