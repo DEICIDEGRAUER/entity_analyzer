@@ -99,14 +99,17 @@ public class ContextBuilderTests
 
     private record EntityItem(int Id, string Entity, string Ctx);
 
-    [Fact]
-    public void Deduplicate_is_scoped_to_entity_when_entity_selector_is_supplied()
+    [Theory]
+    [InlineData("Толстой и Пушкин беседовали")]
+    [InlineData("Толстой, Пушкин беседовали")]
+    [InlineData("Толстой / Пушкин беседовали")]
+    public void Deduplicate_is_scoped_to_entity_for_all_separators(string context)
     {
         var items = new List<EntityItem>
         {
-            new(1, "Толстой", "Толстой и Пушкин беседовали"),
-            new(2, "Пушкин", "Толстой и Пушкин беседовали"),
-            new(3, "Толстой", "Толстой и Пушкин беседовали"),
+            new(1, "Толстой", context),
+            new(2, "Пушкин", context),
+            new(3, "Толстой", context),
         };
 
         var result = ContextBuilder.Deduplicate(items, i => i.Ctx, i => i.Entity);
