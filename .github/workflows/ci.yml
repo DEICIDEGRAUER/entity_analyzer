@@ -48,7 +48,7 @@ jobs:
         env:
           ENTITYANALYZER_DATA_DIR: ${{ runner.temp }}/ea-ci-profile
           EA_SEMANTIC_USER_DIR: ${{ runner.temp }}/ea-ci-semantic
-        run: dotnet test tests/EntityAnalyzer.Embedders.Onnx.Tests/EntityAnalyzer.Embedders.Onnx.Tests.csproj -c Release --nologo --filter "Category!=OnnxGolden&Category!=OnnxSemantic" --logger "console;verbosity=normal"
+        run: dotnet test tests/EntityAnalyzer.Embedders.Onnx.Tests/EntityAnalyzer.Embedders.Onnx.Tests.csproj -c Release --nologo --filter "Category!=OnnxGolden&Category!=OnnxRetrieval" --logger "console;verbosity=normal"
 
       - name: Test failure details
         if: failure()
@@ -165,7 +165,7 @@ jobs:
         env:
           ENTITYANALYZER_DATA_DIR: ${{ runner.temp }}/ea-onnx-profile
           EA_SEMANTIC_USER_DIR: ${{ runner.temp }}/ea-onnx-semantic
-        run: dotnet test tests/EntityAnalyzer.Embedders.Onnx.Tests/EntityAnalyzer.Embedders.Onnx.Tests.csproj -c Release --nologo --filter "Category!=OnnxGolden&Category!=OnnxSemantic" --logger "console;verbosity=normal"
+        run: dotnet test tests/EntityAnalyzer.Embedders.Onnx.Tests/EntityAnalyzer.Embedders.Onnx.Tests.csproj -c Release --nologo --filter "Category!=OnnxGolden&Category!=OnnxRetrieval" --logger "console;verbosity=normal"
 
       - name: Report skipped ONNX job
         if: steps.model.outputs.available != 'true'
@@ -177,8 +177,16 @@ jobs:
   # the reference implementation of the same int8 profile; it should not be
   # hidden by, or block, the fast contract feedback.
   onnx-golden-tests:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # ubuntu-latest is x64; macos-14 is Apple Silicon (arm64). The macOS
+        # run is the ARM64 coverage floor, not a second Windows correctness
+        # gate: non-Windows thresholds are intentionally looser until kernel
+        # parity is established.
+        os: [ubuntu-latest, macos-14]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     env:
       EA_ONNX_MODEL_DIR: ${{ github.workspace }}/models/e5-small-int8
     steps:
@@ -255,7 +263,7 @@ jobs:
   # small int8 model is not trusted to resolve every homonym: a bare query
   # "Наг" ranks the dog-breed document above the priest document in the local
   # probe, so the test uses an unambiguous, context-rich query instead.
-  onnx-semantic-tests:
+  onnx-retrieval-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -290,7 +298,7 @@ jobs:
             echo "available=true" >> "$GITHUB_OUTPUT"
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "::notice title=ONNX semantic model tests skipped::No hash-keyed model cache is available for this run. The semantic VectorIndex test skips."
+            echo "::notice title=ONNX retrieval model tests skipped::No hash-keyed model cache is available for this run. The retrieval VectorIndex tests skip."
           fi
 
       - name: Verify cached E5 model hashes
@@ -298,13 +306,13 @@ jobs:
         shell: bash
         run: bash scripts/fetch-model.sh -Model e5-small -Verify
 
-      - name: Test ONNX semantic ranking
+      - name: Test ONNX retrieval ranking
         env:
           ENTITYANALYZER_DATA_DIR: ${{ runner.temp }}/ea-onnx-semantic-profile
           EA_SEMANTIC_USER_DIR: ${{ runner.temp }}/ea-onnx-semantic-user
-        run: dotnet test tests/EntityAnalyzer.Embedders.Onnx.Tests/EntityAnalyzer.Embedders.Onnx.Tests.csproj -c Release --nologo --filter "Category=OnnxSemantic" --logger "console;verbosity=normal"
+        run: dotnet test tests/EntityAnalyzer.Embedders.Onnx.Tests/EntityAnalyzer.Embedders.Onnx.Tests.csproj -c Release --nologo --filter "Category=OnnxRetrieval" --logger "console;verbosity=normal"
 
-      - name: Report skipped semantic model tests
+      - name: Report skipped retrieval model tests
         if: steps.model.outputs.available != 'true'
         run: |
-          echo "ONNX semantic model tests skipped: model weights are absent. This is expected for a contributor PR without the cache." >> "$GITHUB_STEP_SUMMARY"
+          echo "ONNX retrieval model tests skipped: model weights are absent. This is expected for a contributor PR without the cache." >> "$GITHUB_STEP_SUMMARY"
