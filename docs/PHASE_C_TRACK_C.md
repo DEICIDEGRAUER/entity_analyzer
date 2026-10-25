@@ -282,4 +282,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-phase-c-artif
 Guard проверяет labels, meta, `phase-c-manifest.json`, corpus manifest,
 `cross-lingual-pairs.json` и embedded slice hash; private `entities_table.csv`
 и `semantic_neighbors.csv` проверяются только если переданы локально. CI
-запускает guard как отдельный шаг.
+запускает guard как отдельный шаг. SHA-сравнение принимает raw либо
+LF/CRLF-нормализованный вариант одного и того же содержимого: Git checkout
+может переписать EOL на Windows/Linux; изменение содержимого всё равно
+падает.

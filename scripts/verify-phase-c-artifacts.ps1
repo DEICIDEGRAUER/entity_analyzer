@@ -8,6 +8,10 @@
 # Optional checks (not committed, so skipped when absent):
 #   $env:EA_PHASE_C_ENTITIES_TABLE  path to the pinned phase-c-1000 entities_table.csv
 #   $env:EA_PHASE_C_OUTPUT_DIR      directory containing semantic_neighbors.csv
+#
+# Git may check out the same blob with LF or CRLF depending on platform and
+# autocrlf. Hashes therefore match the raw bytes or either pure line-ending
+# normalization; a real content edit still fails.
 
 [CmdletBinding()]
 param(
@@ -26,6 +30,41 @@ function Get-Sha256([string]$Path) {
     return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToUpperInvariant()
 }
 
+function Get-Sha256Bytes([byte[]]$Bytes) {
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $hash = $sha.ComputeHash($Bytes)
+        return ([System.BitConverter]::ToString($hash)).Replace('-', '')
+    }
+    finally {
+        $sha.Dispose()
+    }
+}
+
+function Get-EolHashVariants([string]$Path) {
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    $text = [System.Text.Encoding]::UTF8.GetString($bytes)
+    $lfText = $text.Replace("`r`n", "`n")
+    $lfHash = Get-Sha256Bytes ([System.Text.Encoding]::UTF8.GetBytes($lfText))
+    $crlfText = $lfText.Replace("`n", "`r`n")
+    $crlfHash = Get-Sha256Bytes ([System.Text.Encoding]::UTF8.GetBytes($crlfText))
+    return @($lfHash, $crlfHash)
+}
+
+function Test-ExpectedHash([string]$Path, [string]$Expected) {
+    $actual = Get-Sha256 $Path
+    if ($actual -eq $Expected.ToUpperInvariant()) {
+        return $actual
+    }
+
+    $variants = Get-EolHashVariants $Path
+    if ($variants -contains $Expected.ToUpperInvariant()) {
+        return $actual
+    }
+
+    throw "Phase C frozen artifact changed: expected $Expected, got $actual (LF/CRLF variants: $($variants -join ', '))"
+}
+
 function Assert-FileHash([string]$RelativePath, [string]$Expected, [string]$Label) {
     $path = Join-Path $root $RelativePath
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
@@ -34,11 +73,17 @@ function Assert-FileHash([string]$RelativePath, [string]$Expected, [string]$Labe
 
     $actual = Get-Sha256 $path
     if ($actual -ne $Expected.ToUpperInvariant()) {
-        throw "Phase C frozen artifact changed: $Label ($RelativePath) expected $Expected, got $actual"
+        $variants = Get-EolHashVariants $path
+        if ($variants -notcontains $Expected.ToUpperInvariant()) {
+            throw "Phase C frozen artifact changed: $Label ($RelativePath) expected $Expected, got $actual (LF/CRLF variants: $($variants -join ', '))"
+        }
+        $note = " (line-ending normalized; expected $Expected)"
+    } else {
+        $note = ''
     }
 
     $script:checks++
-    Write-Output "OK   $Label $actual"
+    Write-Output "OK   $Label $actual$note"
 }
 
 function Test-OptionalFileHash(
@@ -50,11 +95,7 @@ function Test-OptionalFileHash(
         return
     }
 
-    $actual = Get-Sha256 $Path
-    if ($actual -ne $Expected.ToUpperInvariant()) {
-        throw "Phase C frozen artifact changed: $Label expected $Expected, got $actual"
-    }
-
+    $actual = Test-ExpectedHash $Path $Expected
     $script:checks++
     Write-Output "OK   $Label $actual"
 }
