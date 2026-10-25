@@ -22,6 +22,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Committed Phase C inputs are frozen before scoring. This guard needs no
+      # model weights, private corpus, or build, and takes seconds.
+      - name: Phase C frozen artifact guard
+        shell: pwsh
+        run: pwsh -NoProfile -File ./scripts/verify-phase-c-artifacts.ps1
+
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v6
         with:

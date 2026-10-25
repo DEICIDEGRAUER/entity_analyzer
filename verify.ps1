@@ -173,6 +173,20 @@ $detail = "exit=$code; two runs identical=$($code -eq 0 -and $anchorHash.Length 
 Add-Step "smoke-corpus-anchor" $code $detail $t.Elapsed.TotalSeconds
 if ($code -ne 0) { break verify_pipeline }
 
+# ── 4a2. Phase C frozen-artifact guard ──────────────────────────────
+# Labels, run manifest, corpus-slice manifest, and cross-lingual pair fixture
+# are pinned before/after scoring. A mismatch means Phase C numbers are no
+# longer reproducible. No model or private corpus text is required.
+Mark "step4a2 phase-c-artifacts: start"
+$t = [System.Diagnostics.Stopwatch]::StartNew()
+$phaseCScript = Join-Path $root "scripts\verify-phase-c-artifacts.ps1"
+$phaseCLog = Join-Path $scratch "verify_phase_c_artifacts.log"
+$code = Run-Detached "powershell" @('-NoProfile','-ExecutionPolicy','Bypass','-File',$phaseCScript) $root $phaseCLog (Join-Path $scratch "verify_phase_c_artifacts.err.log")
+$t.Stop()
+$detail = "exit=$code; frozen labels/manifest checked (see verify_phase_c_artifacts.log)"
+Add-Step "phase-c-artifacts" $code $detail $t.Elapsed.TotalSeconds
+if ($code -ne 0) { break verify_pipeline }
+
 # ── 4b. Performance-gate (R1-14): замедление стадии > порога = провал ──
 # Эталон bench/baseline.json; при его отсутствии первый прогон фиксирует
 # эталон и остаётся зелёным (осознанное поведение Bench).

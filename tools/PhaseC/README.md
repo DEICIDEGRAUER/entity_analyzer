@@ -33,9 +33,14 @@ dotnet run --project tools/PhaseC -- `
   --out output/phase-c-1000 `
   --representation name `
   --stability-queries 100 `
-  --max-per-entity 4
+  --max-per-entity 4 `
+  --track-c-out output/phase-c-1000/track-c
 ```
 
 Labels are loaded from `test-fixtures/phase-c-corpus-1000/labels` by default;
-pass `--labels` to override. No corpus text, model weights, or ONNX packages are
-committed.
+pass `--labels` to override. `--track-c-out` is optional; it writes
+`track-c-analysis.json` with BoW/ONNX top-5 membership, script relation, and
+100-context aggregate differences. The hand classification stays in
+`docs/PHASE_C_TRACK_C.md`; the CSV contract is unchanged.
+
+No corpus text, model weights, or ONNX packages are committed.

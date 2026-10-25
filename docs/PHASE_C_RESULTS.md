@@ -35,9 +35,14 @@ full paragraph.
 Both absolute zones pass and the relative gate passes
 (`>= +0.10` P@5, `>= +0.05` nDCG@10). P@5 is at the lower edge of the `>0.65`
 win zone (exact 0.6545; n=11; one-query sensitivity is about 0.018–0.036), so
-this is a **borderline** win, not a broad generalization claim. The 11
-hard-negative anchors did not enter top-5; the closest was rank 8 for
-`pcb-05n`.
+this is a **borderline** win, not a broad generalization claim.
+
+Hard-negative check (corrected 2026-10-25 after Track C): ONNX puts no
+hard-negative anchor in top-5; its closest is `pcb-05n` at rank 8. BoW does put
+`pcb-07n` at rank 5, so the earlier blanket statement that all hard negatives
+were outside top-5 is **false for BoW**. This does not change P@5/nDCG: hard
+negatives are non-relevant anchors. It is a BoW top-5 false positive, not a
+semantic match claim.
 
 ## Supplemental entity graph
 
@@ -59,6 +64,26 @@ quality claim. The 8-pair set remains exploratory.
 - Average top-10 overlap: **37.4%**; identical top-10: 0/100.
 - Zone: **30–70% — ONNX complements BoW**; cross-lingual matching is the main
   argument, not neighborhood replacement.
+
+## Track C: что именно добавляет ONNX (post-hoc)
+
+Полный разбор: [`PHASE_C_TRACK_C.md`](PHASE_C_TRACK_C.md). Это
+интерпретация, не новый gate и не новые labels.
+
+- 8 Track A queries / 68 union rows: `both` 12, `ONNX-only` 28, `BoW-only` 28.
+- ONNX-only по поверхности: 12 cross-script и 16 intra-script. Ручная
+  классификация: **2 strong, 1 semantic, 19 topical, 6 artifact**. Все
+  strong/semantic — intra-script; cross-script ONNX-only — 10 topical и 2
+  artifact. То есть «cross-lingual» на уровне языка не равно смысловой связи.
+- BoW-only: 20/28 строк имеют score 0; из 16 cross-script строк 13 имеют
+  score 0. Три ненулевые cross-script пары — хеш-коллизии BoW, не перевод.
+- Stability: 281/374 общих top-10 слотов — BoW score 0; ещё 476/626
+  BoW-only слотов — score 0. Поэтому 37.4% overlap не является чистым
+  смысловым согласием: на ненулевых BoW-слотах общих пар 93/1000 (9.3%).
+- Primary-путь остаётся cross-lingual: 36/55 правильных попаданий, все — при
+  русском запросе и Latin candidate pool. Track A positive: 2/15, оба
+  попадания на выбранной поверхности intra-script (один alias-identity, один
+  лексический `Yogash`/`Ghoul`).
 
 ## Full-context diagnostic (not the gate)
 
@@ -87,7 +112,7 @@ scope decision is:
 | Scope | Status | Meaning |
 |---|---|---|
 | Cross-lingual extracted-name retrieval | **GO (opt-in candidate)** | `VectorIndex` + `OnnxE5Embedder` on extracted names; production candidate after labels grow to n≥30–40. |
-| Entity graph (Track A) | **NO-GO on current corpus** | n=3 positives, P@5=0.133; expand to 15–20 pairs or close. |
+| Entity graph (Track A) | **NO-GO / closed on current catalog** | n=3 positives, P@5=0.133; Track C: only 2 strong + 1 semantic among 28 ONNX-only, all alias-confounded. Do not expand to 15–20 on this catalog; reopen after alias cleanup and new frozen labels. |
 | Full-context retrieval | **NO-GO** | Confirmed E5-small long-paragraph boundary; do not solve by increasing model size. |
 | `semantic_neighbors.csv` | **EXPLORATORY** | Not an anchor, not production; recompute on every corpus/model change. |
 
@@ -95,7 +120,9 @@ n=11 is a wide sampling interval, not a precise P@5: a 20k-resample bootstrap
 over the 11 query values gives roughly **95% CI [0.45, 0.84]** (the user-side
 binomial-style estimate [0.52, 0.79] points the same way). The +0.564 delta is
 large and likely robust, but the exact P@5 is not; expand to 30–40 queries.
-Track A n=3 is not a result, only a signal; do not leave it in limbo.
+Track A n=3 is not a result, only a signal. Track C resolves the limbo: the
+current entity graph is closed, not expanded, because its few positive signals
+are confounded by alias duplication and missing labels.
 
 Operational caveat: full graph output is exploratory; rollout should be limited
 to the cross-lingual extracted-name path. The cross-lingual name path is the
@@ -112,6 +139,8 @@ part with evidence.
   SHA-256 `96C3F1BBFD9A1EB2C1898E13059A2BC83DCDFDC1E862A306D8E8BCE6A3AC2D59`).
 - `output/phase-c-1000/README.md` — explicit exploratory/provenance note next
   to the CSV.
+- `docs/PHASE_C_TRACK_C.md` — post-hoc difference analysis, hand classification,
+  hard-negative correction, and alias-contamination audit.
 - `output/phase-c-1000/phase-c-report.name.{md,json}` — primary report.
 - `output/phase-c-1000/phase-c-report.context.{md,json}` — diagnostic report.
 - `.gitignore` covers `output/`, `output/phase-c-1000/`,
@@ -131,8 +160,13 @@ dotnet run --project tools/PhaseC -- `
   --model models/e5-small-int8 `
   --manifest test-fixtures/phase-c-corpus-1000/manifest.json `
   --out output/phase-c-1000 `
-  --representation name
+  --representation name `
+  --track-c-out output/phase-c-1000/track-c
 ```
+
+The Track C sidecar is local/exploratory; `--track-c-out` is optional and does
+not alter `semantic_neighbors.csv`. Frozen inputs are checked without model
+weights by `scripts/verify-phase-c-artifacts.ps1` (also a CI step).
 
 No labels or thresholds were changed after scores were seen. The context
 diagnostic was run separately; both labels hashes are unchanged.

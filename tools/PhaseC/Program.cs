@@ -52,6 +52,7 @@ internal static class Program
                 "opencode",
                 "phase-c-eval");
         var manifestPath = options.Value("--manifest");
+        var trackCOutputDirectory = options.Value("--track-c-out");
         var stabilityQueryCount = options.IntValue("--stability-queries", 100);
         var maxPerEntity = options.IntValue("--max-per-entity", 4);
         var representationName = options.Value("--representation") ?? "name";
@@ -220,6 +221,20 @@ internal static class Program
         var stabilityQueries = SelectStabilityQueries(mentions, allCardIds, stabilityQueryCount, maxPerEntity);
         Console.WriteLine($"Evaluating top-10 stability on {stabilityQueries.Count} query contexts...");
         var (stabilityOverlap, exactOverlapCount) = Evaluator.AverageTop10EntityOverlap(bowA, onnxA, stabilityQueries);
+
+        if (trackCOutputDirectory is not null)
+        {
+            Console.WriteLine("Writing Track C difference analysis...");
+            WriteTrackCAnalysis(
+                trackALabels,
+                mentions,
+                bowA,
+                onnxA,
+                stabilityQueries,
+                candidatePoolA.Count,
+                trackALabelsSha256,
+                Path.GetFullPath(trackCOutputDirectory));
+        }
 
         var csvPath = Path.Combine(outputDirectory, "semantic_neighbors.csv");
         WriteSemanticNeighborsCsv(trackALabels, mentions, bowA, onnxA, candidatePoolA.Count, csvPath);
@@ -552,6 +567,393 @@ internal static class Program
         }
     }
 
+    private static void WriteTrackCAnalysis(
+        IReadOnlyList<LabelAnchor> labels,
+        IReadOnlyList<EntityMention> mentions,
+        Ranker bow,
+        Ranker onnx,
+        IReadOnlyList<EntityMention> stabilityQueries,
+        int candidateCount,
+        string trackALabelsSha256,
+        string outputDirectory)
+    {
+        Directory.CreateDirectory(outputDirectory);
+        var canonicalByCard = mentions
+            .GroupBy(m => m.CardId, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.First().Canonical, StringComparer.Ordinal);
+
+        var queries = new List<object>();
+        var unionRows = new List<TrackCUnionRow>();
+        foreach (var label in labels)
+        {
+            var queryMention = DataLoader.FindMention(
+                mentions,
+                label.QueryCardId,
+                label.QueryFile,
+                label.QueryContextSha256);
+            var queryText = bow.QueryText(queryMention);
+            var queryCanonical = canonicalByCard.TryGetValue(label.QueryCardId, out var canonical)
+                ? canonical
+                : label.QueryCanonical;
+            var queryScript = ScriptOf(label.QueryVariant);
+            var bowTop = BuildTrackCTopRows(bow.SearchEntities(queryText, label.QueryCardId, 5), canonicalByCard);
+            var onnxTop = BuildTrackCTopRows(onnx.SearchEntities(queryText, label.QueryCardId, 5), canonicalByCard);
+            var union = BuildTrackCUnionRows(
+                label,
+                queryCanonical,
+                queryScript,
+                bowTop,
+                onnxTop);
+            unionRows.AddRange(union);
+            queries.Add(new
+            {
+                pair_id = label.PairId,
+                query_id = label.QueryId,
+                kind = label.Kind,
+                label = label.Label,
+                query_card_id = label.QueryCardId,
+                query_canonical = queryCanonical,
+                query_variant = label.QueryVariant,
+                query_script = queryScript,
+                bow_top5 = bowTop.Select(RowJson),
+                onnx_top5 = onnxTop.Select(RowJson),
+                union = union.Select(RowJson),
+            });
+        }
+
+        var aggregate = new
+        {
+            query_count = labels.Count,
+            candidate_contexts = candidateCount,
+            union_rows = unionRows.Count,
+            both = unionRows.Count(x => x.Membership == "both"),
+            onnx_only = unionRows.Count(x => x.Membership == "onnx_only"),
+            bow_only = unionRows.Count(x => x.Membership == "bow_only"),
+            onnx_only_cross_lingual = unionRows.Count(x => x.Membership == "onnx_only" && x.LanguageRelation == "cross_lingual"),
+            onnx_only_intra_lingual = unionRows.Count(x => x.Membership == "onnx_only" && x.LanguageRelation == "intra_lingual"),
+            onnx_only_unknown = unionRows.Count(x => x.Membership == "onnx_only" && x.LanguageRelation == "unknown"),
+            bow_only_cross_lingual = unionRows.Count(x => x.Membership == "bow_only" && x.LanguageRelation == "cross_lingual"),
+            bow_only_intra_lingual = unionRows.Count(x => x.Membership == "bow_only" && x.LanguageRelation == "intra_lingual"),
+            bow_only_unknown = unionRows.Count(x => x.Membership == "bow_only" && x.LanguageRelation == "unknown"),
+            bow_zero_score_rows = unionRows.Count(x => x.BowZeroScore),
+            bow_zero_score_onnx_only = unionRows.Count(x => x.Membership == "onnx_only" && x.BowZeroScore),
+            bow_zero_score_bow_only = unionRows.Count(x => x.Membership == "bow_only" && x.BowZeroScore),
+            bow_only_cross_lingual_zero_score = unionRows.Count(x => x.Membership == "bow_only" && x.LanguageRelation == "cross_lingual" && x.BowZeroScore),
+            bow_only_cross_lingual_nonzero = unionRows.Count(x => x.Membership == "bow_only" && x.LanguageRelation == "cross_lingual" && !x.BowZeroScore),
+        };
+
+        var stability = AnalyzeStabilityDifferences(bow, onnx, stabilityQueries, canonicalByCard);
+        var analysis = new
+        {
+            schema_version = 1,
+            generated_utc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+            purpose = "Track C exploratory analysis: what ONNX and BoW contribute in top-5/top-10; not a gate and not a production output.",
+            track_a_labels_sha256 = trackALabelsSha256,
+            track_a = new
+            {
+                pair_count = labels.Count,
+                note = "8 Track A queries; top-5 per method, union deduplicated by neighbor_card_id; manual semantic classes are recorded in docs/PHASE_C_TRACK_C.md.",
+                aggregate,
+                queries,
+            },
+            stability_differences = stability,
+        };
+
+        var path = Path.Combine(outputDirectory, "track-c-analysis.json");
+        File.WriteAllText(path, JsonSerializer.Serialize(analysis, JsonOptions) + Environment.NewLine, Encoding.UTF8);
+        Console.WriteLine($"Track C analysis: {path}");
+    }
+
+    private static IReadOnlyList<TrackCTopRow> BuildTrackCTopRows(
+        IReadOnlyList<RankedEntity> ranking,
+        IReadOnlyDictionary<string, string> canonicalByCard)
+    {
+        var result = new List<TrackCTopRow>();
+        for (var i = 0; i < ranking.Count; i++)
+        {
+            var row = ranking[i];
+            result.Add(new TrackCTopRow(
+                i + 1,
+                row.CardId,
+                row.Entity,
+                canonicalByCard.TryGetValue(row.CardId, out var canonical) ? canonical : string.Empty,
+                row.Variant,
+                row.File,
+                row.Score,
+                ScriptOf(row.Variant)));
+        }
+
+        return result;
+    }
+
+    private static IReadOnlyList<TrackCUnionRow> BuildTrackCUnionRows(
+        LabelAnchor label,
+        string queryCanonical,
+        string queryScript,
+        IReadOnlyList<TrackCTopRow> bowTop,
+        IReadOnlyList<TrackCTopRow> onnxTop)
+    {
+        var bowByCard = bowTop.ToDictionary(x => x.CardId, StringComparer.Ordinal);
+        var onnxByCard = onnxTop.ToDictionary(x => x.CardId, StringComparer.Ordinal);
+        var cardIds = bowByCard.Keys
+            .Concat(onnxByCard.Keys)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(cardId => Math.Min(
+                bowByCard.TryGetValue(cardId, out var bow) ? bow.Rank : int.MaxValue,
+                onnxByCard.TryGetValue(cardId, out var onnx) ? onnx.Rank : int.MaxValue))
+            .ThenBy(cardId => cardId, StringComparer.Ordinal)
+            .ToList();
+
+        var result = new List<TrackCUnionRow>();
+        foreach (var cardId in cardIds)
+        {
+            var inBow = bowByCard.TryGetValue(cardId, out var bowRow);
+            var inOnnx = onnxByCard.TryGetValue(cardId, out var onnxRow);
+            var row = inOnnx ? onnxRow! : bowRow!;
+            var membership = inBow && inOnnx ? "both" : inOnnx ? "onnx_only" : "bow_only";
+            result.Add(new TrackCUnionRow(
+                label.PairId,
+                label.QueryId,
+                label.Kind,
+                label.Label,
+                label.QueryCardId,
+                queryCanonical,
+                label.QueryVariant,
+                queryScript,
+                cardId,
+                row.Entity,
+                row.Canonical,
+                row.Variant,
+                row.File,
+                row.Script,
+                inBow ? bowRow!.Rank : null,
+                inOnnx ? onnxRow!.Rank : null,
+                inBow ? bowRow!.Score : null,
+                inOnnx ? onnxRow!.Score : null,
+                membership,
+                LanguageRelation(queryScript, row.Script),
+                inBow && bowRow!.Score <= 0.0000001,
+                inOnnx && onnxRow!.Score <= 0.0000001));
+        }
+
+        return result;
+    }
+
+    private static object AnalyzeStabilityDifferences(
+        Ranker bow,
+        Ranker onnx,
+        IReadOnlyList<EntityMention> queries,
+        IReadOnlyDictionary<string, string> canonicalByCard)
+    {
+        const int topK = 10;
+        var both = 0;
+        var onnxOnly = 0;
+        var bowOnly = 0;
+        var onnxOnlyCross = 0;
+        var onnxOnlyIntra = 0;
+        var onnxOnlyUnknown = 0;
+        var bowOnlyCross = 0;
+        var bowOnlyIntra = 0;
+        var bowOnlyUnknown = 0;
+        var bowOnlyZeroScore = 0;
+        var bowOnlyNonzero = 0;
+        var bowOnlyCrossZeroScore = 0;
+        var bowOnlyCrossNonzero = 0;
+        var onnxOnlyZeroScore = 0;
+        var bothBowZeroScore = 0;
+        var examples = new List<object>();
+
+        foreach (var query in queries)
+        {
+            var queryText = bow.QueryText(query);
+            var queryScript = ScriptOf(query.Variant);
+            var queryCanonical = canonicalByCard.TryGetValue(query.CardId, out var canonical)
+                ? canonical
+                : string.Empty;
+            var bowTop = bow.SearchEntities(queryText, query.CardId, topK);
+            var onnxTop = onnx.SearchEntities(queryText, query.CardId, topK);
+            var bowByCard = bowTop.ToDictionary(x => x.CardId, StringComparer.Ordinal);
+            var onnxByCard = onnxTop
+                .Select((row, index) => (row, rank: index + 1))
+                .ToDictionary(x => x.row.CardId, x => x, StringComparer.Ordinal);
+            var cardIds = bowByCard.Keys.Concat(onnxByCard.Keys).Distinct(StringComparer.Ordinal);
+            foreach (var cardId in cardIds)
+            {
+                var inBow = bowByCard.TryGetValue(cardId, out var bowRow);
+                var inOnnx = onnxByCard.TryGetValue(cardId, out var onnxEntry);
+                var row = inOnnx ? onnxEntry.row : bowRow!;
+                var language = LanguageRelation(queryScript, ScriptOf(row.Variant));
+                if (inBow && inOnnx)
+                {
+                    both++;
+                    if (bowRow!.Score <= 0.0000001)
+                        bothBowZeroScore++;
+                }
+                else if (inOnnx)
+                {
+                    onnxOnly++;
+                    if (onnxEntry.row.Score <= 0.0000001)
+                        onnxOnlyZeroScore++;
+                    if (language == "cross_lingual") onnxOnlyCross++;
+                    else if (language == "intra_lingual") onnxOnlyIntra++;
+                    else onnxOnlyUnknown++;
+                    if (examples.Count < 25)
+                    {
+                        examples.Add(new
+                        {
+                            query_card_id = query.CardId,
+                            query_canonical = queryCanonical,
+                            query_variant = query.Variant,
+                            query_script = queryScript,
+                            neighbor_card_id = row.CardId,
+                            neighbor_canonical = canonicalByCard.TryGetValue(row.CardId, out var neighborCanonical)
+                                ? neighborCanonical
+                                : string.Empty,
+                            neighbor_variant = row.Variant,
+                            neighbor_script = ScriptOf(row.Variant),
+                            onnx_rank = onnxEntry.rank,
+                            onnx_score = onnxEntry.row.Score,
+                            language_relation = language,
+                        });
+                    }
+                }
+                else
+                {
+                    bowOnly++;
+                    if (bowRow!.Score <= 0.0000001)
+                        bowOnlyZeroScore++;
+                    else
+                        bowOnlyNonzero++;
+                    if (language == "cross_lingual")
+                    {
+                        bowOnlyCross++;
+                        if (bowRow.Score <= 0.0000001)
+                            bowOnlyCrossZeroScore++;
+                        else
+                            bowOnlyCrossNonzero++;
+                    }
+                    else if (language == "intra_lingual") bowOnlyIntra++;
+                    else bowOnlyUnknown++;
+                }
+            }
+        }
+
+        return new
+        {
+            query_contexts = queries.Count,
+            top_k = topK,
+            both,
+            onnx_only = onnxOnly,
+            bow_only = bowOnly,
+            onnx_only_cross_lingual = onnxOnlyCross,
+            onnx_only_intra_lingual = onnxOnlyIntra,
+            onnx_only_unknown = onnxOnlyUnknown,
+            bow_only_cross_lingual = bowOnlyCross,
+            bow_only_intra_lingual = bowOnlyIntra,
+            bow_only_unknown = bowOnlyUnknown,
+            bow_only_zero_score = bowOnlyZeroScore,
+            bow_only_nonzero = bowOnlyNonzero,
+            bow_only_cross_lingual_zero_score = bowOnlyCrossZeroScore,
+            bow_only_cross_lingual_nonzero = bowOnlyCrossNonzero,
+            onnx_only_zero_score = onnxOnlyZeroScore,
+            both_bow_zero_score = bothBowZeroScore,
+            onnx_only_cross_lingual_share = onnxOnly == 0 ? 0 : onnxOnlyCross / (double)onnxOnly,
+            bow_only_cross_lingual_share = bowOnly == 0 ? 0 : bowOnlyCross / (double)bowOnly,
+            examples,
+        };
+    }
+
+    private static string ScriptOf(string text)
+    {
+        var cyrillic = false;
+        var latin = false;
+        foreach (var character in text)
+        {
+            if (character >= '\u0400' && character <= '\u04FF')
+                cyrillic = true;
+            else if ((character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z'))
+                latin = true;
+        }
+
+        return cyrillic && latin ? "mixed"
+            : cyrillic ? "cyrillic"
+            : latin ? "latin"
+            : "other";
+    }
+
+    private static string LanguageRelation(string queryScript, string neighborScript) =>
+        (queryScript == "cyrillic" && neighborScript == "latin")
+        || (queryScript == "latin" && neighborScript == "cyrillic")
+            ? "cross_lingual"
+            : queryScript == neighborScript && queryScript is "cyrillic" or "latin"
+                ? "intra_lingual"
+                : "unknown";
+
+    private static object RowJson(TrackCTopRow row) => new
+    {
+        rank = row.Rank,
+        card_id = row.CardId,
+        entity = row.Entity,
+        canonical = row.Canonical,
+        variant = row.Variant,
+        file = row.File,
+        script = row.Script,
+        score = row.Score,
+    };
+
+    private static object RowJson(TrackCUnionRow row) => new
+    {
+        neighbor_card_id = row.CardId,
+        neighbor_entity = row.Entity,
+        neighbor_canonical = row.Canonical,
+        neighbor_variant = row.Variant,
+        neighbor_file = row.File,
+        neighbor_script = row.NeighborScript,
+        bow_rank = row.BowRank,
+        onnx_rank = row.OnnxRank,
+        score_bow = row.BowScore,
+        score_onnx = row.OnnxScore,
+        membership = row.Membership,
+        language_relation = row.LanguageRelation,
+        bow_zero_score_tie = row.BowZeroScore,
+        onnx_zero_score_tie = row.OnnxZeroScore,
+    };
+
+    private sealed record TrackCTopRow(
+        int Rank,
+        string CardId,
+        string Entity,
+        string Canonical,
+        string Variant,
+        string File,
+        double Score,
+        string Script);
+
+    private sealed record TrackCUnionRow(
+        string PairId,
+        string QueryId,
+        string Kind,
+        int Label,
+        string QueryCardId,
+        string QueryCanonical,
+        string QueryVariant,
+        string QueryScript,
+        string CardId,
+        string Entity,
+        string Canonical,
+        string Variant,
+        string File,
+        string NeighborScript,
+        int? BowRank,
+        int? OnnxRank,
+        double? BowScore,
+        double? OnnxScore,
+        string Membership,
+        string LanguageRelation,
+        bool BowZeroScore,
+        bool OnnxZeroScore);
+
+
     private static IReadOnlyList<RankedContext> TopEntities(
         IReadOnlyList<RankedContext> ranking,
         string excludeCardId,
@@ -810,7 +1212,8 @@ internal static class Program
             "Usage: dotnet run --project tools/PhaseC -- " +
             "--corpus <entities_table.csv> --catalog <codex.json> --model <model-dir> " +
             "[--labels <labels-dir>] [--out <dir>] [--manifest <manifest.json>] " +
-            "[--representation name|context] [--stability-queries 100] [--max-per-entity 4]");
+            "[--representation name|context] [--stability-queries 100] [--max-per-entity 4] " +
+            "[--track-c-out <dir>]");
     }
 
     private sealed class Options
