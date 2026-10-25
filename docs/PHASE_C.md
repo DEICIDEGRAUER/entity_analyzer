@@ -211,8 +211,15 @@ negative** cross-lingual пар. Entity graph идёт отдельным supple
   catalog aliases) в negatives **не** берутся.
 - Candidate pool — 275 Latin-script mention-строк pinned minimal-прогона
   (после `(entity, context)` уникальности). Query-строки — русские
-  mention-контексты; все кандидаты, не помеченные в 22 labels, считаются `0`
+  упоминания; все кандидаты, не помеченные в 22 labels, считаются `0`
   (closed-world для этого прогона).
+- **Представление для gate:** query text — извлечённый русский `variant`
+  (например, `Йог-Сотота`), candidate text — `variant` кандидата (например,
+  `Yog-Sothoth`). Полный `context` остаётся доказательством метки и отдельным
+  diagnostic-прогоном, но **не** решает gate: длинные описательные параграфы —
+  известный binary failure mode E5 (`EMBEDDINGS.md` §Phase C); лечение —
+  извлечение имени, а не модель больше. Это правило зафиксировано до primary
+  прогона; labels и thresholds не меняются.
 - Это текстовый трек, а не `semantic_neighbors.csv`: у одной карточки один
   `card_id`, поэтому «сосед» здесь — контекст/упоминание, а не отдельная
   карточка. Метрики те же; CSV-контракт Track A не нарушается.
@@ -243,13 +250,28 @@ negative не набираются, это HOLD и пересмотр §2, а н
 
 ## 5. Метрики и пороги (зафиксированы до первого score)
 
+### 5.0 Представление текста
+
+- **Primary (gate):** query и candidate — извлечённые `variant` (имя/алиас
+  упоминания), не полный абзац. Это то же правило, что в `EMBEDDINGS.md`:
+  длинные описательные парафразы не считаются успехом, пока имя не извлечено.
+- **Diagnostic (не gate):** полный `context` query/candidate. Он нужен, чтобы
+  показать известное ограничение E5; его числа не подменяют primary и не
+  двигают thresholds.
+- **Track A / CSV:** `query_entity_text` и `neighbor_text` — `variant`
+  сущностей; `neighbor_entity_id` — стабильный `card_id`. Полные контексты
+  остаются во входной таблице; CSV содержит только variant и scores.
+- **Stability:** query — `variant` строки; candidate pool — Track A; top-10
+  сравнивается по `neighbor_entity_id`.
+
 ### 5.1 Формулы
 
 - `Precision@5` = среднее по запросам `(#relevant в top-5) / 5`.
 - `nDCG@10` = среднее `DCG@10 / IDCG@10`; gain бинарный, `DCG = Σ rel_i /
   log2(i+1)`, `IDCG` — идеальный порядок для `min(R, 10)` релевантных.
 - Stability: `mean(|top10_bow ∩ top10_onnx| / 10)` по 100 query contexts;
-  сравнение по `neighbor_entity_id`, tie-break — ordinal `neighbor_entity_id`.
+  сравнение по `neighbor_entity_id`, tie-break — ordinal `neighbor_entity_id`;
+  candidate pool — Track A, query — извлечённый `variant`.
 - BoW и ONNX считаются на **одних и тех же** запросах, кандидатах и labels;
   сырые score не вычитаются и не калибруются между методами.
 
@@ -313,8 +335,9 @@ fail-зоны, это no-go независимо от дельты. Для Track
 
 1. Взять уникальные `(entity_id, context)` из pinned minimal-выхода (880).
 2. Отсортировать по `SHA-256(entity_id + "\0" + context)`.
-3. Жадно брать строки, пока на одну `entity_id` не набрано 4, до 100 строк.
-4. Для каждой строки — тот же query entity и candidate pool Track A; top-10
+3. Жадно брать строки в этом порядке, пока на одну `entity_id` не набрано 4,
+   до 100 строк.
+4. Для каждой строки — query `variant`, candidate pool Track A; top-10
    BoW/ONNX; overlap по `neighbor_entity_id`.
 
 Метрика называется `top10_overlap_contexts_100`; в отчёте явно указывается
