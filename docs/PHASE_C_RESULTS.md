@@ -34,9 +34,10 @@ full paragraph.
 
 Both absolute zones pass and the relative gate passes
 (`>= +0.10` P@5, `>= +0.05` nDCG@10). P@5 is at the lower edge of the `>0.65`
-win zone (n=11), so this is a **borderline** win, not a broad generalization
-claim. The 11 hard-negative anchors did not enter top-5; the closest was rank 8
-for `pcb-05n`.
+win zone (exact 0.6545; n=11; one-query sensitivity is about 0.018–0.036), so
+this is a **borderline** win, not a broad generalization claim. The 11
+hard-negative anchors did not enter top-5; the closest was rank 8 for
+`pcb-05n`.
 
 ## Supplemental entity graph
 
@@ -54,6 +55,7 @@ quality claim. The 8-pair set remains exploratory.
 - 100 query contexts, max 4 per entity (not 100 distinct entities).
 - 49 Cyrillic / 51 Latin; Track A candidate pool; entity-level comparison by
   `neighbor_entity_id`.
+- Metric: `top10_overlap_contexts_100`.
 - Average top-10 overlap: **37.4%**; identical top-10: 0/100.
 - Zone: **30–70% — ONNX complements BoW**; cross-lingual matching is the main
   argument, not neighborhood replacement.
@@ -69,7 +71,9 @@ Full mention paragraphs, same labels/candidates:
 
 This fails the absolute P@5/nDCG zones and confirms the documented E5
 long-paragraph boundary. It is **not** used for the decision; the treatment is
-extracting the entity name for retrieval, not switching model size.
+extracting the entity name for retrieval, not switching model size. The
+full-context run was diagnostic only; the primary name rule follows the earlier
+E5 boundary in `EMBEDDINGS.md`, and labels/thresholds were not changed.
 
 ## Decision
 
