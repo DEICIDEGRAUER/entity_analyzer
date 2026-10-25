@@ -1,0 +1,108 @@
+# Phase C retrieval results
+
+Дата: 2026-10-25. Labels зафиксированы **до** первого retrieval-score; хеши
+ниже. Phase C не меняет `entities_table.csv`; ONNX остаётся opt-in.
+
+## Входы
+
+- `entities_table.csv` SHA-256:
+  `1561C5949C32B3F49C32B49D66A4BCECCAE61118AB604C4EC4926F0E55337FB5`
+  (совпадает с preflight; extraction не перезапускался).
+- `labels-primary.jsonl` SHA-256:
+  `E81CBC59C14BE84A6F65A2DB9B231E358FD6F829A474CA76C2A75BFD5ADE1280`
+  (11 positive + 11 hard-negative anchors; 11 query contexts).
+- `labels-track-a.jsonl` SHA-256:
+  `F820DE0915EE563F5E1801839E664C05E8470BC061FA5DB95DCFD6CD3D0A3E85`
+  (3 positive + 5 negative supplemental pairs).
+- Manifest SHA-256 (file bytes):
+  `77D348AB5CFB13E5031EB1DBAD809DA0B7067C778E2F12BAA44725CD76BEDF6B`.
+- Candidate pools: primary — 275 Latin-script mention rows; graph — 880
+  unique `(entity, context)` rows.
+- Model: `models/e5-small-int8` (`model_int8.onnx` +
+  `sentencepiece.bpe.model`); model and tokenizer hashes are in the generated
+  JSON report.
+
+## Primary cross-lingual gate
+
+Representation: extracted `variant` (primary; see `PHASE_C.md` §5.0), not the
+full paragraph.
+
+| metric | BoW | ONNX | ONNX - BoW |
+|---|---:|---:|---:|
+| Precision@5 | 0.091 | **0.655** | +0.564 |
+| nDCG@10 | 0.084 | **0.747** | +0.662 |
+
+Both absolute zones pass and the relative gate passes
+(`>= +0.10` P@5, `>= +0.05` nDCG@10). P@5 is at the lower edge of the `>0.65`
+win zone (n=11), so this is a **borderline** win, not a broad generalization
+claim. The 11 hard-negative anchors did not enter top-5; the closest was rank 8
+for `pcb-05n`.
+
+## Supplemental entity graph
+
+| metric | BoW | ONNX | ONNX - BoW |
+|---|---:|---:|---:|
+| Precision@5 | 0.067 | 0.133 | +0.067 |
+| nDCG@10 | 0.210 | 0.477 | +0.267 |
+
+This is a 3-positive-query supplemental set. ONNX is not worse than BoW by more
+than 0.05, but absolute P@5 is low; it cannot support a general entity-graph
+quality claim. The 8-pair set remains exploratory.
+
+## Top-10 stability
+
+- 100 query contexts, max 4 per entity (not 100 distinct entities).
+- 49 Cyrillic / 51 Latin; Track A candidate pool; entity-level comparison by
+  `neighbor_entity_id`.
+- Average top-10 overlap: **37.4%**; identical top-10: 0/100.
+- Zone: **30–70% — ONNX complements BoW**; cross-lingual matching is the main
+  argument, not neighborhood replacement.
+
+## Full-context diagnostic (not the gate)
+
+Full mention paragraphs, same labels/candidates:
+
+| metric | BoW | ONNX | ONNX - BoW |
+|---|---:|---:|---:|
+| Precision@5 | 0.055 | 0.182 | +0.127 |
+| nDCG@10 | 0.075 | 0.256 | +0.181 |
+
+This fails the absolute P@5/nDCG zones and confirms the documented E5
+long-paragraph boundary. It is **not** used for the decision; the treatment is
+extracting the entity name for retrieval, not switching model size.
+
+## Decision
+
+**GO (full)** by the pre-registered `PHASE_C.md` §5.5 matrix: track B absolute +
+relative gate pass; Track A is not worse than BoW by more than 0.05; stability
+is in the complement zone.
+
+Operational caveat: the full graph output is exploratory (n=3 positives, P@5 =
+0.133), and primary P@5 is borderline. Roll out only with the extracted-name
+representation; do not present full descriptive-context or general graph
+neighborhoods as production-quality. The cross-lingual name path is the part
+with evidence.
+
+## Artifacts
+
+- `output/phase-c-1000/semantic_neighbors.csv` — exploratory entity-graph CSV
+  (union of BoW/ONNX top-5 entities; both scores on the same rows; 68 rows;
+  SHA-256 `96C3F1BBFD9A1EB2C1898E13059A2BC83DCDFDC1E862A306D8E8BCE6A3AC2D59`).
+- `output/phase-c-1000/phase-c-report.name.{md,json}` — primary report.
+- `output/phase-c-1000/phase-c-report.context.{md,json}` — diagnostic report.
+- `output/` is ignored by Git; source text stays out of the repository.
+
+## Reproduction
+
+```powershell
+dotnet run --project tools/PhaseC -- `
+  --corpus <pinned>/entities_table.csv `
+  --catalog "$env:APPDATA\EntityAnalyzer\codex.json" `
+  --model models/e5-small-int8 `
+  --manifest test-fixtures/phase-c-corpus-1000/manifest.json `
+  --out output/phase-c-1000 `
+  --representation name
+```
+
+No labels or thresholds were changed after scores were seen. The context
+diagnostic was run separately; both labels hashes are unchanged.
