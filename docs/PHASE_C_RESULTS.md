@@ -112,7 +112,7 @@ scope decision is:
 | Scope | Status | Meaning |
 |---|---|---|
 | Cross-lingual extracted-name retrieval | **GO (opt-in candidate)** | `VectorIndex` + `OnnxE5Embedder` on extracted names; production candidate after labels grow to n≥30–40. |
-| Entity graph (Track A) | **NO-GO / closed on current catalog** | n=3 positives, P@5=0.133; Track C: only 2 strong + 1 semantic among 28 ONNX-only, all alias-confounded. Do not expand to 15–20 on this catalog; reopen after alias cleanup and new frozen labels. |
+| Entity graph (Track A) | **NO-GO / closed on current catalog** | n=3 positives, P@5=0.133; Track C: only 2 strong (both alias-confounded) + 1 semantic analogy among 28 ONNX-only. Do not expand to 15–20 on this catalog; reopen after alias cleanup and new frozen labels. |
 | Full-context retrieval | **NO-GO** | Confirmed E5-small long-paragraph boundary; do not solve by increasing model size. |
 | `semantic_neighbors.csv` | **EXPLORATORY** | Not an anchor, not production; recompute on every corpus/model change. |
 
@@ -121,8 +121,8 @@ over the 11 query values gives roughly **95% CI [0.45, 0.84]** (the user-side
 binomial-style estimate [0.52, 0.79] points the same way). The +0.564 delta is
 large and likely robust, but the exact P@5 is not; expand to 30–40 queries.
 Track A n=3 is not a result, only a signal. Track C resolves the limbo: the
-current entity graph is closed, not expanded, because its few positive signals
-are confounded by alias duplication and missing labels.
+current entity graph is closed, not expanded. Its two strong signals depend on
+duplicated aliases; the rest are topical, analogy, or unlabeled candidates.
 
 Operational caveat: full graph output is exploratory; rollout should be limited
 to the cross-lingual extracted-name path. The cross-lingual name path is the
