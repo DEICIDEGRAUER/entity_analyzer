@@ -1,9 +1,10 @@
 # Phase C frozen-artifact guard.
 #
 # Pins the committed labels, run manifest, corpus-slice manifest, and cross-
-# lingual pair fixture. This is intentionally separate from the model-gated
-# evaluator: it runs in seconds, needs no corpus text or ONNX weights, and
-# fails if a frozen input was edited after the labels were scored.
+# lingual pair fixture, plus the GO/NO-GO/EXPLORATORY scope markers in
+# docs/PHASE_C.md section 5.6. This is intentionally separate from the model-
+# gated evaluator: it runs in seconds, needs no corpus text or ONNX weights, and
+# fails if a frozen input or the recorded scope decision was edited.
 #
 # Optional checks (not committed, so skipped when absent):
 #   $env:EA_PHASE_C_ENTITIES_TABLE  path to the pinned phase-c-1000 entities_table.csv
@@ -129,6 +130,47 @@ Assert-FileHash `
     'test-fixtures/phase-c-corpus-1000/cross-lingual-pairs.json' `
     '865D98328E071B760522E8F1B39264B484DFF953C9F9E883B27168E73380C289' `
     'cross-lingual-pairs.json'
+
+# Pin the operational scope markers, so an accidental docs edit cannot silently
+# turn a NO-GO back into a GO (or hide the alias-baseline caveat).
+$phaseCPath = Join-Path $root 'docs/PHASE_C.md'
+if (-not (Test-Path -LiteralPath $phaseCPath -PathType Leaf)) {
+    throw 'Missing Phase C decision document: docs/PHASE_C.md'
+}
+$phaseCText = Get-Content -LiteralPath $phaseCPath -Raw -Encoding UTF8
+$scopeMatch = [regex]::Match(
+    $phaseCText,
+    '(?ms)^### 5\.6\b.*?(?=^### 5\.7\b|^## 6\.)')
+if (-not $scopeMatch.Success) {
+    throw 'PHASE_C.md section 5.6 scope decision not found'
+}
+$scope = $scopeMatch.Value
+$scopeForMarkers = [regex]::Replace($scope, '\s+', ' ')
+$requiredScopeMarkers = @(
+    'NO-GO',
+    'ONNX cross-lingual confirmation',
+    'catalog-aware exact alias retrieval',
+    'entity graph (Track A)',
+    'full-context retrieval',
+    'semantic_neighbors.csv',
+    'EXPLORATORY',
+    'topical cross-lingual matching, not semantic entity resolution'
+)
+foreach ($marker in $requiredScopeMarkers) {
+    if (-not $scopeForMarkers.Contains($marker)) {
+        throw "PHASE_C.md section 5.6 scope decision changed: missing '$marker'"
+    }
+}
+$noGoCount = ([regex]::Matches($scopeForMarkers, 'NO-GO')).Count
+if ($noGoCount -lt 3) {
+    throw "PHASE_C.md section 5.6 must contain at least 3 NO-GO markers, found $noGoCount"
+}
+$goCount = ([regex]::Matches($scopeForMarkers, '(?<!NO-)GO')).Count
+if ($goCount -lt 1) {
+    throw "PHASE_C.md section 5.6 must contain a GO marker"
+}
+$script:checks++
+Write-Output "OK   PHASE_C.md section 5.6 scope markers ($goCount GO, $noGoCount NO-GO)"
 
 # The slice extraction input is private and not committed. Its hash is still
 # pinned in phase-c-manifest.json; check that embedded value, and check the

@@ -139,8 +139,42 @@ alias продублирован на трёх карточках.
 На ненулевых BoW-слотах общих пар 93/1000 (9.3%); это **диагностика**, не
 замена зарегистрированной метрики. 37.4% нельзя использовать как отдельное
 доказательство смыслового согласия: большая часть — случайное совпадение
-tie-break. Основное доказательство cross-lingual сценария — primary same-card
-gate, а не stability overlap.
+tie-break. Модели **orthogonal on this candidate pool**, а BoW на cross-lingual
+неинформативен; это не аргумент для гибрида, который добавил бы zero-score
+шум BoW. Основное доказательство cross-lingual сценария — primary same-card
+gate, но и он оказался alias-нормализуемым (см. §3.5).
+
+### 3.5. Alias-normalized BoW baseline
+
+Post-hoc baseline, чтобы проверить дешёвую альтернативу ONNX. Точная
+нормализация известных aliases применяется к query и candidate text;
+ambiguous aliases остаются без изменений; `query_card_id` не используется.
+Это sidecar `alias-baseline.json`, не новые labels и не изменение CSV.
+
+| method | P@5 | nDCG@10 | correct/55 |
+|---|---:|---:|---:|
+| raw BoW | 0.091 | 0.084 | 5 |
+| **alias-normalized BoW** | **0.745** | **0.897** | **41** |
+| ONNX E5-small | 0.655 | 0.747 | 36 |
+| candidate alias-expanded BoW (diagnostic) | 0.564 | 0.690 | 31 |
+
+- 10/11 query aliases резолвятся однозначно; неизвестен только `Йог-Сотота`.
+  Ambiguous query aliases нет.
+- 263/275 candidate aliases резолвятся в собственную карточку; 9 ambiguous,
+  3 unknown.
+- `pcb-07n` у alias-normalized BoW стоит на rank 7, а не на rank 5; top-5
+  hard-negative false positive исчезает.
+- Candidate-expanded baseline — только диагностика: он добавляет aliases
+  карточки-кандидата и использует `card_id`, поэтому не является честным
+  text-only baseline.
+
+Вывод: **+0.564 — это выигрыш над raw BoW, а не над дешёвой альтернативой.**
+Exact alias normalization даёт P@5=0.745 и nDCG@10=0.897, то есть выше ONNX.
+Текущий primary set в основном состоит из точных catalog aliases; n=30–40 на
+той же поверхности подтвердит alias coverage, а не semantic retrieval.
+Поэтому ONNX confirmation поставлен на hold, а не расширяется. У cheap alias
+lookup тоже есть граница: он работает только для известных aliases и не
+проверяет парафразы, опечатки или unseen aliases.
 
 ## 4. Hard negatives
 
@@ -153,7 +187,31 @@ gate, а не stability overlap.
 - BoW: `pcb-07n` (Bast → Mordiggian) стоит на **rank 5**, то есть входит в
   top-5. Утверждение «все 11 hard negatives вне top-5» **неверно для BoW**.
   P@5/nDCG это не меняет (hard negatives нерелевантны), но это top-5 false
-  positive BoW, а не semantic match.
+  positive BoW, а не semantic match. Alias-normalized BoW ставит `pcb-07n` на
+  rank 7 и тоже не даёт top-5 false positive.
+
+### 4.1. Intra-lingual negative reconciliation
+
+Primary hard negatives — cross-lingual по построению (русский query, Latin
+neighbor). Отдельно проверим 5 Track A negative-пар: если ONNX избегает
+hard negatives и intra-lingual, это был бы независимый сигнал semantic
+discrimination. Данные этого не показывают.
+
+| pair | query → neighbor | language | BoW top-5 | ONNX top-5 |
+|---|---|---|---|---|
+| pca-04n | Dark Star → Yog-Sothoth | intra | no | no |
+| pca-05n | Туманом → Creator God / Magnum Tenebrosum | cross | rank 3 | rank 4 |
+| pca-06n | The Black Sun → Black Lotus / Liao | intra | rank 1 | rank 3 |
+| pca-07n | Ghoul → Tcho-Tcho | intra | no | no |
+| pca-08n | Yog-Sothoth → Ubbo-Sathla | intra | no | **rank 3** |
+
+Итог: BoW hits 2/5, ONNX hits 3/5; ONNX **добавляет** intra-lingual false
+positive `pca-08n` на rank 3. `pca-05n`/`pca-06n` — false positives у обеих
+моделей, `pca-04n`/`pca-07n` — ни у одной. Значит, primary hard-negative
+correction нельзя использовать как доказательство отдельной
+negative-avoidance способности ONNX: на intra-lingual парах ONNX не лучше, а
+на одном примере хуже. Это согласуется с topical-интерпретацией, а не
+отменяет её.
 
 ## 5. Alias-загрязнение каталога
 
@@ -181,9 +239,13 @@ gate, а не stability overlap.
 - Поэтому graph-метрики на этом каталоге нельзя расширять до 15–20 пар без
   предварительной чистки aliases: рост n увеличит не сигнал, а alias-шум.
 
-Primary same-card gate страдает меньше: relevance — это `card_id`, а не
-конкретный alias. Поэтому P@5 primary остаётся валидным; но alias-шум надо
-учитывать при интерпретации любых graph-выходов.
+Primary same-card gate оказался alias-confounded сильнее, чем казалось:
+relevance — это `card_id`, но query и candidates в текущем frozen set в
+основном являются точными aliases каталога. Alias-normalized BoW резолвит 10/11
+queries и даёт P@5=0.745 > ONNX 0.655. Поэтому число 36/55 нельзя читать как
+независимое доказательство semantic superiority; оно совместимо с exact alias
+coverage. Alias-дубли (32 строки на ≥2 карточках) остаются блокером для нового
+primary set и для graph-выходов.
 
 ## 6. Ручная таблица ONNX-only (28)
 
@@ -223,23 +285,30 @@ Primary same-card gate страдает меньше: relevance — это `card
 
 ## 7. Интерпретация и решение
 
-1. **Primary cross-lingual same-card retrieval:** evidence remains. Track C не
-   нашёл причины отменять GO-кандидат. Нужны 30–40 новых frozen labels, потому
-   что n=11 даёт широкий CI; текущий P@5 не production-число. Это
-   **подтверждение** primary-сценария, а не expansion за счёт intra-lingual
-   шума.
+1. **ONNX primary cross-lingual confirmation:** **NO-GO / on hold.** Track C
+   не отменяет pre-registered matrix verdict, но alias-normalized BoW уже
+   даёт P@5=0.745 / nDCG@10=0.897 против ONNX 0.655 / 0.747. n=30–40 на этом
+   же alias-based сценарии не нужен: он подтвердит alias coverage, а не
+   semantic retrieval. Cheap exact alias lookup — более дешёвый кандидат для
+   известных aliases; ONNX остаётся opt-in research path.
 2. **Intra-lingual semantic сценарий:** сигнала мало. 2 strong + 1 semantic на
    28 ONNX-only; оба strong alias-зависимы, semantic — атрибутивная аналогия.
-   Это не 30–40% сценария и не основание для production graph.
+   Это не 30–40% сценария и не основание для production graph. Intra-lingual
+   negative `pca-08n` ONNX ставит в top-5, так что отрицательный сигнал тоже
+   не даёт отдельной способности.
 3. **Entity graph (Track A):** **NO-GO / closed на текущем каталоге.** Не
    расширять до 15–20 пар. Сначала почистить aliases и убрать дубли, затем
    новый frozen graph-label set; только после этого — новая попытка.
 4. **BoW cross-lingual signal:** в Track A его нет. Cross-script BoW-only —
    score 0 или хеш-коллизии; 37.4% overlap нельзя читать без поправки на
-   757/1000 нулевых BoW-слотов. Primary BoW P@5=0.091 — одна query из 11;
-   Track C не объясняет её как перевод и не использует для cross-lingual
-   вывода.
-5. **`semantic_neighbors.csv`:** остаётся exploratory. Track C не добавляет
+   757/1000 нулевых BoW-слотов. Raw BoW P@5=0.091 не является единственной
+   дешёвой альтернативой: alias-normalized BoW = 0.745. Гибрид raw BoW+ONNX не
+   обоснован: модели orthogonal, а BoW на cross-lingual неинформативен.
+5. **Следующий корректный эксперимент:** сначала alias cleanup, затем новый
+   frozen set из 30–40 запросов, которые **не являются точными catalog
+   aliases** (парафразы, опечатки, unseen aliases). Только если ONNX выиграет
+   у alias-normalized BoW на этом остатке, возвращаться к confirmation.
+6. **`semantic_neighbors.csv`:** остаётся exploratory. Track C не добавляет
    новый CSV и не меняет контракт
    `query_entity_id;query_entity_text;rank;neighbor_entity_id;neighbor_text;score_bow;score_onnx`.
 
@@ -252,6 +321,9 @@ Primary same-card gate страдает меньше: relevance — это `card
   карточки; alias-дубли могут менять поверхность.
 - Negative labels утверждают отсутствие связи только для конкретной пары, не
   для всех соседей. ONNX-only у negative query — unlabeled, не false positive.
+- Alias-normalized baseline использует только точные известные aliases и не
+  проверяет unseen aliases/парафразы; его нельзя переносить на открытый набор
+  без нового frozen label set.
 - Каталог private; отчёт фиксирует counts и имена, но не выкладывает aliases
   целиком и не переносит source contexts.
 
@@ -267,11 +339,13 @@ dotnet run --project tools/PhaseC -- `
   --representation name `
   --stability-queries 100 `
   --max-per-entity 4 `
-  --track-c-out <local-output>\track-c
+  --track-c-out <local-output>\track-c `
+  --alias-baseline-out <local-output>
 ```
 
-`track-c-analysis.json` остаётся локальным (output/ ignored); default CSV
-проверен побайтово: `96C3F1BBFD9A1EB2C1898E13059A2BC83DCDFDC1E862A306D8E8BCE6A3AC2D59`.
+`track-c-analysis.json` и `alias-baseline.json` остаются локальными (output/
+ignored); default CSV проверен побайтово:
+`96C3F1BBFD9A1EB2C1898E13059A2BC83DCDFDC1E862A306D8E8BCE6A3AC2D59`.
 
 Frozen artifacts:
 
@@ -280,9 +354,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-phase-c-artif
 ```
 
 Guard проверяет labels, meta, `phase-c-manifest.json`, corpus manifest,
-`cross-lingual-pairs.json` и embedded slice hash; private `entities_table.csv`
-и `semantic_neighbors.csv` проверяются только если переданы локально. CI
-запускает guard как отдельный шаг. SHA-сравнение принимает raw либо
-LF/CRLF-нормализованный вариант одного и того же содержимого: Git checkout
-может переписать EOL на Windows/Linux; изменение содержимого всё равно
-падает.
+`cross-lingual-pairs.json`, embedded slice hash и scope-маркеры
+`PHASE_C.md` §5.6; private `entities_table.csv` и `semantic_neighbors.csv`
+проверяются только если переданы локально. CI запускает guard как отдельный
+шаг. SHA-сравнение принимает raw либо LF/CRLF-нормализованный вариант одного
+и того же содержимого: Git checkout может переписать EOL на Windows/Linux;
+изменение содержимого всё равно падает.

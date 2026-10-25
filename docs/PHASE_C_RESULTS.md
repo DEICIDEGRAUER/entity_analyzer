@@ -35,7 +35,9 @@ full paragraph.
 Both absolute zones pass and the relative gate passes
 (`>= +0.10` P@5, `>= +0.05` nDCG@10). P@5 is at the lower edge of the `>0.65`
 win zone (exact 0.6545; n=11; one-query sensitivity is about 0.018–0.036), so
-this is a **borderline** win, not a broad generalization claim.
+this is a **borderline** win, not a broad generalization claim. It is a win over
+**raw** BoW only: the alias-normalized BoW baseline below reaches 0.745 and
+removes the ONNX advantage on this benchmark.
 
 Hard-negative check (corrected 2026-10-25 after Track C): ONNX puts no
 hard-negative anchor in top-5; its closest is `pcb-05n` at rank 8. BoW does put
@@ -43,6 +45,36 @@ hard-negative anchor in top-5; its closest is `pcb-05n` at rank 8. BoW does put
 were outside top-5 is **false for BoW**. This does not change P@5/nDCG: hard
 negatives are non-relevant anchors. It is a BoW top-5 false positive, not a
 semantic match claim.
+
+### Alias-normalized BoW baseline (post-hoc, 2026-10-25)
+
+Exact known-catalog-alias normalization was applied to both query and candidate
+text; ambiguous aliases were left unchanged and `query_card_id` was not used.
+This is the cheap alternative that must be beaten before spending a day on
+30–40 new labels.
+
+| method | P@5 | nDCG@10 | correct/55 |
+|---|---:|---:|---:|
+| raw BoW | 0.091 | 0.084 | 5 |
+| **alias-normalized BoW** | **0.745** | **0.897** | **41** |
+| ONNX E5-small | 0.655 | 0.747 | 36 |
+| candidate alias-expanded BoW (diagnostic) | 0.564 | 0.690 | 31 |
+
+- 10/11 query aliases resolve uniquely; only `Йог-Сотота` is unknown. No query
+  alias is ambiguous.
+- 263/275 candidate aliases resolve uniquely to their own card; 9 are ambiguous
+  and 3 unknown.
+- Alias-normalized BoW moves `pcb-07n` from rank 5 to rank 7 and adds no top-5
+  hard negative.
+- The candidate-expanded variant is diagnostic only: it uses candidate
+  `card_id` metadata and is not a fair text-only baseline.
+
+Consequence: on this benchmark ONNX does not beat a cheap alias-normalized BoW.
+The headline `+0.564` is a gain over **raw** BoW, not over the cheap alternative.
+The current primary labels are largely exact catalog aliases, so n=30–40 on the
+same surface would measure alias coverage, not semantic retrieval. The n=30–40
+confirmation is therefore cancelled until alias cleanup and a new frozen
+non-alias/paraphrase set exists.
 
 ## Supplemental entity graph
 
@@ -62,8 +94,11 @@ quality claim. The 8-pair set remains exploratory.
   `neighbor_entity_id`.
 - Metric: `top10_overlap_contexts_100`.
 - Average top-10 overlap: **37.4%**; identical top-10: 0/100.
-- Zone: **30–70% — ONNX complements BoW**; cross-lingual matching is the main
-  argument, not neighborhood replacement.
+- This is **not** evidence that the two methods complement each other. 281/374
+  shared slots have BoW score 0, and only 93/1000 slots (9.3%) are shared with a
+  nonzero BoW score. The models are **orthogonal on this candidate pool**, and
+  BoW is uninformative on cross-lingual queries. A hybrid is not justified by
+  this overlap; it would mostly add BoW zero-score tie noise.
 
 ## Track C: что именно добавляет ONNX (post-hoc)
 
@@ -84,6 +119,16 @@ quality claim. The 8-pair set remains exploratory.
   русском запросе и Latin candidate pool. Track A positive: 2/15, оба
   попадания на выбранной поверхности intra-script (один alias-identity, один
   лексический `Yogash`/`Ghoul`).
+- Primary BoW hard-negative false positive (`pcb-07n` at rank 5) disappears
+  after alias normalization (rank 7); ONNX also has no primary top-5 hard
+  negative. But this is not a general negative-avoidance advantage: on Track A
+  intra-lingual negative pairs ONNX puts `pca-08n` (Yog-Sothoth → Ubbo-Sathla)
+  at rank 3, `pca-06n` at rank 3, and `pca-05n` at rank 4, while BoW misses
+  `pca-08n` and `pca-04n`/`pca-07n`. The intra-lingual evidence therefore does
+  not support a separate ONNX hard-negative skill.
+- Exact-alias-normalized BoW P@5=0.745 / nDCG@10=0.897 beats ONNX
+  0.655 / 0.747. This changes the primary decision from "GO for confirmation" to
+  **no n=30–40 confirmation on the current alias-based surface**.
 
 ## Full-context diagnostic (not the gate)
 
@@ -104,29 +149,45 @@ E5 boundary in `EMBEDDINGS.md`, and labels/thresholds were not changed.
 
 **Matrix verdict: GO (full)** by the pre-registered `PHASE_C.md` §5.5 matrix:
 Track B absolute + relative gate pass; Track A is not worse than BoW by more
-than 0.05; stability is in the complement zone.
+than 0.05; stability is in the registered 30–70% zone.
 
-`GO (full)` here is a matrix result, **not** “everything works”. The fixed
-scope decision is:
+`GO (full)` here is a matrix result, **not** “everything works”, and it is not
+rewritten retroactively. The post-hoc alias baseline changes the operational
+scope:
 
 | Scope | Status | Meaning |
 |---|---|---|
-| Cross-lingual extracted-name retrieval | **GO (opt-in candidate)** | `VectorIndex` + `OnnxE5Embedder` on extracted names; production candidate after labels grow to n≥30–40. |
+| ONNX cross-lingual confirmation | **NO-GO / on hold** | Alias-normalized BoW P@5=0.745 / nDCG@10=0.897 beats ONNX 0.655 / 0.747. Do not spend n=30–40 on the same alias-based surface; this would confirm alias coverage, not semantic retrieval. |
+| Catalog-aware exact alias retrieval | **GO (cheap baseline)** | Known aliases can be retrieved with exact normalization; it is cheaper than ONNX. Requires alias cleanup and is not evidence of semantic entity resolution. |
 | Entity graph (Track A) | **NO-GO / closed on current catalog** | n=3 positives, P@5=0.133; Track C: only 2 strong (both alias-confounded) + 1 semantic analogy among 28 ONNX-only. Do not expand to 15–20 on this catalog; reopen after alias cleanup and new frozen labels. |
 | Full-context retrieval | **NO-GO** | Confirmed E5-small long-paragraph boundary; do not solve by increasing model size. |
 | `semantic_neighbors.csv` | **EXPLORATORY** | Not an anchor, not production; recompute on every corpus/model change. |
 
+`GO` for catalog alias retrieval means **topical cross-lingual matching, not
+semantic entity resolution**. The benchmark's queries are largely exact aliases
+from the same catalog used to resolve them; that is why the cheap baseline is
+strong on this set.
+
+Preconditions before reopening ONNX confirmation: (1) catalog alias cleanup;
+(2) alias-normalized BoW baseline (done, 0.745 > 0.655); (3) a new frozen set of
+non-alias paraphrases/typos/unseen aliases where exact alias lookup is not a
+trivial solution. Only if ONNX beats the alias baseline on that residual is
+n≥30–40 justified.
+
 n=11 is a wide sampling interval, not a precise P@5: a 20k-resample bootstrap
 over the 11 query values gives roughly **95% CI [0.45, 0.84]** (the user-side
-binomial-style estimate [0.52, 0.79] points the same way). The +0.564 delta is
-large and likely robust, but the exact P@5 is not; expand to 30–40 queries.
-Track A n=3 is not a result, only a signal. Track C resolves the limbo: the
-current entity graph is closed, not expanded. Its two strong signals depend on
-duplicated aliases; the rest are topical, analogy, or unlabeled candidates.
+binomial-style estimate [0.52, 0.79] points the same way). The raw-BoW delta is
+large, but the exact ONNX P@5 is not; more importantly, the cheap alias baseline
+already exceeds ONNX, so enlarging this set would not answer the remaining
+question. Track A n=3 is not a result, only a signal. Track C resolves the
+limbo: the current entity graph is closed, not expanded. Its two strong signals
+depend on duplicated aliases; the rest are topical, analogy, or unlabeled
+candidates.
 
-Operational caveat: full graph output is exploratory; rollout should be limited
-to the cross-lingual extracted-name path. The cross-lingual name path is the
-part with evidence.
+Operational caveat: use exact alias lookup for known aliases; ONNX remains an
+opt-in research path for the residual (paraphrase/unseen alias) scenario. No
+residual advantage has been demonstrated, so do not make ONNX default or ship
+it as semantic search.
 
 ## Artifacts
 
@@ -140,7 +201,10 @@ part with evidence.
 - `output/phase-c-1000/README.md` — explicit exploratory/provenance note next
   to the CSV.
 - `docs/PHASE_C_TRACK_C.md` — post-hoc difference analysis, hand classification,
-  hard-negative correction, and alias-contamination audit.
+  alias-normalized BoW baseline, hard-negative correction, and
+  alias-contamination audit.
+- `output/phase-c-1000/alias-baseline.json` — optional local sidecar from
+  `--alias-baseline-out`; not committed and not part of the CSV contract.
 - `output/phase-c-1000/phase-c-report.name.{md,json}` — primary report.
 - `output/phase-c-1000/phase-c-report.context.{md,json}` — diagnostic report.
 - `.gitignore` covers `output/`, `output/phase-c-1000/`,
@@ -161,12 +225,14 @@ dotnet run --project tools/PhaseC -- `
   --manifest test-fixtures/phase-c-corpus-1000/manifest.json `
   --out output/phase-c-1000 `
   --representation name `
-  --track-c-out output/phase-c-1000/track-c
+  --track-c-out output/phase-c-1000/track-c `
+  --alias-baseline-out output/phase-c-1000
 ```
 
-The Track C sidecar is local/exploratory; `--track-c-out` is optional and does
-not alter `semantic_neighbors.csv`. Frozen inputs are checked without model
-weights by `scripts/verify-phase-c-artifacts.ps1` (also a CI step).
+The Track C and alias-baseline sidecars are local/exploratory; both options are
+optional and do not alter `semantic_neighbors.csv`. Frozen inputs are checked
+without model weights by `scripts/verify-phase-c-artifacts.ps1` (also a CI
+step), which also pins the scope markers in `PHASE_C.md` §5.6.
 
 No labels or thresholds were changed after scores were seen. The context
 diagnostic was run separately; both labels hashes are unchanged.

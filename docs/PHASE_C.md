@@ -327,13 +327,20 @@ fail-зоны, это no-go независимо от дельты. Для Track
 
 ### 5.6 Зафиксированное scope-решение (2026-10-25)
 
-Матрица §5.5 определяет результат gate, а не production SLO. Фактический
-scope после Phase C:
+Матрица §5.5 определяет результат pre-registered gate, а не production SLO.
+Post-hoc проверки изменили operational scope: alias-normalized BoW baseline
+(§5.7) оказался лучше ONNX на текущем primary set.
 
-- **GO — cross-lingual extracted-name retrieval, opt-in.** `VectorIndex` +
-  `OnnxE5Embedder` на извлечённых `variant` — production-кандидат после
-  расширения primary labeled set до **n≥30–40** запросов. Текущие n=11 и
-  P@5=0.6545 — широкая оценка, не число для SLO.
+- **NO-GO — ONNX cross-lingual confirmation on the current benchmark.**
+  Точная alias-normalization BoW даёт P@5=0.745 / nDCG@10=0.897 против
+  ONNX 0.655 / 0.747. Расширять n до 30–40 на этом же alias-based сценарии
+  нельзя: это подтвердит alias coverage каталога, а не semantic advantage.
+  ONNX не становится default; текущий primary P@5 не production-число.
+- **GO — catalog-aware exact alias retrieval, as a cheap baseline.** Это не
+  ONNX и не semantic entity resolution. При наличии известных aliases exact
+  lookup/canonicalization — более дешёвый кандидат; перед production-решением
+  нужны alias cleanup и проверка на запросах, которые не являются точными
+  catalog aliases.
 - **NO-GO — entity graph (Track A), закрыт на текущем каталоге.** На текущем
   корпусе n=3 positive, P@5=0.133. Track C (2026-10-25) нашёл лишь 2 strong +
   1 semantic среди 28 ONNX-only; оба strong confounded alias-дублями каталога,
@@ -347,9 +354,57 @@ scope после Phase C:
   пересчитывать при каждом изменении корпуса, каталога, labels, модели или
   представления.
 
+`GO` here means **topical cross-lingual matching, not semantic entity
+resolution**. Even if a future ONNX path returns, the claim is limited to
+name/topic matching; semantic identity is not demonstrated.
+
+**Preconditions before any n≥30–40 labels (all must hold before reopening
+ONNX confirmation):**
+
+1. Alias cleanup/deduplication in the catalog: 32 alias strings still belong to
+   ≥2 cards, so ground truth for a larger set is alias-confounded.
+2. Alias-normalized BoW baseline on the current frozen set: **done, §5.7**;
+   P@5=0.745 > ONNX 0.655. This already removes the justification for the
+   same-card n=30–40 confirmation.
+3. A new frozen set of queries that are **not exact catalog aliases**
+   (paraphrase, typo, unseen alias), with labels fixed before scoring. Reopen
+   ONNX confirmation only if it beats the alias-normalized baseline there.
+
 Track C также показал, что 37.4% top-10 overlap нельзя читать как чистое
-смысловое согласие: 281/374 общих слотов — BoW score 0. Детали:
-`docs/PHASE_C_TRACK_C.md`.
+смысловое согласие: 281/374 общих слотов — BoW score 0; на ненулевых слотах
+пересечение 93/1000 (9.3%). Модели **orthogonal on this candidate pool**, а BoW
+на cross-lingual неинформативен; «complement» здесь не означает, что гибрид
+улучшит результат. Детали: `docs/PHASE_C_TRACK_C.md`.
+
+### 5.7 Alias-normalized BoW baseline (post-hoc, 2026-10-25)
+
+Это **не новый gate и не новые labels**. Точная нормализация известных
+catalog aliases применяется к query и candidate text; ambiguous aliases
+остаются без изменений, `query_card_id` не используется. Baseline отвечает на
+вопрос: «сколько даёт дешёвая alias-normalization без ONNX?»
+
+| method | P@5 | nDCG@10 | correct/55 |
+|---|---:|---:|---:|
+| raw BoW | 0.091 | 0.084 | 5 |
+| **alias-normalized BoW** | **0.745** | **0.897** | **41** |
+| ONNX E5-small | 0.655 | 0.747 | 36 |
+| candidate alias-expanded BoW (diagnostic upper bound) | 0.564 | 0.690 | 31 |
+
+- Query aliases: 10/11 resolve uniquely, 1 unknown (`Йог-Сотота`); no query was
+  ambiguous. Candidates: 263/275 resolve uniquely to their own card, 9 are
+  ambiguous, 3 unknown.
+- Alias-normalized BoW also moves `pcb-07n` from rank 5 to rank 7; it does not
+  add a top-5 hard negative.
+- Candidate alias-expanded BoW is a diagnostic only: it augments candidate text
+  with aliases of its card and therefore uses card metadata; it is not a fair
+  text-only baseline.
+
+Вывод: на текущем benchmark ONNX **не побеждает** дешёвую
+alias-normalization; его преимущество над raw BoW — в основном покрытие
+известных aliases. Это не доказывает, что semantic retrieval не нужен; это
+доказывает, что текущий primary set не отделяет semantic retrieval от alias
+lookup. Поэтому n=30–40 на той же поверхности отменён до новой
+non-alias/paraphrase постановки и alias cleanup.
 
 Manifest прогона и хеши: `test-fixtures/phase-c-corpus-1000/phase-c-manifest.json`.
 Отчёт: `docs/PHASE_C_RESULTS.md`.
@@ -386,19 +441,30 @@ overlap не меняется.
   модели или ONNX-пакеты в публичный Git.
 - Не расширяется модель до e5-base/granite ради длинных парафраз: это
   отдельный binary failure mode, лечение — представление запроса.
+- Alias-normalized baseline использует точные известные aliases; он не
+  проверяет unseen aliases, опечатки и парафразы. Его высокая P@5 — свойство
+  текущего frozen set, а не общая оценка alias lookup.
 - `semantic_neighbors.csv` — exploratory, не anchor и не production-выход.
 
 ## 8. Следующие шаги
 
-1. **Cross-lingual labels:** расширить primary set с 11 до 30–40 запросов;
-   только после этого P@5 можно называть числом, а не широкой оценкой. Новый
-   набор замораживается до просмотра score; старые labels не переписываются.
-2. **Entity graph:** закрыт на текущем каталоге. Не расширять до 15–20 пар,
+1. **Alias cleanup:** убрать/разрешить 32 alias-строки, принадлежащие ≥2
+   карточкам, и зафиксировать владельца каждого alias. Это блокер и для
+   entity graph, и для любого нового primary set; без него ground truth
+   остаётся alias-confounded.
+2. **Новый non-alias primary set:** после cleanup собрать 30–40 запросов,
+   которые **не являются точными catalog aliases**: парафразы, опечатки,
+   unseen aliases. Заморозить labels до scoring и сравнить ONNX с
+   alias-normalized BoW и exact alias lookup. Только если ONNX выигрывает на
+   этом остатке, обсуждать n≥30–40 confirmation и production-интеграцию.
+   Текущий same-card n=30–40 **отменён**: alias baseline уже даёт 0.745.
+3. **Entity graph:** закрыт на текущем каталоге. Не расширять до 15–20 пар,
    пока aliases не почищены: 32 alias-строки дублируются между карточками,
    включая `Father of Ghouls` (3 карточки) и `Cxaxukluth` (2 карточки).
    После очистки — новый frozen graph-label set, затем 15–20 пар.
-3. **Stability:** Track C выполнен; 37.4% overlap содержит 281/374 общих
+4. **Stability:** Track C выполнен; 37.4% overlap содержит 281/374 общих
    слотов с BoW score 0. Для будущих сравнений считать также overlap только
    на ненулевых BoW-слотах, не заменяя зарегистрированную метрику.
-4. Production-интеграция `VectorIndex` + `OnnxE5Embedder` на extracted names —
-   только после n≥30–40 и отдельного opt-in решения.
+5. Production-интеграция `VectorIndex` + `OnnxE5Embedder` на extracted names —
+   только после отдельного opt-in решения и нового non-alias evidence;
+   текущий результат недостаточен, чтобы её оправдать.

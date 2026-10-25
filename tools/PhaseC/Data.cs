@@ -4,7 +4,11 @@ using System.Text.RegularExpressions;
 
 namespace PhaseC;
 
-internal sealed record CodexEntry(string Id, string Name, string Canonical);
+internal sealed record CodexEntry(
+    string Id,
+    string Name,
+    string Canonical,
+    IReadOnlyList<string> Aliases);
 
 internal sealed record EntityMention(
     string CardId,
@@ -60,7 +64,16 @@ internal static class DataLoader
                 && canonicalElement.ValueKind == JsonValueKind.String
                 ? canonicalElement.GetString() ?? string.Empty
                 : string.Empty;
-            result[name] = new CodexEntry(id, name, canonical);
+            var aliases = card.TryGetProperty("aliases", out var aliasesElement)
+                && aliasesElement.ValueKind == JsonValueKind.Array
+                ? aliasesElement.EnumerateArray()
+                    .Where(x => x.ValueKind == JsonValueKind.String)
+                    .Select(x => x.GetString() ?? string.Empty)
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray()
+                : [];
+            result[name] = new CodexEntry(id, name, canonical, aliases);
         }
 
         return result;

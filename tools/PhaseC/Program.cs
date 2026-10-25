@@ -53,6 +53,7 @@ internal static class Program
                 "phase-c-eval");
         var manifestPath = options.Value("--manifest");
         var trackCOutputDirectory = options.Value("--track-c-out");
+        var aliasBaselineOutputDirectory = options.Value("--alias-baseline-out");
         var stabilityQueryCount = options.IntValue("--stability-queries", 100);
         var maxPerEntity = options.IntValue("--max-per-entity", 4);
         var representationName = options.Value("--representation") ?? "name";
@@ -234,6 +235,20 @@ internal static class Program
                 candidatePoolA.Count,
                 trackALabelsSha256,
                 Path.GetFullPath(trackCOutputDirectory));
+        }
+
+        if (aliasBaselineOutputDirectory is not null)
+        {
+            Console.WriteLine("Evaluating alias-normalized BoW baseline...");
+            WriteAliasBaseline(
+                codex,
+                candidatePoolB,
+                mentions,
+                primaryPositive,
+                primaryHardNegative,
+                bowBSummary,
+                onnxBSummary,
+                Path.GetFullPath(aliasBaselineOutputDirectory));
         }
 
         var csvPath = Path.Combine(outputDirectory, "semantic_neighbors.csv");
@@ -565,6 +580,29 @@ internal static class Program
                 writer.Write('\n');
             }
         }
+    }
+
+    private static void WriteAliasBaseline(
+        IReadOnlyDictionary<string, CodexEntry> codex,
+        IReadOnlyList<EntityMention> candidates,
+        IReadOnlyList<EntityMention> mentions,
+        IReadOnlyList<LabelAnchor> positiveLabels,
+        IReadOnlyList<LabelAnchor> hardNegativeLabels,
+        EvaluationSummary rawBowSummary,
+        EvaluationSummary onnxSummary,
+        string outputDirectory)
+    {
+        Directory.CreateDirectory(outputDirectory);
+        var analysis = AliasBaseline.Run(
+            codex,
+            candidates,
+            mentions,
+            positiveLabels,
+            hardNegativeLabels,
+            rawBowSummary,
+            onnxSummary);
+        var path = Path.Combine(outputDirectory, "alias-baseline.json");
+        File.WriteAllText(path, JsonSerializer.Serialize(analysis, JsonOptions) + Environment.NewLine, Encoding.UTF8);
     }
 
     private static void WriteTrackCAnalysis(
@@ -1213,7 +1251,7 @@ internal static class Program
             "--corpus <entities_table.csv> --catalog <codex.json> --model <model-dir> " +
             "[--labels <labels-dir>] [--out <dir>] [--manifest <manifest.json>] " +
             "[--representation name|context] [--stability-queries 100] [--max-per-entity 4] " +
-            "[--track-c-out <dir>]");
+            "[--track-c-out <dir>] [--alias-baseline-out <dir>]");
     }
 
     private sealed class Options

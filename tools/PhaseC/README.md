@@ -7,8 +7,9 @@ not referenced by Core, App, or Cli.
 It reads the private `entities_table.csv` and catalog, the committed labels and
 manifest, and the pinned E5 model directory. It writes results outside Git:
 
-- `semantic_neighbors.csv` — exploratory entity-graph output;
-- `phase-c-report.md` / `phase-c-report.json` — metrics, hashes, and decision.
+- `semantic_neighbors.csv` - exploratory entity-graph output;
+- `phase-c-report.md` / `phase-c-report.json` - metrics, hashes, and decision;
+- optional `alias-baseline.json` - cheap alias-normalized BoW sidecar.
 
 The input `entities_table.csv` is never modified. Run it only with the pinned
 Phase C corpus; the default expected hash rejects a different extraction.
@@ -34,7 +35,8 @@ dotnet run --project tools/PhaseC -- `
   --representation name `
   --stability-queries 100 `
   --max-per-entity 4 `
-  --track-c-out output/phase-c-1000/track-c
+  --track-c-out output/phase-c-1000/track-c `
+  --alias-baseline-out output/phase-c-1000
 ```
 
 Labels are loaded from `test-fixtures/phase-c-corpus-1000/labels` by default;
@@ -42,5 +44,10 @@ pass `--labels` to override. `--track-c-out` is optional; it writes
 `track-c-analysis.json` with BoW/ONNX top-5 membership, script relation, and
 100-context aggregate differences. The hand classification stays in
 `docs/PHASE_C_TRACK_C.md`; the CSV contract is unchanged.
+
+`--alias-baseline-out` is optional and writes `alias-baseline.json`: a cheap
+exact known-alias-normalized BoW comparison on the same labels and candidate
+pools. It does not use `query_card_id`, does not change `semantic_neighbors.csv`,
+and is a diagnostic, not a new gate.
 
 No corpus text, model weights, or ONNX packages are committed.
