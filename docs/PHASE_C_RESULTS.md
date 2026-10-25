@@ -77,24 +77,50 @@ E5 boundary in `EMBEDDINGS.md`, and labels/thresholds were not changed.
 
 ## Decision
 
-**GO (full)** by the pre-registered `PHASE_C.md` §5.5 matrix: track B absolute +
-relative gate pass; Track A is not worse than BoW by more than 0.05; stability
-is in the complement zone.
+**Matrix verdict: GO (full)** by the pre-registered `PHASE_C.md` §5.5 matrix:
+Track B absolute + relative gate pass; Track A is not worse than BoW by more
+than 0.05; stability is in the complement zone.
 
-Operational caveat: the full graph output is exploratory (n=3 positives, P@5 =
-0.133), and primary P@5 is borderline. Roll out only with the extracted-name
-representation; do not present full descriptive-context or general graph
-neighborhoods as production-quality. The cross-lingual name path is the part
-with evidence.
+`GO (full)` here is a matrix result, **not** “everything works”. The fixed
+scope decision is:
+
+| Scope | Status | Meaning |
+|---|---|---|
+| Cross-lingual extracted-name retrieval | **GO (opt-in candidate)** | `VectorIndex` + `OnnxE5Embedder` on extracted names; production candidate after labels grow to n≥30–40. |
+| Entity graph (Track A) | **NO-GO on current corpus** | n=3 positives, P@5=0.133; expand to 15–20 pairs or close. |
+| Full-context retrieval | **NO-GO** | Confirmed E5-small long-paragraph boundary; do not solve by increasing model size. |
+| `semantic_neighbors.csv` | **EXPLORATORY** | Not an anchor, not production; recompute on every corpus/model change. |
+
+n=11 is a wide sampling interval, not a precise P@5: a 20k-resample bootstrap
+over the 11 query values gives roughly **95% CI [0.45, 0.84]** (the user-side
+binomial-style estimate [0.52, 0.79] points the same way). The +0.564 delta is
+large and likely robust, but the exact P@5 is not; expand to 30–40 queries.
+Track A n=3 is not a result, only a signal; do not leave it in limbo.
+
+Operational caveat: full graph output is exploratory; rollout should be limited
+to the cross-lingual extracted-name path. The cross-lingual name path is the
+part with evidence.
 
 ## Artifacts
 
+- `test-fixtures/phase-c-corpus-1000/phase-c-manifest.json` — run manifest:
+  corpus-slice hash, full-corpus-vs-slice hash distinction, catalog, preset,
+  labels, model, metrics, scope decision, and repeat-run determinism.
+  File SHA-256: `E76DDB9F20E74D6BB1AD8B7CB879CD94C96321A733E6F6A2354278ED62703CDF`.
 - `output/phase-c-1000/semantic_neighbors.csv` — exploratory entity-graph CSV
   (union of BoW/ONNX top-5 entities; both scores on the same rows; 68 rows;
   SHA-256 `96C3F1BBFD9A1EB2C1898E13059A2BC83DCDFDC1E862A306D8E8BCE6A3AC2D59`).
+- `output/phase-c-1000/README.md` — explicit exploratory/provenance note next
+  to the CSV.
 - `output/phase-c-1000/phase-c-report.name.{md,json}` — primary report.
 - `output/phase-c-1000/phase-c-report.context.{md,json}` — diagnostic report.
-- `output/` is ignored by Git; source text stays out of the repository.
+- `.gitignore` covers `output/`, `output/phase-c-1000/`,
+  `output/**/semantic_neighbors.csv`, and `output/**/phase-c-report.*`; source
+  text stays out of the repository.
+
+Repeat check: the evaluator was run twice on the same slice and labels; the two
+`semantic_neighbors.csv` files were byte-identical
+(`96C3F1BBFD9A1EB2C1898E13059A2BC83DCDFDC1E862A306D8E8BCE6A3AC2D59`).
 
 ## Reproduction
 

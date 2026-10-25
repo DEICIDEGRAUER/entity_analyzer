@@ -325,6 +325,27 @@ fail-зоны, это no-go независимо от дельты. Для Track
   gate не выполнен; или BoW ≥ ONNX на тех же парах. «Интересные числа» не
   заменяют go/no-go.
 
+### 5.6 Зафиксированное scope-решение (2026-10-25)
+
+Матрица §5.5 определяет результат gate, а не production SLO. Фактический
+scope после Phase C:
+
+- **GO — cross-lingual extracted-name retrieval, opt-in.** `VectorIndex` +
+  `OnnxE5Embedder` на извлечённых `variant` — production-кандидат после
+  расширения primary labeled set до **n≥30–40** запросов. Текущие n=11 и
+  P@5=0.6545 — широкая оценка, не число для SLO.
+- **NO-GO — entity graph (Track A).** На текущем корпусе n=3 positive,
+  P@5=0.133; это сигнал, а не результат. Расширить до 15–20 пар или закрыть.
+- **NO-GO — full-context retrieval.** Подтверждено ограничение E5-small:
+  длинные описательные абзацы не лечатся увеличением модели; нужен extracted
+  name.
+- **EXPLORATORY — `semantic_neighbors.csv`.** Не anchor, не production;
+  пересчитывать при каждом изменении корпуса, каталога, labels, модели или
+  представления.
+
+Manifest прогона и хеши: `test-fixtures/phase-c-corpus-1000/phase-c-manifest.json`.
+Отчёт: `docs/PHASE_C_RESULTS.md`.
+
 ## 6. Stability: 100 query contexts, не 100 сущностей
 
 Причина: 37 карточек, 30 найденных сущностей. Считать 100 разных `entity_id`
@@ -345,10 +366,11 @@ fail-зоны, это no-go независимо от дельты. Для Track
 сущностей, тот же код переключается на 100 разных `entity_id`; формула
 overlap не меняется.
 
-## 7. Что не делается в этом этапе
+## 7. Ограничения этапа
 
-- Не реализуется retrieval и не считаются BoW/ONNX-скоры: сначала фиксируются
-  labels/пороги, потом код.
+- Retrieval реализован только как opt-in `tools/PhaseC`; production-интеграция
+  в Core/App/Cli не сделана, ONNX-ссылок вне `EntityAnalyzer.Embedders.Onnx`
+  нет.
 - Не используется `extended`/37-карточный fuzzy-rescue как baseline.
 - Не меняются `entities_table.csv`, smoke/полный anchor, `bench/baseline.json`,
   порог ×1.5.
@@ -356,17 +378,15 @@ overlap не меняется.
   модели или ONNX-пакеты в публичный Git.
 - Не расширяется модель до e5-base/granite ради длинных парафраз: это
   отдельный binary failure mode, лечение — представление запроса.
+- `semantic_neighbors.csv` — exploratory, не anchor и не production-выход.
 
 ## 8. Следующие шаги
 
-1. Материализовать pinned-срез из manifest во временный каталог; проверить
-   1 000/1 000 SHA-256.
-2. Зафиксировать 11 positive + 11 hard negative Track B, candidate pool 275;
-   разметить blind, записать `labels.jsonl` и хеш. Это основной набор 22.
-3. Разметить supplemental Track A (8–12 пар, иначе HOLD) blind по §3;
-   зафиксировать отдельный `labels-track-a.jsonl` и хеш.
-4. Реализовать opt-in retrieval/evaluator, не трогая Core/App/Cli и не добавляя
-   ONNX-ссылки вне `EntityAnalyzer.Embedders.Onnx`.
-5. Прогнать BoW и ONNX на одинаковых labels; посчитать P@5, nDCG@10,
-   `top10_overlap_contexts_100`; применить §5.5.
-6. Записать результат, включая no-go/hold, и только потом решать о раскатке.
+1. **Cross-lingual labels:** расширить primary set с 11 до 30–40 запросов;
+   только после этого P@5 можно называть числом, а не широкой оценкой.
+2. **Entity graph:** расширить до 15–20 пар или закрыть его как «на текущем
+   корпусе сигнала нет».
+3. **Stability:** разобрать, какие пары ONNX ставит в top-5, а BoW — нет;
+   отделить cross-lingual связи от внутриязыкового шума.
+4. Production-интеграция `VectorIndex` + `OnnxE5Embedder` на extracted names —
+   только после n≥30–40 и отдельного opt-in решения.
