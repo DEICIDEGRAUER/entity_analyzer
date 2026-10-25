@@ -1,9 +1,14 @@
-# Phase C: retrieval соседей — preflight и зафиксированные критерии
+# Phase C: retrieval соседей — критерии, результаты и scope
 
-Статус: preflight завершён, код Phase C ещё не начат. Этот документ фиксирует
-входной срез, критерий релевантности, размер labeled set, метрики и пороги
-**до** первого запуска BoW/ONNX на labeled set. Контракт CSV, метрика
-стабильности и зоны overlap уже зафиксированы в
+**Статус (2026-10-25): CLOSED — Phase C delivered the infrastructure; the
+current corpus does not justify the feature.** Preflight, historical gate и
+результаты сохранены ниже; matrix verdict `GO (full)` — не активное одобрение
+ONNX. Операционное решение: §5.6–§5.9. Пересматривать при росте разнообразия
+корпуса.
+
+Этот документ фиксирует входной срез, критерий релевантности, размер labeled
+set, метрики и пороги **до** первого запуска BoW/ONNX на labeled set. Контракт
+CSV, метрика стабильности и зоны overlap уже зафиксированы в
 [`EMBEDDINGS.md`](EMBEDDINGS.md#phase-c-контракт-semantic_neighborscsv-до-кода);
 здесь они не переписываются, а получают конкретные значения для этого прогона.
 
@@ -327,48 +332,51 @@ fail-зоны, это no-go независимо от дельты. Для Track
 
 ### 5.6 Зафиксированное scope-решение (2026-10-25)
 
-Матрица §5.5 определяет результат pre-registered gate, а не production SLO.
-Post-hoc проверки изменили operational scope: alias-normalized BoW baseline
-(§5.7) оказался лучше ONNX на текущем primary set.
+Матрица §5.5 — исторический pre-registered gate, а не production SLO и не
+активное разрешение на ONNX. Post-hoc baseline (§5.7), Track C и проверка
+парафраз (§5.8) показали: текущий primary set измеряет **alias coverage, а не
+semantic retrieval**.
 
-- **NO-GO — ONNX cross-lingual confirmation on the current benchmark.**
-  Точная alias-normalization BoW даёт P@5=0.745 / nDCG@10=0.897 против
-  ONNX 0.655 / 0.747. Расширять n до 30–40 на этом же alias-based сценарии
-  нельзя: это подтвердит alias coverage каталога, а не semantic advantage.
-  ONNX не становится default; текущий primary P@5 не production-число.
-- **GO — catalog-aware exact alias retrieval, as a cheap baseline.** Это не
-  ONNX и не semantic entity resolution. При наличии известных aliases exact
-  lookup/canonicalization — более дешёвый кандидат; перед production-решением
-  нужны alias cleanup и проверка на запросах, которые не являются точными
-  catalog aliases.
-- **NO-GO — entity graph (Track A), закрыт на текущем каталоге.** На текущем
-  корпусе n=3 positive, P@5=0.133. Track C (2026-10-25) нашёл лишь 2 strong +
-  1 semantic среди 28 ONNX-only; оба strong confounded alias-дублями каталога,
-  semantic — аналогия. Не расширять до 15–20 пар на этом каталоге. Условие
-  переоткрытия: почистить aliases, убрать дубли между карточками, заново
-  заморозить graph-labels и только затем набирать 15–20 пар.
-- **NO-GO — full-context retrieval.** Подтверждено ограничение E5-small:
-  длинные описательные абзацы не лечатся увеличением модели; нужен extracted
-  name.
-- **EXPLORATORY — `semantic_neighbors.csv`.** Не anchor, не production;
-  пересчитывать при каждом изменении корпуса, каталога, labels, модели или
-  представления.
+**CLOSED — Phase C delivered the infrastructure; the current corpus does not
+justify the feature.** Это не «ONNX on hold»: для этого корпуса результат
+завершён. Re-evaluate when corpus diversity increases.
 
-`GO` here means **topical cross-lingual matching, not semantic entity
-resolution**. Even if a future ONNX path returns, the claim is limited to
-name/topic matching; semantic identity is not demonstrated.
+| scope | status | meaning |
+|---|---|---|
+| Phase C semantic retrieval (ONNX) | **CLOSED — delivered, not currently needed** | ONNX остаётся opt-in research path, не default и не production. ONNX semantic capability remains untested on this corpus. |
+| ONNX confirmation on the current benchmark | **NO-GO** | n=30–40 на точных aliases подтвердит alias coverage, а не semantic advantage. Текущий primary P@5=0.655 — не semantic evidence. |
+| Exact alias lookup (catalog-aware) | **fallback, not a Phase C feature** | Для известных aliases exact canonicalization дешевле ONNX. Это table lookup, не retrieval и не semantic entity resolution. |
+| Entity graph (Track A) | **NO-GO / closed on current catalog** | n=3 positive, P@5=0.133. Track C (2026-10-25): лишь 2 strong + 1 semantic среди 28 ONNX-only; оба strong confounded alias-дублями, semantic — аналогия. Не расширять до 15–20 пар на этом каталоге. |
+| Full-context retrieval | **NO-GO** | Подтверждено ограничение E5-small: длинные описательные абзацы не лечатся увеличением модели; нужен extracted name. |
+| Paraphrase benchmark (30–40 non-alias) | **FAIL — feasibility** | 24/30 черновиков естественны, но только 16 имеют однозначную цель, а 10 — чистые non-alias. Чистый набор 30–40 корпус не поддерживает; labels не создавались. §5.8. |
+| `semantic_neighbors.csv` | **EXPLORATORY** | Не anchor, не production; пересчитывать при каждом изменении корпуса, каталога, labels, модели или представления. |
 
-**Preconditions before any n≥30–40 labels (all must hold before reopening
-ONNX confirmation):**
+Historical matrix verdict was **GO (full)** by §5.5. It remains a
+**topical cross-lingual matching** result, not semantic entity resolution, and
+it is not an active ONNX approval. The current benchmark measured alias
+coverage, not semantic retrieval; ONNX's semantic capability remains untested
+on this corpus. The candidate alias-expanded diagnostic (P@5=0.564) is below
+both exact normalization and ONNX, which supports the exact-matching reading
+rather than a similarity claim.
 
-1. Alias cleanup/deduplication in the catalog: 32 alias strings still belong to
-   ≥2 cards, so ground truth for a larger set is alias-confounded.
-2. Alias-normalized BoW baseline on the current frozen set: **done, §5.7**;
-   P@5=0.745 > ONNX 0.655. This already removes the justification for the
-   same-card n=30–40 confirmation.
-3. A new frozen set of queries that are **not exact catalog aliases**
-   (paraphrase, typo, unseen alias), with labels fixed before scoring. Reopen
-   ONNX confirmation only if it beats the alias-normalized baseline there.
+**Alias cleanup:** 32 alias strings still belong to ≥2 cards. This is no longer
+a Phase C precondition: the corpus does not support a clean paraphrase
+benchmark, so cleaning the catalog solely for it would not buy an answer. Move
+alias deduplication to the **entity-graph backlog** (§8); do not auto-delete
+aliases.
+
+**Reopen conditions (all must hold):**
+
+1. A larger, more diverse corpus supports at least 20 **clean** non-alias
+   paraphrase queries with one target card each; run the feasibility probe
+   again before writing labels.
+2. A new 30–40 query set is frozen before any scoring; exact aliases and
+   `query_card_id` are excluded from query construction.
+3. The pre-registered Δ thresholds in §5.9 are applied against alias-normalized
+   BoW. A marginal result (+0.10…+0.20 P@5) does not justify the complexity;
+   only > +0.20 returns ONNX to confirmation.
+4. If the new set depends on catalog ownership, aliases for the selected
+   targets are resolved and the post-cleanup catalog hash is recorded.
 
 Track C также показал, что 37.4% top-10 overlap нельзя читать как чистое
 смысловое согласие: 281/374 общих слотов — BoW score 0; на ненулевых слотах
@@ -399,15 +407,91 @@ catalog aliases применяется к query и candidate text; ambiguous ali
   with aliases of its card and therefore uses card metadata; it is not a fair
   text-only baseline.
 
+`0.745`, а не `1.0`, — это не «exact lookup почти работает»: 10/11 query
+aliases резолвятся однозначно, `Йог-Сотота` остаётся unknown, а между
+карточками есть коллизии. Но сама операция — поиск в таблице aliases, а не
+retrieval по смыслу. ONNX не может выиграть у такой таблицы на задаче «найди
+карточку по известному alias»; он может выиграть только там, где alias
+неизвестен, а смысл угадывается. Primary set этого не тестировал.
+
+Candidate alias-expanded BoW (`0.564`) ниже и exact normalization (`0.745`), и
+ONNX (`0.655`). Это информативнее, чем кажется: если добавить кандидату все его
+aliases, он становится «мешком всех своих имён», теряет различимость, а
+английский alias запроса матчится со всеми карточками, у которых есть
+английские aliases, а не с владельцем. Расширение добавляет шум сильнее, чем
+помогает cross-lingual matching. Это аргумент за точную канонизацию, а не за
+similarity.
+
 Вывод: на текущем benchmark ONNX **не побеждает** дешёвую
 alias-normalization; его преимущество над raw BoW — в основном покрытие
-известных aliases. Это не доказывает, что semantic retrieval не нужен; это
-доказывает, что текущий primary set не отделяет semantic retrieval от alias
-lookup. Поэтому n=30–40 на той же поверхности отменён до новой
-non-alias/paraphrase постановки и alias cleanup.
+известных aliases. Это не «ONNX проиграл» и не доказательство, что semantic
+retrieval не нужен. Это доказательство, что **benchmark measured alias
+coverage, not semantic retrieval**: текущий primary set не отделяет semantic
+retrieval от alias lookup, а ONNX semantic capability remains untested on this
+corpus. Поэтому n=30–40 на той же поверхности отменён; новая non-alias
+постановка проверена на feasibility в §5.8 и не поддержана корпусом.
 
 Manifest прогона и хеши: `test-fixtures/phase-c-corpus-1000/phase-c-manifest.json`.
 Отчёт: `docs/PHASE_C_RESULTS.md`.
+
+### 5.8 Paraphrase feasibility (2026-10-25, no labels)
+
+До alias cleanup и до любых n=30–40 labels проверено, может ли корпус дать
+естественные запросы, которые **не являются точными catalog aliases**.
+Это author-side feasibility probe, а не frozen set, не benchmark и не scoring.
+Локальная таблица черновиков не коммитится; drafts писались по canonical-именам
+и исходным контекстам, alias-таблица использовалась только для post-hoc
+проверки. Это **не blind annotation**: автор мог знать часть aliases; counts —
+верхняя оценка, а не измерение аннотатора.
+
+- 10 карточек выбраны по покрытию контекстами (не по aliases): top-10 по числу
+  `(entity, context)`.
+- 30 черновиков, по 3 на карточку, на русском; писались по canonical-именам и
+  исходным контекстам, без retrieval.
+- **24/30** звучат естественно. Это проходит буквальный порог «20+
+  естественных запросов», но не порог пригодного benchmark: у запроса должна
+  быть одна карточка-цель. Провал здесь не в естественности, а в
+  labelability: 8 из 24 natural имеют больше одной разумной цели.
+- **16/30** одновременно естественны и имеют однозначную цель. Остальные
+  распадаются на alias-like подсказки и на пересечения: Ghoul / Yogash the
+  Ghoul, Ubbo-Sathla / Abhoth, Plateau of Leng / Plateau of Tsang / Monks of
+  Leng, Tcho-Tcho / Plateau of Tsang, Book of Eibon / другие гримуары.
+- **10/30** естественны, однозначны и не являются alias-like. Для набора 30–40
+  пришлось бы повторяться, добавлять alias-подсказки или разрешать несколько
+  карточек на запрос.
+
+Вердикт: **FAIL для чистого paraphrase benchmark**. Корпус производит
+естественно звучащие фразы, но не 20+ чистых однозначных labels; top-10
+карточек — лучшая выборка по покрытию, у остальных контекстов меньше. No labels
+were created and no scoring was run; alias cleanup не делался ради benchmark.
+Это подтверждает границу текущего корпуса: задача — exact matching, а не
+similarity; embedding-based retrieval структурно не получает преимущества там,
+где применим exact lookup.
+
+### 5.9 Pre-registration lesson и будущие Δ-пороги
+
+**Pre-registration protected against motivated reasoning. It did not protect
+against an unmodeled cheap baseline.** §5.5 сравнил ONNX с raw BoW, но raw BoW
+на cross-lingual вариантах имён неинформативен; exact alias normalization была
+очевидной дешёвой альтернативой и появилась только post-hoc. **Future
+pre-registrations must include at least one cheap non-ML baseline (exact match,
+alias normalization, BM25) before declaring a gate.**
+
+Для любого будущего paraphrase run пороги фиксируются **до** scoring. Сравнение
+идёт с alias-normalized BoW, не с raw BoW; набор — 30–40 запросов, у каждого
+одна карточка-цель; запросы не являются точными aliases, `query_card_id` не
+используется; labels замораживаются до первого score.
+
+| Δ P@5 (ONNX − alias-normalized BoW) | решение |
+|---|---|
+| **> +0.20** | ONNX justified; вернуться к confirmation |
+| **+0.10 … +0.20** | marginal; сложность, вероятно, не оправдана |
+| **< +0.10** | not justified; Phase C остаётся closed для этого корпуса |
+
+Эти пороги записаны до любого paraphrase run; такого run не было (no such run
+has been executed), поэтому они не применялись ретроактивно. nDCG@10 остаётся
+описательной метрикой, а не вторым gate. Если feasibility снова даёт FAIL,
+пороги не запускают набор: сначала корпус, потом labels.
 
 ## 6. Stability: 100 query contexts, не 100 сущностей
 
@@ -443,28 +527,33 @@ overlap не меняется.
   отдельный binary failure mode, лечение — представление запроса.
 - Alias-normalized baseline использует точные известные aliases; он не
   проверяет unseen aliases, опечатки и парафразы. Его высокая P@5 — свойство
-  текущего frozen set, а не общая оценка alias lookup.
+  текущего frozen set, а не общая оценка alias lookup. Это table lookup, а не
+  retrieval; `0.745` не равно `1.0` из-за unknown `Йог-Сотота` и коллизий.
+- Paraphrase feasibility — author-side probe: 10 карточек × 3 черновика, один
+  reviewer, без inter-annotator agreement; это не blind annotation, автор мог
+  знать часть aliases. Counts — верхняя оценка пригодности labels, не метрика;
+  таблица черновиков локальная и не является frozen set.
 - `semantic_neighbors.csv` — exploratory, не anchor и не production-выход.
 
 ## 8. Следующие шаги
 
-1. **Alias cleanup:** убрать/разрешить 32 alias-строки, принадлежащие ≥2
-   карточкам, и зафиксировать владельца каждого alias. Это блокер и для
-   entity graph, и для любого нового primary set; без него ground truth
-   остаётся alias-confounded.
-2. **Новый non-alias primary set:** после cleanup собрать 30–40 запросов,
-   которые **не являются точными catalog aliases**: парафразы, опечатки,
-   unseen aliases. Заморозить labels до scoring и сравнить ONNX с
-   alias-normalized BoW и exact alias lookup. Только если ONNX выигрывает на
-   этом остатке, обсуждать n≥30–40 confirmation и production-интеграцию.
-   Текущий same-card n=30–40 **отменён**: alias baseline уже даёт 0.745.
-3. **Entity graph:** закрыт на текущем каталоге. Не расширять до 15–20 пар,
-   пока aliases не почищены: 32 alias-строки дублируются между карточками,
-   включая `Father of Ghouls` (3 карточки) и `Cxaxukluth` (2 карточки).
-   После очистки — новый frozen graph-label set, затем 15–20 пар.
+1. **Phase C закрыт для текущего корпуса.** Нет активного ONNX confirmation,
+   нет n=30–40 на текущей alias-based поверхности, нет production-интеграции.
+   Инфраструктура остаётся opt-in и пригодной к переиспользованию.
+2. **Reopen только при росте разнообразия корпуса.** Сначала повторить
+   feasibility (§5.8): нужны 20+ чистых non-alias запросов с одной целью.
+   Если feasibility снова FAIL — не писать labels и не чистить aliases ради
+   benchmark. Если PASS — заморозить 30–40 запросов, применить уже
+   зафиксированные Δ-пороги §5.9 и сравнить с alias-normalized BoW.
+3. **Entity graph backlog:** alias cleanup остаётся нужен **для графа**, а не
+   для Phase C. Убрать/разрешить 32 alias-строки, принадлежащие ≥2 карточкам,
+   без auto-delete; зафиксировать владельца каждого alias и post-cleanup хеш
+   каталога. Затем — новый frozen graph-label set и только потом 15–20 пар.
+   Примеры дублей: `Father of Ghouls` (3 карточки), `Cxaxukluth` (2 карточки).
 4. **Stability:** Track C выполнен; 37.4% overlap содержит 281/374 общих
    слотов с BoW score 0. Для будущих сравнений считать также overlap только
    на ненулевых BoW-слотах, не заменяя зарегистрированную метрику.
-5. Production-интеграция `VectorIndex` + `OnnxE5Embedder` на extracted names —
-   только после отдельного opt-in решения и нового non-alias evidence;
-   текущий результат недостаточен, чтобы её оправдать.
+5. **Production:** `VectorIndex` + `OnnxE5Embedder` на extracted names не
+   интегрируются. Текущий результат не оправдывает функцию; для известных
+   aliases дешевле exact lookup. Пересматривать только по условиям §5.6 и
+   после нового non-alias evidence.

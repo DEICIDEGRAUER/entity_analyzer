@@ -167,14 +167,22 @@ ambiguous aliases остаются без изменений; `query_card_id` н
 - Candidate-expanded baseline — только диагностика: он добавляет aliases
   карточки-кандидата и использует `card_id`, поэтому не является честным
   text-only baseline.
+- `0.564 < 0.655 < 0.745` информативно: расширение candidate text всеми
+  aliases делает кандидата «мешком всех своих имён», теряет различимость, а
+  английский alias запроса матчится со всеми карточками, у которых есть
+  английские aliases, а не с владельцем. Это шум, а не cross-lingual помощь;
+  аргумент за exact canonicalization, а не за similarity.
 
 Вывод: **+0.564 — это выигрыш над raw BoW, а не над дешёвой альтернативой.**
 Exact alias normalization даёт P@5=0.745 и nDCG@10=0.897, то есть выше ONNX.
-Текущий primary set в основном состоит из точных catalog aliases; n=30–40 на
-той же поверхности подтвердит alias coverage, а не semantic retrieval.
-Поэтому ONNX confirmation поставлен на hold, а не расширяется. У cheap alias
-lookup тоже есть граница: он работает только для известных aliases и не
-проверяет парафразы, опечатки или unseen aliases.
+`0.745`, а не `1.0`, ожидаемо: 10/11 query aliases резолвятся однозначно,
+`Йог-Сотота` unknown, остаются коллизии. Это всё равно table lookup, а не
+retrieval по смыслу. Текущий primary set в основном состоит из точных catalog
+aliases; n=30–40 на той же поверхности подтвердит alias coverage, а не semantic
+retrieval. Поэтому Phase C semantic retrieval **закрыт как delivered, not
+currently needed**, а не «on hold». ONNX semantic capability remains untested
+on this corpus. У cheap alias lookup есть граница: он работает только для
+известных aliases и не проверяет парафразы, опечатки или unseen aliases.
 
 ## 4. Hard negatives
 
@@ -285,12 +293,14 @@ primary set и для graph-выходов.
 
 ## 7. Интерпретация и решение
 
-1. **ONNX primary cross-lingual confirmation:** **NO-GO / on hold.** Track C
-   не отменяет pre-registered matrix verdict, но alias-normalized BoW уже
-   даёт P@5=0.745 / nDCG@10=0.897 против ONNX 0.655 / 0.747. n=30–40 на этом
-   же alias-based сценарии не нужен: он подтвердит alias coverage, а не
-   semantic retrieval. Cheap exact alias lookup — более дешёвый кандидат для
-   известных aliases; ONNX остаётся opt-in research path.
+1. **Phase C semantic retrieval:** **CLOSED — delivered, not currently
+   needed.** Track C не отменяет historical pre-registered matrix verdict, но
+   alias-normalized BoW уже даёт P@5=0.745 / nDCG@10=0.897 против ONNX
+   0.655 / 0.747. n=30–40 на этом же alias-based сценарии не нужен: он
+   подтвердит alias coverage, а не semantic retrieval. Cheap exact alias
+   lookup — fallback для известных aliases, не Phase C feature; ONNX остаётся
+   opt-in research path. ONNX semantic capability remains untested on this
+   corpus.
 2. **Intra-lingual semantic сценарий:** сигнала мало. 2 strong + 1 semantic на
    28 ONNX-only; оба strong alias-зависимы, semantic — атрибутивная аналогия.
    Это не 30–40% сценария и не основание для production graph. Intra-lingual
@@ -304,10 +314,14 @@ primary set и для graph-выходов.
    757/1000 нулевых BoW-слотов. Raw BoW P@5=0.091 не является единственной
    дешёвой альтернативой: alias-normalized BoW = 0.745. Гибрид raw BoW+ONNX не
    обоснован: модели orthogonal, а BoW на cross-lingual неинформативен.
-5. **Следующий корректный эксперимент:** сначала alias cleanup, затем новый
-   frozen set из 30–40 запросов, которые **не являются точными catalog
-   aliases** (парафразы, опечатки, unseen aliases). Только если ONNX выиграет
-   у alias-normalized BoW на этом остатке, возвращаться к confirmation.
+5. **Следующий эксперимент не запускается на этом корпусе.** Feasibility
+   probe (§5.8 `PHASE_C.md`) дал 24/30 естественных черновиков, но лишь 16
+   однозначных и 10 чистых non-alias; чистый набор 30–40 не поддерживается.
+   Labels не создавались, scoring не запускался. Alias cleanup переносится в
+   entity-graph backlog, а не делается ради benchmark. Если корпус станет
+   разнообразнее, сначала повторить feasibility, затем заморозить 30–40
+   не-alias запросов и применить Δ-пороги §5.9; только > +0.20 P@5 возвращает
+   ONNX к confirmation.
 6. **`semantic_neighbors.csv`:** остаётся exploratory. Track C не добавляет
    новый CSV и не меняет контракт
    `query_entity_id;query_entity_text;rank;neighbor_entity_id;neighbor_text;score_bow;score_onnx`.
@@ -323,7 +337,11 @@ primary set и для graph-выходов.
   для всех соседей. ONNX-only у negative query — unlabeled, не false positive.
 - Alias-normalized baseline использует только точные известные aliases и не
   проверяет unseen aliases/парафразы; его нельзя переносить на открытый набор
-  без нового frozen label set.
+  без нового frozen label set. `0.745` — table lookup, не `1.0` и не retrieval.
+- Paraphrase feasibility — author-side, 10 карточек × 3 черновика, один
+  reviewer; это не blind annotation и не inter-annotator agreement. Counts —
+  верхняя оценка, не метрика. Это не labels, не benchmark и не scoring;
+  локальная таблица не коммитится.
 - Каталог private; отчёт фиксирует counts и имена, но не выкладывает aliases
   целиком и не переносит source contexts.
 
@@ -355,8 +373,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-phase-c-artif
 
 Guard проверяет labels, meta, `phase-c-manifest.json`, corpus manifest,
 `cross-lingual-pairs.json`, embedded slice hash и scope-маркеры
-`PHASE_C.md` §5.6; private `entities_table.csv` и `semantic_neighbors.csv`
-проверяются только если переданы локально. CI запускает guard как отдельный
-шаг. SHA-сравнение принимает raw либо LF/CRLF-нормализованный вариант одного
-и того же содержимого: Git checkout может переписать EOL на Windows/Linux;
-изменение содержимого всё равно падает.
+`PHASE_C.md` §5.6 плюс feasibility/lesson-маркеры §5.8–§5.9; private
+`entities_table.csv` и `semantic_neighbors.csv` проверяются только если
+переданы локально. CI запускает guard как отдельный шаг. SHA-сравнение
+принимает raw либо LF/CRLF-нормализованный вариант одного и того же
+содержимого: Git checkout может переписать EOL на Windows/Linux; изменение
+содержимого всё равно падает.

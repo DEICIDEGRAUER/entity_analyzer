@@ -3,6 +3,11 @@
 Дата: 2026-10-25. Labels зафиксированы **до** первого retrieval-score; хеши
 ниже. Phase C не меняет `entities_table.csv`; ONNX остаётся opt-in.
 
+**Operational status: CLOSED — Phase C delivered the infrastructure; the current
+corpus does not justify the feature.** This is not “ONNX on hold”: for this
+corpus the result is final until corpus diversity increases. The historical
+matrix verdict `GO (full)` remains below, but it is not an active ONNX approval.
+
 ## Входы
 
 - `entities_table.csv` SHA-256:
@@ -69,12 +74,33 @@ This is the cheap alternative that must be beaten before spending a day on
 - The candidate-expanded variant is diagnostic only: it uses candidate
   `card_id` metadata and is not a fair text-only baseline.
 
-Consequence: on this benchmark ONNX does not beat a cheap alias-normalized BoW.
-The headline `+0.564` is a gain over **raw** BoW, not over the cheap alternative.
-The current primary labels are largely exact catalog aliases, so n=30–40 on the
-same surface would measure alias coverage, not semantic retrieval. The n=30–40
-confirmation is therefore cancelled until alias cleanup and a new frozen
-non-alias/paraphrase set exists.
+`0.745`, not `1.0`, is expected for a table lookup because 10/11 query aliases
+resolve uniquely, `Йог-Сотота` is unknown, and candidate collisions remain. It is
+still exact alias canonicalization, not retrieval by meaning. ONNX cannot beat a
+translation table on “find the card for a known alias”; it could help only where
+the alias is unknown and the meaning is guessed. The primary set did not test
+that.
+
+The candidate alias-expanded variant (`0.564`) is below both exact normalization
+(`0.745`) and ONNX (`0.655`). It makes each candidate a bag of all its names,
+loses discriminability, and lets an English query alias match any card with
+English aliases rather than its owner. Expansion adds more noise than
+cross-lingual help; this is evidence for exact canonicalization, not similarity.
+
+Consequence: the headline `+0.564` is a gain over **raw** BoW, not over the cheap
+alternative. The benchmark measured **alias coverage, not semantic retrieval**;
+ONNX's semantic capability remains untested on this corpus. This is not evidence
+that ONNX “lost” in a fair semantic comparison. The n=30–40 confirmation on the
+same surface is cancelled.
+
+Paraphrase feasibility was checked before writing new labels: 24/30 drafts were
+natural, but 8 of those had more than one reasonable target; only 16 were
+unambiguous and 10 were clean non-alias. The failure is labelability, not
+naturalness. This is an author-side probe, not blind annotation; the counts are
+an upper bound. A clean 30–40 set is not supported by this corpus
+(`PHASE_C.md` §5.8). Therefore no labels were created, no retrieval was run, and
+alias cleanup was not done for a benchmark. Phase C remains closed; alias
+cleanup moves to the entity-graph backlog.
 
 ## Supplemental entity graph
 
@@ -147,32 +173,46 @@ E5 boundary in `EMBEDDINGS.md`, and labels/thresholds were not changed.
 
 ## Decision
 
-**Matrix verdict: GO (full)** by the pre-registered `PHASE_C.md` §5.5 matrix:
-Track B absolute + relative gate pass; Track A is not worse than BoW by more
-than 0.05; stability is in the registered 30–70% zone.
+**Historical matrix verdict: GO (full)** by the pre-registered `PHASE_C.md`
+§5.5 matrix: Track B absolute + relative gate pass; Track A is not worse than
+BoW by more than 0.05; stability is in the registered 30–70% zone.
 
-`GO (full)` here is a matrix result, **not** “everything works”, and it is not
-rewritten retroactively. The post-hoc alias baseline changes the operational
-scope:
+`GO (full)` is a historical matrix result, **not** “everything works”, and it is
+not rewritten retroactively. It is also not an active ONNX approval. The
+post-hoc alias baseline, Track C, and the paraphrase feasibility probe change
+the operational scope:
 
 | Scope | Status | Meaning |
 |---|---|---|
-| ONNX cross-lingual confirmation | **NO-GO / on hold** | Alias-normalized BoW P@5=0.745 / nDCG@10=0.897 beats ONNX 0.655 / 0.747. Do not spend n=30–40 on the same alias-based surface; this would confirm alias coverage, not semantic retrieval. |
-| Catalog-aware exact alias retrieval | **GO (cheap baseline)** | Known aliases can be retrieved with exact normalization; it is cheaper than ONNX. Requires alias cleanup and is not evidence of semantic entity resolution. |
-| Entity graph (Track A) | **NO-GO / closed on current catalog** | n=3 positives, P@5=0.133; Track C: only 2 strong (both alias-confounded) + 1 semantic analogy among 28 ONNX-only. Do not expand to 15–20 on this catalog; reopen after alias cleanup and new frozen labels. |
+| Phase C semantic retrieval (ONNX) | **CLOSED — delivered, not currently needed** | Infrastructure is delivered and opt-in; the current corpus does not justify the feature. ONNX is not default and not production. ONNX semantic capability remains untested on this corpus. |
+| ONNX confirmation on current benchmark | **NO-GO** | Alias-normalized BoW P@5=0.745 / nDCG@10=0.897 beats ONNX 0.655 / 0.747. Do not spend n=30–40 on the same alias-based surface; this would confirm alias coverage, not semantic retrieval. |
+| Exact alias lookup (catalog-aware) | **fallback, not a Phase C feature** | Known aliases can be resolved by exact normalization; it is cheaper than ONNX. It is table lookup, not retrieval and not semantic entity resolution. |
+| Entity graph (Track A) | **NO-GO / closed on current catalog** | n=3 positives, P@5=0.133; Track C: only 2 strong (both alias-confounded) + 1 semantic analogy among 28 ONNX-only. Do not expand to 15–20 on this catalog. Alias cleanup is entity-graph backlog, not a Phase C precondition. |
 | Full-context retrieval | **NO-GO** | Confirmed E5-small long-paragraph boundary; do not solve by increasing model size. |
+| Paraphrase benchmark (30–40 non-alias) | **FAIL — feasibility** | 24/30 natural drafts, 16 unambiguous, 10 distinct clean non-alias. A clean 30–40 set is not supported; no labels were written. |
 | `semantic_neighbors.csv` | **EXPLORATORY** | Not an anchor, not production; recompute on every corpus/model change. |
 
-`GO` for catalog alias retrieval means **topical cross-lingual matching, not
-semantic entity resolution**. The benchmark's queries are largely exact aliases
+The historical `GO (full)` was a **topical cross-lingual matching** gate, not
+semantic entity resolution. The benchmark's queries are largely exact aliases
 from the same catalog used to resolve them; that is why the cheap baseline is
-strong on this set.
+strong. The primary benchmark measured alias coverage, not semantic retrieval;
+it cannot show whether ONNX has semantic capability on unseen aliases.
 
-Preconditions before reopening ONNX confirmation: (1) catalog alias cleanup;
-(2) alias-normalized BoW baseline (done, 0.745 > 0.655); (3) a new frozen set of
-non-alias paraphrases/typos/unseen aliases where exact alias lookup is not a
-trivial solution. Only if ONNX beats the alias baseline on that residual is
-n≥30–40 justified.
+Reopen conditions (all): (1) a larger, more diverse corpus supports 20+ clean
+non-alias paraphrase queries, checked again by feasibility before labels;
+(2) a 30–40 query set is frozen before scoring, with one target card per query
+and no exact aliases/`query_card_id` in construction; (3) the pre-registered
+Δ-thresholds below are applied against alias-normalized BoW. Alias cleanup is
+not part of reopening Phase C; it stays in the entity-graph backlog.
+
+Future paraphrase run — pre-registered decision rule (recorded before any such
+run; none has been executed):
+
+| Δ P@5 (ONNX − alias-normalized BoW) | Decision |
+|---|---|
+| **> +0.20** | ONNX justified; return to confirmation |
+| **+0.10 … +0.20** | Marginal; complexity, likely not justified |
+| **< +0.10** | Not justified; keep Phase C closed for this corpus |
 
 n=11 is a wide sampling interval, not a precise P@5: a 20k-resample bootstrap
 over the 11 query values gives roughly **95% CI [0.45, 0.84]** (the user-side
@@ -184,10 +224,18 @@ limbo: the current entity graph is closed, not expanded. Its two strong signals
 depend on duplicated aliases; the rest are topical, analogy, or unlabeled
 candidates.
 
-Operational caveat: use exact alias lookup for known aliases; ONNX remains an
-opt-in research path for the residual (paraphrase/unseen alias) scenario. No
+Operational caveat: for known aliases, use exact alias lookup; ONNX remains an
+opt-in research path for a residual (paraphrase/unseen alias) scenario. No
 residual advantage has been demonstrated, so do not make ONNX default or ship
-it as semantic search.
+it as semantic search. The current corpus does not support the experiment that
+could change this; re-evaluate when corpus diversity increases.
+
+Methodological lesson: **pre-registration protected against motivated reasoning.
+It did not protect against an unmodeled cheap baseline.** The gate compared ONNX
+with raw BoW, but raw BoW is uninformative on cross-lingual name variants;
+exact alias normalization was added only post-hoc. Future pre-registrations must
+include at least one cheap non-ML baseline (exact match, alias normalization,
+BM25) before declaring a gate.
 
 ## Artifacts
 
@@ -205,6 +253,9 @@ it as semantic search.
   alias-contamination audit.
 - `output/phase-c-1000/alias-baseline.json` — optional local sidecar from
   `--alias-baseline-out`; not committed and not part of the CSV contract.
+- `output/phase-c-1000/paraphrase-feasibility.md` — local, ignored feasibility
+  scratch: 10 cards × 3 drafts, 30 rows, no labels and no scoring; not a frozen
+  artifact and not a benchmark.
 - `output/phase-c-1000/phase-c-report.name.{md,json}` — primary report.
 - `output/phase-c-1000/phase-c-report.context.{md,json}` — diagnostic report.
 - `.gitignore` covers `output/`, `output/phase-c-1000/`,
@@ -230,9 +281,12 @@ dotnet run --project tools/PhaseC -- `
 ```
 
 The Track C and alias-baseline sidecars are local/exploratory; both options are
-optional and do not alter `semantic_neighbors.csv`. Frozen inputs are checked
-without model weights by `scripts/verify-phase-c-artifacts.ps1` (also a CI
-step), which also pins the scope markers in `PHASE_C.md` §5.6.
+optional and do not alter `semantic_neighbors.csv`. The paraphrase feasibility
+scratch is also local and ignored; it is not consumed by the evaluator. Frozen
+inputs are checked without model weights by
+`scripts/verify-phase-c-artifacts.ps1` (also a CI step), which pins the scope
+markers in `PHASE_C.md` §5.6 and the feasibility/lesson markers in §5.8–§5.9.
 
-No labels or thresholds were changed after scores were seen. The context
-diagnostic was run separately; both labels hashes are unchanged.
+No frozen labels were changed after scores were seen. The future paraphrase
+thresholds were recorded before any paraphrase run; no such run was executed.
+The context diagnostic was run separately; both labels hashes are unchanged.

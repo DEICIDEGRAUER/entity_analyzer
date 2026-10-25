@@ -4,6 +4,11 @@ This tool is a one-off evaluation harness, not a production default. It referenc
 `EntityAnalyzer.Core` (BoW) and `EntityAnalyzer.Embedders.Onnx` explicitly; it is
 not referenced by Core, App, or Cli.
 
+**Status (2026-10-25): Phase C is closed for the current corpus** — the
+infrastructure is delivered, but semantic retrieval is not currently needed.
+The benchmark measured alias coverage, not semantic retrieval; do not add the
+planned 30–40 labels or make ONNX default. See `docs/PHASE_C.md` §5.6–§5.9.
+
 It reads the private `entities_table.csv` and catalog, the committed labels and
 manifest, and the pinned E5 model directory. It writes results outside Git:
 

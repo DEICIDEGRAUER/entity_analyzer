@@ -1,10 +1,11 @@
 # Phase C frozen-artifact guard.
 #
 # Pins the committed labels, run manifest, corpus-slice manifest, and cross-
-# lingual pair fixture, plus the GO/NO-GO/EXPLORATORY scope markers in
-# docs/PHASE_C.md section 5.6. This is intentionally separate from the model-
-# gated evaluator: it runs in seconds, needs no corpus text or ONNX weights, and
-# fails if a frozen input or the recorded scope decision was edited.
+# lingual pair fixture, plus the CLOSED/NO-GO/EXPLORATORY scope markers in
+# docs/PHASE_C.md section 5.6 and the paraphrase-feasibility/lesson markers in
+# sections 5.8-5.9. This is intentionally separate from the model-gated
+# evaluator: it runs in seconds, needs no corpus text or ONNX weights, and fails
+# if a frozen input or the recorded decision was edited.
 #
 # Optional checks (not committed, so skipped when absent):
 #   $env:EA_PHASE_C_ENTITIES_TABLE  path to the pinned phase-c-1000 entities_table.csv
@@ -132,29 +133,43 @@ Assert-FileHash `
     'cross-lingual-pairs.json'
 
 # Pin the operational scope markers, so an accidental docs edit cannot silently
-# turn a NO-GO back into a GO (or hide the alias-baseline caveat).
+# turn CLOSED back into an active GO or hide the alias/feasibility caveats.
 $phaseCPath = Join-Path $root 'docs/PHASE_C.md'
 if (-not (Test-Path -LiteralPath $phaseCPath -PathType Leaf)) {
     throw 'Missing Phase C decision document: docs/PHASE_C.md'
 }
 $phaseCText = Get-Content -LiteralPath $phaseCPath -Raw -Encoding UTF8
-$scopeMatch = [regex]::Match(
-    $phaseCText,
-    '(?ms)^### 5\.6\b.*?(?=^### 5\.7\b|^## 6\.)')
-if (-not $scopeMatch.Success) {
-    throw 'PHASE_C.md section 5.6 scope decision not found'
+
+function Get-Section([string]$Text, [string]$StartPattern, [string]$EndPattern, [string]$Label) {
+    $match = [regex]::Match($Text, "(?ms)^$StartPattern\b.*?(?=^(?:$EndPattern))")
+    if (-not $match.Success) {
+        throw "PHASE_C.md section $Label not found"
+    }
+    return [regex]::Replace($match.Value, '\s+', ' ')
 }
-$scope = $scopeMatch.Value
-$scopeForMarkers = [regex]::Replace($scope, '\s+', ' ')
+
+$scopeForMarkers = Get-Section $phaseCText '### 5\.6' '### 5\.7\b|## 6\.' '5.6'
 $requiredScopeMarkers = @(
-    'NO-GO',
-    'ONNX cross-lingual confirmation',
-    'catalog-aware exact alias retrieval',
-    'entity graph (Track A)',
-    'full-context retrieval',
+    'CLOSED',
+    'Phase C delivered the infrastructure',
+    'current corpus does not justify the feature',
+    'delivered, not currently needed',
+    'alias coverage, not semantic retrieval',
+    'ONNX semantic capability remains untested on this corpus',
+    'Historical matrix verdict was **GO (full)**',
+    'not an active ONNX approval',
+    'Exact alias lookup (catalog-aware)',
+    'fallback, not a Phase C feature',
+    'Entity graph (Track A)',
+    'Full-context retrieval',
     'semantic_neighbors.csv',
     'EXPLORATORY',
-    'topical cross-lingual matching, not semantic entity resolution'
+    'Paraphrase benchmark',
+    'FAIL',
+    'feasibility',
+    'no longer a Phase C precondition',
+    'entity-graph backlog',
+    'do not auto-delete'
 )
 foreach ($marker in $requiredScopeMarkers) {
     if (-not $scopeForMarkers.Contains($marker)) {
@@ -167,10 +182,53 @@ if ($noGoCount -lt 3) {
 }
 $goCount = ([regex]::Matches($scopeForMarkers, '(?<!NO-)GO')).Count
 if ($goCount -lt 1) {
-    throw "PHASE_C.md section 5.6 must contain a GO marker"
+    throw "PHASE_C.md section 5.6 must preserve the historical GO (full) marker"
+}
+$closedCount = ([regex]::Matches($scopeForMarkers, 'CLOSED')).Count
+if ($closedCount -lt 2) {
+    throw "PHASE_C.md section 5.6 must contain CLOSED markers, found $closedCount"
 }
 $script:checks++
-Write-Output "OK   PHASE_C.md section 5.6 scope markers ($goCount GO, $noGoCount NO-GO)"
+Write-Output "OK   PHASE_C.md section 5.6 scope markers ($goCount historical GO, $noGoCount NO-GO, $closedCount CLOSED)"
+
+$feasibilityForMarkers = Get-Section $phaseCText '### 5\.8' '### 5\.9\b|## 6\.' '5.8'
+$requiredFeasibilityMarkers = @(
+    'author-side feasibility probe',
+    '24/30',
+    '16/30',
+    '10/30',
+    'FAIL',
+    'paraphrase benchmark',
+    'No labels were created',
+    'no scoring',
+    'exact matching',
+    'similarity'
+)
+foreach ($marker in $requiredFeasibilityMarkers) {
+    if (-not $feasibilityForMarkers.Contains($marker)) {
+        throw "PHASE_C.md section 5.8 feasibility decision changed: missing '$marker'"
+    }
+}
+$script:checks++
+Write-Output "OK   PHASE_C.md section 5.8 paraphrase-feasibility markers (24/30 natural, 16/30 unambiguous, 10/30 clean)"
+
+$lessonForMarkers = Get-Section $phaseCText '### 5\.9' '## 6\.' '5.9'
+$requiredLessonMarkers = @(
+    'Pre-registration protected against motivated reasoning.',
+    'It did not protect against an unmodeled cheap baseline.',
+    'Future pre-registrations must include at least one cheap non-ML baseline (exact match, alias normalization, BM25) before declaring a gate.',
+    'ONNX justified',
+    'marginal',
+    'not justified',
+    'no such run'
+)
+foreach ($marker in $requiredLessonMarkers) {
+    if (-not $lessonForMarkers.Contains($marker)) {
+        throw "PHASE_C.md section 5.9 lesson/threshold decision changed: missing '$marker'"
+    }
+}
+$script:checks++
+Write-Output "OK   PHASE_C.md section 5.9 pre-registration lesson and Delta thresholds"
 
 # The slice extraction input is private and not committed. Its hash is still
 # pinned in phase-c-manifest.json; check that embedded value, and check the
