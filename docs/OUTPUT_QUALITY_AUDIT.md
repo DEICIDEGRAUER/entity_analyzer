@@ -90,7 +90,7 @@ entity graph. Это **доверие к алиасам на выходе**: о�
 
 | Группа | Строк | Доля | Есть маркер в контексте |
 |---|---:|---:|---:|
-| `Книгу` + `Книге` + `Книгах` + `Книгой` + `Книгами` → Книга Эйбона | 6 268 | 16,8 % | 141 (2,2 %) |
+| `Книгу` + `Книге` + `Книгах` + `Книгой` + `Книгами` → Книга Эйбона | 6 268 | 16,8 % | 127 (2,0 %) |
 | `Zhar` → Наг и Йеб | 3 645 | 9,7 % | 123 (3,4 %) |
 | `The Gate` → Йог-Сотот | 1 166 | 3,1 % | 52 (4,5 %) |
 | `The Key` → Йог-Сотот | 904 | 2,4 % | 23 (2,5 %) |
@@ -197,3 +197,61 @@ probe и прогнать на нём current vs strict-name baseline. Это о
 может быть strict-view по умолчанию. Если он теряет слишком много полных
 имён, нужен context-gated alias pass. В обоих случаях entity graph и Phase C
 остаются закрытыми.
+
+## 8. Пост-аудит (2026-10-26): cheap baseline и уточнения
+
+Этот раздел добавлен после 50-строчного probe и read-only аудита каталога и
+источников; §6–7 остаются историческими.
+
+### 8.1. Cheap non-ML baseline — обязательное правило
+
+Phase C §5.9 показал: pre-registration защищает от motivated reasoning, но
+**не защищает от неучтённого дешёвого baseline**. В Phase C exact alias
+normalization появилась только post-hoc; сравнивать ONNX с raw BoW было
+недостаточно.
+
+Правило для всех будущих pre-registration, включая targeted probe 2 и
+trust-level gate:
+
+- до labels фиксируется **минимум один дешёвый non-ML baseline**: exact
+  canonical, alias normalization, strict title/marker gate, source-integrity
+  markers или BM25;
+- baseline считается на тех же строках, что и кандидат;
+- отчёт обязан указать команду/scope, фильтры и counts: сколько строк и
+  файлов исключено, сколько осталось в каждой страте;
+- baseline не может быть заменён «мы посмотрели глазами» или одним ML-скором.
+
+В этом аудите дешёвые baseline’ы — `Strict canonical-only` и
+детерминированный marker/title-gate. 302-файловая OCR-эвристика **не**
+является валидированным gate: она даёт ложные срабатывания на длинных именах
+и обычных словах с function-prefix.
+
+### 8.2. Что уточнил пост-аудит
+
+- **302 / 10 055** арифметически подтверждены, но это не проверенный список
+  OCR-файлов: 10 055 — flagged-строки внутри 302 файлов, а не все их строки;
+  top-15 — source-level порча; 35 файлов образуют доминирующий lexical batch;
+  оставшиеся 267 — хвост с ложными срабатываниями. См.
+  [`OUTPUT_SOURCE_AUDIT.md`](OUTPUT_SOURCE_AUDIT.md).
+- **`Книгу` и падежи** — не только каталог: `Книгу` есть в алиасах, а
+  `Книге`/`Книгах`/`Книгой`/`Книгами` генерируются из составного имени
+  `Книга Эйбона`. Удаление одного алиаса не уберёт bare-формы. См.
+  [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md).
+- **Top-4 misleading = 13 catalog + 12 source**, а не «только каталог».
+  В strong-страте `Leng`/`Zhar`/`Nug` — source, `Гисгут` — catalog
+  (top-4); `Лао` — catalog-омоним вне top-4. Поэтому source quarantine и
+  catalog candidates рассматриваются вместе.
+- **`needs_review`** остаётся видимой metadata, не фильтром и не удалением;
+  дизайн: [`OUTPUT_TRUST_LEVELS.md`](OUTPUT_TRUST_LEVELS.md).
+
+### 8.3. Актуальный порядок
+
+1. Проверить оставшиеся 20 файлов source batch 35; решить source-policy
+   отдельно от alias cleanup.
+2. Решить catalog candidates (generic/owner/shared); не мутировать каталог
+   до этого решения.
+3. Зафиксировать targeted probe 2: 25 weak/composite + 25 strong,
+   source-usable, owner-unique, marker 13/12; cheap baseline и пороги — до
+   labels.
+4. Только после probe 2 — sidecar `entities_trust.csv` и решение о
+   default-view. Phase C, entity graph и owner-таблицы остаются закрытыми.

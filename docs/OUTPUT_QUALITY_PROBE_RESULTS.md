@@ -216,3 +216,34 @@ quality/review track.
 - Labels: `EF3114E9…` (local ignored).
 - Никаких изменений в `codex.json`, `entities_table.csv`, Phase C,
   frozen manifests и production-коде.
+
+## 10. Пост-аудит поправка (2026-10-26)
+
+Метрики и labels этого probe не меняются. Аудит каталога/источников уточнил
+интерпретацию, а не результат.
+
+- **302 / 10 055 подтверждены арифметически, но это не валидированный
+  OCR-список.** 10 055 — flagged-строки внутри 302 файлов; всех строк в них
+  18 243 (48,8%). Top-15 — source-level лексическая порча: 5 899/5 899
+  top-4 контекстов дословно есть в источнике. 35 файлов образуют
+  доминирующий batch; оставшиеся 267 — хвост, где 10 из 11 выборочных
+  файлов читаемы (ложные срабатывания эвристики). См.
+  [`OUTPUT_SOURCE_AUDIT.md`](OUTPUT_SOURCE_AUDIT.md).
+- **Страта OCR остаётся валидной для своих строк:** 9/10 high-score строк
+  действительно unusable. Но файловый список 302 нельзя использовать как
+  source exclusion; для batch 35 нужен отдельный file-level review.
+- **Top-4 misleading = 13 catalog + 12 source**, а не 25 catalog. В
+  strong-страте (включая `Лао` вне top-4) 2 из 5 misleading — catalog
+  (`Лао`, `Гисгут`), 3 — source (`Zhar`, `Leng`, `Nug`). Это усиливает
+  вывод «оба трека», а не отменяет каталожный аудит.
+- **`Книгу` и падежи** — частично catalog, частично variant generation:
+  bare `Книге`/`Книгах`/`Книгой`/`Книгами` генерируются из составного имени.
+  См. [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md).
+- **Cheap non-ML baseline** теперь зафиксирован как методическое правило:
+  strict canonical-only и/или marker/title-gate до labels; 302-эвристика не
+  является gate. См. [`OUTPUT_QUALITY_AUDIT.md`](OUTPUT_QUALITY_AUDIT.md) §8.
+- `needs_review` остаётся видимой metadata, не silent filter:
+  [`OUTPUT_TRUST_LEVELS.md`](OUTPUT_TRUST_LEVELS.md).
+
+Никаких изменений в каталоге, источниках, CSV-контракте, Phase C, frozen
+labels/manifests или production-коде этот пост-аудит не вносит.
