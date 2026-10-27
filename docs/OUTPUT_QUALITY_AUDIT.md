@@ -4,9 +4,9 @@
 не gate и не переоткрытие Phase C. Аудит не меняет `entities_table.csv`,
 source-файлы, frozen-манифесты и Phase C. 2026-10-27 после явного решения
 применены 12 approved catalog corrections; counts этого документа — снимок
-до них. См. [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §10.5. Задача
-документа — карта реальных дефектов пользовательского вывода, а не улучшение
-метрики.
+до них. См. [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §10.5–§10.6.
+Задача документа — карта реальных дефектов пользовательского вывода, а не
+улучшение метрики.
 
 ## 0. Короткий вывод
 
@@ -269,7 +269,7 @@ trust-level gate:
    применены** (13 alias strings; 6 reassign + 5 misattribution + 1 homonym);
    3 HOLD (Opener, Ghisguth, God of the Dead), `Leng` no-op. Новый catalog hash
    и residual surfaces — в [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md)
-   §10.5; output ещё не переснят.
+   §10.5; post-catalog output снят (33 430 строк; §10.6), но он C2, не C0.
 4. Generator policy — design only; 14 composite names, full phrase only,
    exception list. См. [`OUTPUT_GENERATOR_POLICY.md`](OUTPUT_GENERATOR_POLICY.md).
 5. Зафиксировать targeted probe 2: 50 строк, 25 weak/composite + 25 strong,

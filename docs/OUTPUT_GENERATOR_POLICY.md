@@ -1,11 +1,12 @@
 # Generator policy для composite names: аудит и дизайн
 
-**Статус (2026-10-27): DESIGN ONLY; audit snapshot pre-correction.**
-Production-код, `entities_table.csv`, source-файлы, frozen-манифесты и Phase C
-не менялись. 12 approved catalog corrections применены отдельно; counts ниже
-сняты до них и требуют нового прогона после catalog changes. Этот документ
-отвечает на вопрос «что именно генерирует `EntityCatalog` для составных имён
-и что даст `full phrase only`», но не реализует policy.
+**Статус (2026-10-27): DESIGN ONLY; pre-change audit + post-catalog
+diagnostic.** Production-код, `entities_table.csv`, source-файлы,
+frozen-манифесты и Phase C не менялись. 12 approved catalog corrections
+применены отдельно; post-catalog output снят (33 430 строк; §3.5), но
+incremental probe 2 всё ещё требует pre-change baseline для C0/C2. Этот
+документ отвечает на вопрос «что именно генерирует `EntityCatalog` для
+составных имён и что даст `full phrase only`», но не реализует policy.
 
 Связанные документы:
 [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §9 —
@@ -18,19 +19,21 @@ Production-код, `entities_table.csv`, source-файлы, frozen-манифе�
 1. В каталоге **37 enabled-карточек**, из них **14 composite names** — у 13
    есть пробел в `Name`, у 13 — в `Canonical`; объединение даёт 14
    (`Боги Нежити` имеет пустой `Canonical`, `Йогаш-Гуль` — пробел только в
-   canonical). Composite-карточки дают **25 581 из 37 406 строк (68,4%)**.
+   canonical). В pre-change снимке composite-карточки дают **25 581 из
+   37 406 строк (68,4%)**; после catalog corrections — **21 588 из 33 430
+   (64,6%)** (§3.5).
 2. Standalone-формы, реально совпавшие в выводе, есть у **9 из 14** карточек;
-   ещё у 5 нет ни одной standalone-строки (там только полные формы или
-   aliases). Всего на standalone-формы приходится **9 311 строк (24,9%
-   вывода; 36,4% composite-строк)**.
-3. Из этих 9 311 строк **4 057 — формы, которые одновременно есть в
-   `aliases`**. Generator-only policy их не уберёт: если alias остаётся,
-   совпадение остаётся. Поэтому максимальный эффект `full phrase only` —
-   **5 254 строки (14,0% вывода)**, а не 9 311.
-4. **4 057 alias-overlap и 6 139 `Leng`** — это уже не generator-only
-   история. `Leng` — alias карточки `Плато Ленг`, а не сгенерированная форма;
-   он не должен исчезнуть от смены генератора. Это отдельный catalog/owner и
-   trust-вопрос.
+   ещё у 5 нет ни одной standalone-строки. В pre-change снимке на них
+   приходится **9 311 строк (24,9% вывода; 36,4% composite-строк)**; после
+   corrections — **9 312 (27,9%; 43,1%)**.
+3. Из этих строк **4 057 — формы, которые одновременно есть в `aliases`**.
+   Generator-only policy их не уберёт. Максимальный эффект `full phrase only`
+   в pre-change снимке — **5 254 строки (14,0% вывода)**, после corrections —
+   **5 255 (15,7%)**.
+4. **4 057 alias-overlap и `Leng`** — это уже не generator-only история.
+   `Leng` — alias карточки `Плато Ленг`, а не сгенерированная форма; в
+   post-catalog выводе его **6 141** (pre-change 6 139). Он не должен исчезнуть
+   от смены генератора. Это отдельный catalog/owner и trust-вопрос.
 5. Рекомендация дизайна: **full phrase only** для composite names —
    генерировать полные формы (canonical/name и их падежные варианты), не
    эмитить standalone head/tail case-формы. Исключения — только явный
@@ -44,16 +47,18 @@ alias-overlap.
 
 ## 1. Метод и рамка
 
-- Вход: текущий диагностический full-output, пресет `minimal`;
-  **37 406 строк**, **36 сущностей**, **2 615 файлов** с упоминаниями.
+- Pre-change audit input: текущий диагностический full-output, пресет
+  `minimal`; **37 406 строк**, **36 сущностей**, **2 615 файлов**.
+- Post-catalog input (§3.5): **33 430 строк**, **37 сущностей**,
+  **2 597 файлов**; output hash
+  `6553A62C7174FCA26B70D9BB45262EF74E5B51856340429975D036269578B27F`.
 - Каталог на момент аудита: **37 enabled-карточек**, **1 977 алиасов**,
   SHA-256 `B0FF04AE5A2679BA647475CCC40291BD95133BEAC4BF89CA41B64DC607146027`.
   После approved corrections: 1 964 алиаса, SHA-256
   `95B54F6DBCB3A12CBAD34EAEA57101AAC40226052C3FAFFFB430A320A0AE7A85`;
-  counts ниже — pre-change.
-- Вывод: SHA-256
-  `3954D596EED2828859113F16C1EBB9EDED45FC1DFC8DAD0DF471FCC66B253685`
-  (pre-change; новый вывод после catalog corrections ещё не снят).
+  counts §2–§3 — pre-change, §3.5 — post-catalog.
+- Pre-change output SHA-256
+  `3954D596EED2828859113F16C1EBB9EDED45FC1DFC8DAD0DF471FCC66B253685`.
 - Аудит выполнен временным console на собранной `EntityAnalyzer.Core.dll`:
   для каждой composite-карточки вызывался реальный
   `VariantFactory.GenerateTwoPass` для `Name` и `Canonical` с пустым
@@ -101,6 +106,8 @@ alias-overlap.
 не может считаться косметикой, даже если она меняет только часть строк.
 
 ## 3. Standalone-эффект по карточкам
+
+§3.0–§3.4 — pre-change снимок; §3.5 — тот же аудит на post-catalog выводе.
 
 Столбцы: `SA` — наблюдаемые standalone-формы; `SA rows` — строки на них;
 `alias` — из них формы, которые есть в `aliases`; `gen-only` — только
@@ -178,6 +185,51 @@ top-4. `Йог-Сотот` — не composite, поэтому его generator p
   standalone. У `Черного Солнца` 90 full-строк, у `Мири Нигри` 66, у
   `Йогаш-Гуль` 24; `Боги Нежити` дают 214 `other` (aliases), не generator.
 
+### 3.5. Post-catalog проверка (2026-10-27)
+
+После 12 approved corrections снят новый диагностический output:
+**33 430 строк**, **37 сущностей**, **2 597 файлов** (SHA-256
+`6553A62C7174FCA26B70D9BB45262EF74E5B51856340429975D036269578B27F`).
+Тот же generator-audit, что и выше, даёт:
+
+| Карточка | Строк | SA форм | SA rows | alias | gen-only | full | other |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `Книга Эйбона` | 7 881 | 7 | 6 311 | 2 626 | **3 685** | 296 | 1 274 |
+| `Сад Йига` | 1 155 | 11 | 1 143 | 407 | **736** | 0 | 12 |
+| `Безымянный Туман` | 1 373 | 9 | 1 259 | 591 | **668** | 50 | 64 |
+| `Наг и Йеб` | 3 053 | 12 | 188 | 54 | **134** | 116 | 2 749 |
+| `Плато Ленг` | 6 793 | 2 | 314 | 301 | **13** | 245 | 6 234 |
+| `Куачиль Уттаус` | 87 | 4 | 8 | 0 | **8** | 58 | 21 |
+| `Монахи Ленга` | 305 | 2 | 79 | 73 | **6** | 7 | 219 |
+| `Плато Цанг` | 119 | 3 | 5 | 0 | **5** | 54 | 60 |
+| `Червь, грызущий в ночи` | 18 | 1 | 5 | 5 | **0** | 3 | 10 |
+| `Magnum Tenebrosum` | 354 | 0 | 0 | 0 | 0 | 7 | 347 |
+| `Боги Нежити` | 188 | 0 | 0 | 0 | 0 | 0 | 188 |
+| `Черное Солнце` | 137 | 0 | 0 | 0 | 0 | 90 | 47 |
+| `Мири Нигри` | 70 | 0 | 0 | 0 | 0 | 66 | 4 |
+| `Йогаш-Гуль` | 55 | 0 | 0 | 0 | 0 | 24 | 31 |
+| **Итого** | **21 588** | | **9 312** | **4 057** | **5 255** | **1 016** | **11 260** |
+
+Доли post-catalog:
+
+- composite — **21 588/33 430 = 64,6%**;
+- SA rows — **27,9%** всего вывода и **43,1%** composite-строк;
+- generator-only — **15,7%** всего вывода и **24,3%** composite-строк;
+- alias overlap — **12,1%** всего вывода;
+- full — **3,0%**;
+- other — **33,7%** всего вывода и **52,2%** composite-строк.
+
+В top-4 (23 468 строк, 70,2% вывода) попадают **3 832 из 5 255**
+generator-only строк (72,9% эффекта policy); это **16,3%** top-4.
+`Leng` — **6 141** alias-строка, `Nug`/`Yeb` — **1 813** (656 + 1 157),
+`Tsang` — 43; они не являются generator-only. Основные изменения против
+pre-change: `Наг и Йеб` потерял 3 969 строк (в основном удалённые чужие
+aliases), `Плато Цанг` получил 34, `Книга Эйбона` не изменилась.
+
+Главный вывод не меняется: full phrase only убирает около **5,255
+generator-only** строк, но не 4,057 alias-overlap и не alias-only `Leng`/
+`Nug`/`Yeb`.
+
 ## 4. Что даст `full phrase only`
 
 ### 4.1. Policy
@@ -205,16 +257,16 @@ Aliases остаются отдельным слоем: policy не удаляе
 
 Если реализовать только full phrase only и ничего не менять в aliases:
 
-- исчезнут **5 254** generator-only строки (14,0% вывода; 3 831 top-4);
+- исчезнут **5 255** generator-only строк (15,7% post-catalog вывода;
+  3 832 top-4; pre-change было 5 254 — разница в одну строку);
 - останутся **4 057** alias-overlap строк (`Книгу`, `Тумана`, `Саду`,
   `Ленга`, `грызущие` и др.) — это catalog/trust, не generator;
-- останутся **15 297** `other` строк, в том числе `Leng` 6 139,
-  `Nug`/`Yeb` 1 764, `Zhar` и др.; их generator policy не касается.
+- останутся **11 260** `other` строк (pre-change 15 297), в том числе
+  `Leng` 6 141, `Nug`/`Yeb` 1 813 и др.; generator policy их не касается.
 
-Это верхняя граница эффекта policy на текущем выводе; после catalog
-corrections часть alias-overlap может исчезнуть, а часть `other` — измениться.
-Нельзя складывать 5 254 и 4 057 и называть это «generator fix убирает
-9 311 строк»: вторые 4 057 не являются generated-only.
+Это верхняя граница эффекта policy на post-catalog выводе. Нельзя складывать
+5 255 и 4 057 и называть это «generator fix убирает 9 312 строк»: вторые
+4 057 не являются generated-only.
 
 ### 4.3. Чего policy не исправит
 
@@ -222,16 +274,17 @@ corrections часть alias-overlap может исчезнуть, а част�
   catalog correction `Книгу` останется. `Книге`/`Книгах`/`Книгой`/`Книгами`
   исчезнут, если generator-only форма не входит в aliases; в текущем
   каталоге они generator-only.
-- `Leng` 6 139: alias; не генерируется из `Плато Ленг` и не должен
-  удаляться как «шум». Это законное имя/регион, вопрос owner/shared.
-- `Nug`/`Yeb` 1 764: alias-only, не generated; partial pair, а не
-  generator-форма. Policy может убрать падежи `Нага`/`Йеба`, но не сами
-  aliases.
+- `Leng` 6 141 (post-catalog; pre-change 6 139): alias; не генерируется из
+  `Плато Ленг` и не должен удаляться как «шум». Это законное имя/регион,
+  вопрос owner/shared.
+- `Nug`/`Yeb` 1 813 (post-catalog; pre-change 1 764): alias-only, не
+  generated; partial pair, а не generator-форма. Policy может убрать падежи
+  `Нага`/`Йеба`, но не сами aliases.
 - `Сад Йига`: generic `Сад`/`Сада` исчезнут из generator-only, но `Саду` и
   `Йигу` останутся как aliases; `Йиг` — отдельная сущность/owner review, не
   tail-noun этой карточки.
 - `Zhar`/`Lloigor` и другие чужие owner-формы: catalog corrections, не
-  generator.
+  generator; approved removals уже применены.
 
 ## 5. Exception list: только по решению, не по эвристике
 
@@ -241,9 +294,9 @@ corrections часть alias-overlap может исчезнуть, а част�
 
 | Composite | Standalone surface | Строк | Статус | Почему |
 |---|---|---:|---|---|
-| `Плато Ленг` | `Leng` | 6 139 | **candidate exception / HOLD** | alias, не generated; вероятно законное имя региона; нельзя удалять из-за source-порчи |
-| `Наг и Йеб` | `Nug` | 636 | **candidate pair exception / HOLD** | член пары; сейчас alias-only, partial; не full-имя пары |
-| `Наг и Йеб` | `Yeb` | 1 128 | **candidate pair exception / HOLD** | то же; оба члена пары должны оставаться видимыми как weak/partial, не strong |
+| `Плато Ленг` | `Leng` | 6 141 | **candidate exception / HOLD** | alias, не generated; вероятно законное имя региона; нельзя удалять из-за source-порчи |
+| `Наг и Йеб` | `Nug` | 656 | **candidate pair exception / HOLD** | член пары; сейчас alias-only, partial; не full-имя пары |
+| `Наг и Йеб` | `Yeb` | 1 157 | **candidate pair exception / HOLD** | то же; оба члена пары должны оставаться видимыми как weak/partial, не strong |
 | `Плато Цанг` | `Tsang` | 43 | **candidate exception / HOLD** | возможно, отдельное место/провинция; owner-review |
 | `Монахи Ленга` | `Ленге` | 73 alias | **shared/HOLD** | место, не монах; owner/shared с `Плато Ленг`; не удалять автоматически |
 | `Сад Йига` | `Йиг`/`Йигу` | 22 alias | **owner-review / HOLD** | `Йиг` — отдельная сущность, не часть «сада»; не generator exception, а catalog/owner |
@@ -316,9 +369,8 @@ CompositeVariantMode:
 - `Leng`, `Nug`, `Yeb`, `Tsang` (если exception одобрен) остаются
   aliases и не считаются сгенерированными;
 - `Legacy` воспроизводит текущий baseline для сравнения;
-- счётчик generator-only строк на текущем CSV равен **5 254** (после
-  catalog corrections число может измениться; тест должен фиксировать
-  снимок, а не магическое число).
+- счётчик generator-only строк на post-catalog CSV равен **5 255** (pre-change
+  5 254); тест должен фиксировать снимок, а не магическое число.
 
 ### 6.4. Rollout
 
@@ -353,16 +405,21 @@ source B не может изменить ни одну строку, и его 
 source-cell или на полном выводе; нельзя приписывать ему эффект, которого
 не было в sample. Это ограничение вынесено в probe 2 design.
 
+Вторая оговорка: post-catalog output уже включает C2. Для incremental
+C0→C2 нужен pre-change baseline (или control run с backup-каталогом), а не
+post-catalog output, иначе catalog contribution по построению равен нулю.
+Это открытый пункт probe 2 design; sample до его решения не фиксируется.
+
 ## 8. Ограничения
 
 - 14 composite-карточек — по каталогу на момент аудита; при добавлении
   карточек число изменится.
-- Строки считаны по pre-correction выводу; это не end-to-end recall. После
-  12 approved catalog corrections нужен новый прогон; counts могут измениться.
+- Строки §2–§3 считаны по pre-change выводу; §3.5 — post-catalog. Это не
+  end-to-end recall.
 - Standalone-классификация author-side; формы с нулевой поддержкой не
   перечислены; alias overlap и `other` — разные вещи.
 - `full phrase only` не является catalog cleanup: 4 057 alias-overlap и
-  15 297 other строк остаются в pre-change снимке.
+  11 260 other строк остаются в post-catalog снимке (pre-change: 15 297).
 - Exception list не одобрен; `Leng`, `Nug`/`Yeb`, `Tsang`, `Йиг`, `Эйбон`
   требуют owner/lore review.
 - Production-код не менялся; каталог изменён только 12 approved операциями.

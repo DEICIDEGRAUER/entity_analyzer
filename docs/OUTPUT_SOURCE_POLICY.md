@@ -1,10 +1,11 @@
 # Source policy B: sidecar, degraded и unknown
 
-**Статус (2026-10-27): DESIGN ONLY.** Source files, `entities_table.csv`,
-production-код, frozen-манифесты и Phase C не менялись. Решение B принято как
-направление; реализация — после design review, без silent exclusion и без
-изменения source-файлов. 12 approved catalog corrections применены отдельно;
-на source-аудит и counts этого документа они не влияют.
+**Статус (2026-10-27): DESIGN ONLY.** Source files, frozen
+`entities_table.csv`, production-код, frozen-манифесты и Phase C не менялись.
+Решение B принято как направление; реализация — после design review, без
+silent exclusion и без изменения source-файлов. 12 approved catalog
+corrections применены отдельно; post-catalog diagnostic run снят (33 430
+строк), counts §4 обновлены по нему. File-level 35/267 не изменился.
 
 Связанные документы:
 [`OUTPUT_SOURCE_AUDIT.md`](OUTPUT_SOURCE_AUDIT.md) — detector, batch 35,
@@ -29,9 +30,9 @@ production-код, frozen-манифесты и Phase C не менялись. �
 3. **Остальные файлы** — `usable` только в смысле «детектор не нашёл
    сигнатуру batch 35 и нет известной OCR-порчи». Это не гарантия
    читаемости; `usable` не равно «проверено вручную».
-4. **302 файла / 10 055 flagged** — очередь кандидатов, не exclusion list.
-   35 файлов — единственный проверенный file-level список этого дефекта; 267
-   — unknown tail.
+4. **302 файла / 7 249 flagged** в post-catalog выводе (pre-change: 10 055)
+   — очередь кандидатов, не exclusion list. 35 файлов — единственный
+   проверенный file-level список этого дефекта; 267 — unknown tail.
 5. Никакого auto-delete, переписывания источников, `--include-degraded` как
    единственного способа доступа и скрытого фильтра. Sidecar должен быть
    документирован и доступен так же, как будущий `entities_trust.csv`.
@@ -113,8 +114,8 @@ columns: source_quality;source_reason;evidence_level
   кандидат на проверку;
 - `degraded_ocr` — review/row-level; не file-level quarantine.
 
-Это компромисс B: default не забит заведомо бесполезными 29,9% строк batch 35,
-но 267 tail не объявлен чистым и не потерян.
+Это компромисс B: default не забит заведомо бесполезными 22,7% строк batch 35
+(post-catalog; pre-change 29,9%), но 267 tail не объявлен чистым и не потерян.
 
 ### 3.3. Default-view decision
 
@@ -126,16 +127,24 @@ columns: source_quality;source_reason;evidence_level
 
 ## 4. Counts и границы
 
-Текущий full-output:
+Post-catalog full-output (2026-10-27; SHA-256
+`6553A62C7174FCA26B70D9BB45262EF74E5B51856340429975D036269578B27F`):
 
-- всего: **10 531** файл, **37 406** строк, **2 615** файлов с упоминаниями;
-- batch 35: **11 189** строк (29,9%), **11 063** top-4 строки (40,1%),
-  **8 381** flagged (83,4% всех flagged), **8 287** top-4 flagged;
-- 267 tail: **7 054** строки, **1 674** flagged; это `unknown`, не clean;
-- 302 кандидата: **18 243** строки, **10 055** flagged; 302 — очередь, не
+- всего: **10 531** файл, **33 430** строк, **2 597** файлов с упоминаниями;
+- batch 35: **7 601** строка (22,7%), **7 475** top-4 строк (31,9% top-4),
+  **5 761** flagged (74,1% всех flagged), **5 667** top-4 flagged;
+- 267 tail: **6 363** строки, **1 488** flagged; это `unknown`, не clean;
+- 302 кандидата: **13 964** строки, **7 249** flagged; 302 — очередь, не
   exclusion;
 - 11 проверенных файлов вне batch: **10/11** читаемы, **1/11** настоящая
   missing-space OCR-порча; file-level detector её не ловит.
+
+Pre-change snapshot (для сравнения): **37 406 строк**, batch 35 — **11 189**
+строк (29,9%), **8 381** flagged; 267 tail — **7 054** строки, **1 674**
+flagged; 302 — **18 243** строки, **10 055** flagged. 302/267 — тот же
+file-level список, построенный на pre-change выводе; post-catalog строки
+пересчитаны по нему. Изменение counts объясняется catalog corrections, а не
+новым detector’ом.
 
 Ограничения:
 
@@ -149,7 +158,7 @@ columns: source_quality;source_reason;evidence_level
 
 1. **Freeze detector**: шесть маркеров + density ≥1%; batch 35 list hash
    `C3F5E7FBD7DE653756E817E79CA9F6F1F9AAF869E1F696B457B5B1598F868516`.
-2. **Build source sidecar**: пройти по всем 2 615 файлам с упоминаниями;
+2. **Build source sidecar**: пройти по всем 2 597 файлам с упоминаниями;
    выставить `degraded_lexical` ровно 35, `unknown` 267, `degraded_ocr` для
    подтверждённого OCR-случая, остальным `usable` по detector-negative.
 3. **Join rows**: `source_quality` попадёт в `entities_from_degraded_sources.csv`
@@ -160,7 +169,8 @@ columns: source_quality;source_reason;evidence_level
    - file-level detector даёт 35/35 и 0/267;
    - 267 не попадают в `degraded_lexical` и не получают `usable`;
    - batch 35 не удаляется из raw/review;
-   - `entities_from_degraded_sources.csv` содержит все 11 189 строк batch 35;
+   - `entities_from_degraded_sources.csv` содержит все **7 601** строку batch 35
+     в post-catalog выводе (pre-change 11 189);
    - отсутствие sidecar не меняет старый CSV;
    - counts в отчёте совпадают с counts фильтра.
 6. **Report**: команда, scope, detector version, фильтры, counts, сколько
@@ -181,6 +191,11 @@ columns: source_quality;source_reason;evidence_level
 (строки batch 35/unknown), либо source-only отчёт на полном выводе. Нельзя
 приписывать B улучшение, которого не было в sample. Это открытый пункт
 probe 2 design, а не разрешение считать B доказанным.
+
+Post-catalog source pool: batch 35 — **7 601** строка, 267 tail — **6 363**
+строки; file-level 35/267 не изменился. Source cell должен быть набран из
+этого post-catalog pool, иначе counts не совпадут с output, на котором
+считаются конфигурации.
 
 ## 7. Чего этот документ не делает
 

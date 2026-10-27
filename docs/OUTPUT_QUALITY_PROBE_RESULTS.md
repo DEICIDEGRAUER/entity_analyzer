@@ -217,8 +217,9 @@ quality/review track.
 - На момент probe/аудита: никаких изменений в `codex.json`,
   `entities_table.csv`, Phase C, frozen manifests и production-коде.
   2026-10-27 после решения применены 12 approved catalog corrections; labels
-  и метрики этого probe не менялись, output не переснимался. См.
-  [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §10.5.
+  и метрики этого probe не менялись. Post-catalog output снят отдельно
+  (33 430 строк); этот probe использовал pre-change снимок. См.
+  [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §10.5–§10.6.
 
 ## 10. Пост-аудит поправка (2026-10-26)
 
@@ -273,5 +274,7 @@ frozen labels/manifests или production-код. Отдельно, уже по�
   source check.
 
 До probe 2 production, source-файлы и frozen CSV не меняются; каталог
-изменён только 12 approved операциями, output ещё не переснят. Локальные
-docs-коммиты допустимы, push — после probe 2.
+изменён только 12 approved операциями. Post-catalog output снят (33 430
+строк; hash — [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §10.6), но
+он является C2, не C0; для incremental catalog нужен pre-change baseline.
+Локальные docs-коммиты допустимы, push — после probe 2.

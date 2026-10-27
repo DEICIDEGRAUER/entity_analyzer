@@ -259,8 +259,10 @@ row-level readability.
 2. Catalog correction: **12 операций одобрены и применены** (13 alias
    strings; 6 owner_reassign + 5 misattribution_removal + 1 homonym_removal),
    3 HOLD и `Leng` no-op; новый hash и residual surfaces —
-   [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §10.5. Output после
-   catalog changes ещё не переснят; sample нельзя freeze на старом CSV.
+   [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §10.5. Post-catalog
+   output снят (**33 430 строк**, hash §10.6); для probe 2 он является C2,
+   не C0, поэтому sample нельзя заморозить без выбора pre-change baseline (§1.1
+   probe 2).
 3. Generator policy — design only: 14 composite names, full phrase only,
    exception list; [`OUTPUT_GENERATOR_POLICY.md`](OUTPUT_GENERATOR_POLICY.md).
 4. Зафиксировать targeted probe 2: seed, manifest, catalog/source hashes,
@@ -272,4 +274,5 @@ row-level readability.
 До шага 5 production-код и source-файлы не меняются; каталог изменён только
 12 approved операциями. Primary sample source-usable не измеряет source B;
 нужен отдельный source cell/full source check, иначе B нельзя объявлять
-полезным.
+полезным. Post-catalog output уже снят, но incremental catalog требует
+pre-change C0/control run; без этого sample не фиксируется.
