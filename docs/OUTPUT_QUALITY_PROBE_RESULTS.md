@@ -225,23 +225,27 @@ quality/review track.
 - **302 / 10 055 подтверждены арифметически, но это не валидированный
   OCR-список.** 10 055 — flagged-строки внутри 302 файлов; всех строк в них
   18 243 (48,8%). Top-15 — source-level лексическая порча: 5 899/5 899
-  top-4 контекстов дословно есть в источнике. 35 файлов образуют
-  доминирующий batch; оставшиеся 267 — хвост, где 10 из 11 выборочных
-  файлов читаемы (ложные срабатывания эвристики). См.
+  top-4 контекстов дословно есть в источнике. 35/35 файлов batch проверены
+  author-side; file-level детектор по шести маркерам выбирает ровно 35 из
+  302 и 0 из 267. Оставшиеся 267 вручную не читались; 10 из 11 ранее
+  выборочных файлов читаемы (ложные срабатывания эвристики). См.
   [`OUTPUT_SOURCE_AUDIT.md`](OUTPUT_SOURCE_AUDIT.md).
 - **Страта OCR остаётся валидной для своих строк:** 9/10 high-score строк
   действительно unusable. Но файловый список 302 нельзя использовать как
-  source exclusion; для batch 35 нужен отдельный file-level review.
+  source exclusion; для batch 35 нужен file-level source decision A/B/C.
 - **Top-4 misleading = 13 catalog + 12 source**, а не 25 catalog. В
   strong-страте (включая `Лао` вне top-4) 2 из 5 misleading — catalog
   (`Лао`, `Гисгут`), 3 — source (`Zhar`, `Leng`, `Nug`). Это усиливает
   вывод «оба трека», а не отменяет каталожный аудит.
-- **`Книгу` и падежи** — частично catalog, частично variant generation:
-  bare `Книге`/`Книгах`/`Книгой`/`Книгами` генерируются из составного имени.
-  См. [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md).
+- **`Книгу` и падежи** — и catalog, и variant generation: `Книгу` есть в
+  алиасах, но все пять bare-форм (`Книгу`/`Книге`/`Книгах`/`Книгой`/
+  `Книгами`) генерируются из составного имени. Удаление одного алиаса не
+  уберёт формы; нужны catalog correction и generator policy. См.
+  [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §9.
 - **Cheap non-ML baseline** теперь зафиксирован как методическое правило:
-  strict canonical-only и/или marker/title-gate до labels; 302-эвристика не
-  является gate. См. [`OUTPUT_QUALITY_AUDIT.md`](OUTPUT_QUALITY_AUDIT.md) §8.
+  strict canonical-only, marker/title-gate и/или file-level детектор
+  подстановок до labels; 302-эвристика не является gate. См.
+  [`OUTPUT_QUALITY_AUDIT.md`](OUTPUT_QUALITY_AUDIT.md) §8.
 - `needs_review` остаётся видимой metadata, не silent filter:
   [`OUTPUT_TRUST_LEVELS.md`](OUTPUT_TRUST_LEVELS.md).
 

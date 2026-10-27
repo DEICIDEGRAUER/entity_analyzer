@@ -171,7 +171,7 @@ columns: trust;trust_reason;alias_class;source_quality;owner_status;match
 
 ## 6. Targeted probe 2 (предложение; не запущен)
 
-Запускать только после решений по source batch 35 и catalog candidates.
+Запускать только после решений по source batch 35 и catalog correction.
 Иначе состав `weak`/`strong` изменится между freeze и разметкой.
 
 ### 6.1. Состав
@@ -209,11 +209,13 @@ reportятся отдельно. Нельзя объявлять gate, если 
 ### 6.3. Обязательный cheap baseline
 
 Pre-registration должна включать минимум один дешёвый non-ML baseline до
-разметки: strict canonical-only и/или детерминированный marker/title-gate.
+разметки: strict canonical-only, детерминированный marker/title-gate и/или
+file-level детектор лексической подстановки (`Dee/Kent/irem/Ohio/Mu/thran`).
 Это правило из Phase C §5.9 и
 [`OUTPUT_QUALITY_AUDIT.md`](OUTPUT_QUALITY_AUDIT.md) §8. Отчёт обязан указать
 команду, scope, фильтры и counts: сколько строк/файлов исключено, сколько
-осталось в каждой страте.
+осталось в каждой страте. Source-детектор — фильтр источника, не замена
+row-level readability.
 
 ### 6.4. Что считается успехом
 
@@ -239,9 +241,13 @@ Pre-registration должна включать минимум один дешё�
 
 ## 8. Следующий шаг
 
-1. Проверить оставшиеся 20 файлов source batch 35.
-2. Решить, какие catalog candidates (generic/owner/shared) применять; без
-   этого состав weak/strong нестабилен.
+1. Source batch 35 проверен 35/35; file-level детектор даёт ровно 35 файлов
+   и 0 из 267. Выбрать source-policy A/B/C; 302 не использовать как список
+   exclusion.
+2. Принять catalog correction по каждой строке (owner_reassign /
+   misattribution_removal / homonym_removal / no_op; shared_unresolved — не
+   операция) и решить generation policy для composite names. Без этого
+   состав weak/strong нестабилен.
 3. Зафиксировать targeted probe 2: seed, manifest, catalog/source hashes,
    25+25, 13/12 marker cells, baselines и пороги.
 4. Разметить author-side, затем blind-подмножество; только после этого —

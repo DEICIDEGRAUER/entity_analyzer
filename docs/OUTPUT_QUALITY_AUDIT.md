@@ -221,10 +221,13 @@ trust-level gate:
   файлов исключено, сколько осталось в каждой страте;
 - baseline не может быть заменён «мы посмотрели глазами» или одним ML-скором.
 
-В этом аудите дешёвые baseline’ы — `Strict canonical-only` и
-детерминированный marker/title-gate. 302-файловая OCR-эвристика **не**
-является валидированным gate: она даёт ложные срабатывания на длинных именах
-и обычных словах с function-prefix.
+В этом аудите дешёвые baseline’ы — `Strict canonical-only`,
+детерминированный marker/title-gate и file-level детектор лексической
+подстановки (`Dee/Kent/irem/Ohio/Mu/thran`, все шесть + плотность ≥1%;
+35 файлов). 302-файловая row-level OCR-эвристика **не** является
+валидированным gate: она даёт ложные срабатывания на длинных именах и
+обычных словах с function-prefix. Детектор подстановок заменяет её только
+для этого дефекта, не для OCR вообще.
 
 ### 8.2. Что уточнил пост-аудит
 
@@ -233,25 +236,59 @@ trust-level gate:
   top-15 — source-level порча; 35 файлов образуют доминирующий lexical batch;
   оставшиеся 267 — хвост с ложными срабатываниями. См.
   [`OUTPUT_SOURCE_AUDIT.md`](OUTPUT_SOURCE_AUDIT.md).
-- **`Книгу` и падежи** — не только каталог: `Книгу` есть в алиасах, а
-  `Книге`/`Книгах`/`Книгой`/`Книгами` генерируются из составного имени
-  `Книга Эйбона`. Удаление одного алиаса не уберёт bare-формы. См.
-  [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md).
+- **`Книгу` и падежи** — не только каталог: `Книгу` есть в алиасах, но все
+  пять bare-форм (`Книгу`, `Книге`, `Книгах`, `Книгой`, `Книгами`)
+  генерируются из составного имени `Книга Эйбона` через
+  `DeclineCompound`. Даже `EntityCatalog` с пустым `Irregular` выдаёт
+  `Книгу`; удаление одного алиаса не уберёт bare-формы. Нужны catalog
+  correction **и** variant-generation policy. См.
+  [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §9.
 - **Top-4 misleading = 13 catalog + 12 source**, а не «только каталог».
   В strong-страте `Leng`/`Zhar`/`Nug` — source, `Гисгут` — catalog
   (top-4); `Лао` — catalog-омоним вне top-4. Поэтому source quarantine и
-  catalog candidates рассматриваются вместе.
+  catalog correction рассматриваются вместе.
 - **`needs_review`** остаётся видимой metadata, не фильтром и не удалением;
   дизайн: [`OUTPUT_TRUST_LEVELS.md`](OUTPUT_TRUST_LEVELS.md).
 
 ### 8.3. Актуальный порядок
 
-1. Проверить оставшиеся 20 файлов source batch 35; решить source-policy
-   отдельно от alias cleanup.
-2. Решить catalog candidates (generic/owner/shared); не мутировать каталог
-   до этого решения.
-3. Зафиксировать targeted probe 2: 25 weak/composite + 25 strong,
+1. Блокер генератора найден: bare-формы `Книга Эйбона` делает
+   `EntityCatalog` → `VariantFactory` → `DeclineCompound`, не
+   `CodexService`/`HomonymClassifier`. `Книгу` есть в каталоге и тоже
+   генерируется; catalog-only fix недостаточен. Код-путь зафиксирован, но
+   production не менялся и не должен меняться до решения.
+2. Source batch 35: 35/35 проверены author-side; file-level детектор
+   подстановок даёт ровно 35 и 0 из 267. Source-policy A/B/C ждёт решения;
+   302 остаётся очередью, не exclusion list.
+3. Catalog correction: 4 операции (owner_reassign / misattribution_removal /
+   homonym_removal / no_op) и shared_unresolved; каталог не мутировать до
+   явного «да» по каждой строке.
+4. Зафиксировать targeted probe 2: 25 weak/composite + 25 strong,
    source-usable, owner-unique, marker 13/12; cheap baseline и пороги — до
-   labels.
-4. Только после probe 2 — sidecar `entities_trust.csv` и решение о
+   labels. Состав strata зависит от решений по source/catalog.
+5. Только после probe 2 — sidecar `entities_trust.csv` и решение о
    default-view. Phase C, entity graph и owner-таблицы остаются закрытыми.
+
+## 9. Правило перед ML-фиксом (2026-10-27)
+
+Три раза подряд причина оказалась не там, где её искали: Phase C мерила
+topical retrieval, а не semantic; BoW выглядел «плохим» из-за не того
+benchmark; OCR-score выглядел «шумным», а это была систематическая
+лексическая подстановка плюс генерация падежей. Поэтому перед любым
+ML/эмбеддинг/классификаторным фиксом обязательны три проверки:
+
+1. **Откуда данные в выводе?** Проследить provenance surface-формы:
+   каталог, alias, generated variant, source, classifier. Нельзя лечить
+   `Книге` как alias, если её генерирует `DeclineCompound`.
+2. **Есть ли cheap non-ML detector?** Сначала проверить exact/normalized,
+   marker/title gate, словарь подстановок, file-level сигнатуру, BM25.
+   Если дешёвый baseline объясняет эффект, ML не первый инструмент.
+3. **Не является ли «шум» сигнатурой дефекта?** `Dee/Kent/irem/Ohio/Mu/
+   thran` — не случайный OCR-шум, а конкретная подстановка; `Книге` — не
+   шум, а сгенерированная форма; `The Gate` — generic, а не «плохой
+   эмбеддинг».
+
+Практическое следствие: в pre-registration и отчёте фиксируются provenance
+гипотезы, дешёвый baseline и counts до labels. `HomonymClassifier` и ONNX
+остаются опциями для остаточных случаев, а не первым ответом на структурный
+дефект.
