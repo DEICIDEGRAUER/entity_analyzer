@@ -1,9 +1,10 @@
 # Аудит источников: top-15 OCR-кандидатов и лексически испорченный batch
 
 **Статус (2026-10-26; detector/batch follow-up 2026-10-27): READ-ONLY.**
-Источники не исключались, не удалялись и
-не переписывались. Каталог, production-код, `entities_table.csv`,
-frozen-манифесты и Phase C не менялись.
+Источники не исключались, не удалялись и не переписывались.
+`entities_table.csv`, production-код, frozen-манифесты и Phase C не менялись.
+12 approved catalog corrections применены отдельно 2026-10-27; source-audit
+counts и detector не затронуты.
 
 ## 0. Короткий вывод
 
@@ -281,8 +282,9 @@ cheap non-ML baseline добавляется до объявления gate.
 
 ## 9. Артефакты
 
-- `entities_table.csv` SHA-256:
+- `entities_table.csv` SHA-256 (аудит-снимок до catalog corrections):
   `3954D596EED2828859113F16C1EBB9EDED45FC1DFC8DAD0DF471FCC66B253685`.
+  После catalog corrections output не переснимался.
 - Source batch 35 (локальный ignored CSV):
   `output/quality-audit-2026-10-26/source-lexical-batch-35.csv`,
   SHA-256 `C3F5E7FBD7DE653756E817E79CA9F6F1F9AAF869E1F696B457B5B1598F868516`.

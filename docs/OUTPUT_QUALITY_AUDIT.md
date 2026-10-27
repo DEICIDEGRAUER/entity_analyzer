@@ -1,9 +1,12 @@
 # Аудит пользовательского вывода: 20 строк полного диагностического прогона
 
-**Статус (2026-10-25): AUDIT ONLY.** Это не benchmark, не gate и не
-переоткрытие Phase C. Аудит ничего не меняет в каталоге, `entities_table.csv`,
-frozen-манифестах и Phase C. Его задача — получить карту реальных дефектов
-пользовательского вывода, а не улучшить метрику.
+**Статус (2026-10-25; decisions 2026-10-27): AUDIT ONLY.** Это не benchmark,
+не gate и не переоткрытие Phase C. Аудит не меняет `entities_table.csv`,
+source-файлы, frozen-манифесты и Phase C. 2026-10-27 после явного решения
+применены 12 approved catalog corrections; counts этого документа — снимок
+до них. См. [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §10.5. Задача
+документа — карта реальных дефектов пользовательского вывода, а не улучшение
+метрики.
 
 ## 0. Короткий вывод
 
@@ -262,10 +265,11 @@ trust-level gate:
    trusted/default, 267 — `unknown`, не clean; дизайн —
    [`OUTPUT_SOURCE_POLICY.md`](OUTPUT_SOURCE_POLICY.md).
 3. Catalog correction: 4 операции (owner_reassign / misattribution_removal /
-   homonym_removal / no_op) и shared_unresolved. **12 операций одобрены**
-   (6 reassign + 5 misattribution + 1 homonym); 3 HOLD (Opener, Ghisguth,
-   God of the Dead), `Leng` no-op. Каталог ещё не мутирован; решения — в
-   [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §10.5.
+   homonym_removal / no_op) и shared_unresolved. **12 операций одобрены и
+   применены** (13 alias strings; 6 reassign + 5 misattribution + 1 homonym);
+   3 HOLD (Opener, Ghisguth, God of the Dead), `Leng` no-op. Новый catalog hash
+   и residual surfaces — в [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md)
+   §10.5; output ещё не переснят.
 4. Generator policy — design only; 14 composite names, full phrase only,
    exception list. См. [`OUTPUT_GENERATOR_POLICY.md`](OUTPUT_GENERATOR_POLICY.md).
 5. Зафиксировать targeted probe 2: 50 строк, 25 weak/composite + 25 strong,

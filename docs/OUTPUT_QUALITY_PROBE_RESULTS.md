@@ -214,8 +214,11 @@ quality/review track.
 - Pre-registration: `34c5fa7` (docs-only, до labels).
 - Manifest: `F37EC1F5…` (local ignored).
 - Labels: `EF3114E9…` (local ignored).
-- Никаких изменений в `codex.json`, `entities_table.csv`, Phase C,
-  frozen manifests и production-коде.
+- На момент probe/аудита: никаких изменений в `codex.json`,
+  `entities_table.csv`, Phase C, frozen manifests и production-коде.
+  2026-10-27 после решения применены 12 approved catalog corrections; labels
+  и метрики этого probe не менялись, output не переснимался. См.
+  [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §10.5.
 
 ## 10. Пост-аудит поправка (2026-10-26)
 
@@ -249,8 +252,9 @@ quality/review track.
 - `needs_review` остаётся видимой metadata, не silent filter:
   [`OUTPUT_TRUST_LEVELS.md`](OUTPUT_TRUST_LEVELS.md).
 
-Никаких изменений в каталоге, источниках, CSV-контракте, Phase C, frozen
-labels/manifests или production-коде этот пост-аудит не вносит.
+Этот пост-аудит не вносит изменений в источники, CSV-контракт, Phase C,
+frozen labels/manifests или production-код. Отдельно, уже после него,
+применены 12 approved catalog corrections; метрики/labels не затронуты.
 
 ## 11. Решения после аудита (2026-10-27)
 
@@ -258,9 +262,9 @@ labels/manifests или production-коде этот пост-аудит не в
 
 - Source policy: выбран **B** — sidecar, batch 35 вне trusted/default,
   267 — `unknown`, не clean; дизайн — [`OUTPUT_SOURCE_POLICY.md`](OUTPUT_SOURCE_POLICY.md).
-- Catalog: **12 операций одобрены**, 3 HOLD (`Opener`, `Ghisguth`,
-  `God of the Dead`), `Leng` no-op; каталог ещё не мутирован, решения —
-  [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §10.5.
+- Catalog: **12 операций одобрены и применены** (13 alias strings), 3 HOLD
+  (`Opener`, `Ghisguth`, `God of the Dead`), `Leng` no-op; решения и новый
+  hash — [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §10.5.
 - Generator: **design only**, 14 composite names; `full phrase only` и
   exception list — [`OUTPUT_GENERATOR_POLICY.md`](OUTPUT_GENERATOR_POLICY.md).
 - Probe 2: один 50-строчный sample, одна разметка, incremental C0–C5;
@@ -268,5 +272,6 @@ labels/manifests или production-коде этот пост-аудит не в
   Primary sample source-usable не измеряет source B; нужен source cell/full
   source check.
 
-До probe 2 production, каталог, source-файлы и frozen CSV не меняются;
-локальные docs-коммиты допустимы, push — после probe 2.
+До probe 2 production, source-файлы и frozen CSV не меняются; каталог
+изменён только 12 approved операциями, output ещё не переснят. Локальные
+docs-коммиты допустимы, push — после probe 2.

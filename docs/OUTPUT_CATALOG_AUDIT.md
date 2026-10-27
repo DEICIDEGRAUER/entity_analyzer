@@ -1,9 +1,11 @@
 # Аудит каталога: 4 доминирующие карточки и `Ляо`
 
-**Статус (2026-10-26; generator follow-up 2026-10-27): READ-ONLY.**
-Каталог, `entities_table.csv`,
-production-код, frozen-манифесты и Phase C не менялись. Это аудит того, что
-уже вышло пользователю, а не предложение немедленно чистить алиасы.
+**Статус (2026-10-26; generator follow-up 2026-10-27): READ-ONLY AUDIT.**
+Этот документ и его counts — снимок **до** catalog corrections. 2026-10-27
+после явного решения применены 12 approved операций (13 alias strings);
+`entities_table.csv`, production-код, source-файлы, frozen-манифесты и Phase C
+не менялись. Новый catalog hash и точный список — §10.5. Для probe 2 нужен
+новый прогон; counts ниже не пересчитывались.
 
 ## 0. Короткий вывод
 
@@ -48,8 +50,11 @@ production-код, frozen-манифесты и Phase C не менялись. �
 - Фильтры: границы слов, density, phrase blacklist (9), meaningfulness 0.06,
   common words, title validation, dedup. Title/common-word отказов в этом
   прогоне: **0**. Fuzzy и глубокая порча: выключены.
-- Каталог: **37 карточек, 1 977 алиасов**, SHA-256
+- Каталог на момент аудита: **37 карточек, 1 977 алиасов**, SHA-256
   `B0FF04AE5A2679BA647475CCC40291BD95133BEAC4BF89CA41B64DC607146027`.
+  После approved corrections: **1 964 алиаса**, SHA-256
+  `95B54F6DBCB3A12CBAD34EAEA57101AAC40226052C3FAFFFB430A320A0AE7A85`
+  (§10.5); counts этого документа относятся к pre-change снимку.
 - Метод: точное сопоставление `entity`/`variant` из CSV с алиасами карточки;
   отдельно учитывались surface-формы, которых нет в каталоге; контексты
   просматривались выборочно, author-side. Это не blind-разметка и не
@@ -411,12 +416,14 @@ match-time weak) и др. До owner-resolution:
 removal неполон.
 
 Порядок: source policy → catalog correction approvals → generator policy →
-probe 2. Каталог не мутируется до явного решения по каждой строке.
+probe 2. 12 approved операций применены 2026-10-27; 3 HOLD не тронуты.
+Мутация каталога не является source exclusion и не меняет frozen CSV.
 
-### 10.5. Решения 2026-10-27 (пока не применены)
+### 10.5. Решения 2026-10-27 (применены)
 
-Пользователь явно одобрил **12 операций**; это решение, а не выполненная
-мутация:
+Пользователь явно одобрил **12 операций**. Они применены к private
+`codex.json` 2026-10-27; это **13 alias strings** (12 операций), потому что
+`Umr at-Tawil` имеет две apostrophe-формы. Backup создан перед записью.
 
 | Операция | Surface | Решение |
 |---|---|---|
@@ -430,8 +437,20 @@ probe 2. Каталог не мутируется до явного решени
 | `misattribution_removal` | `Lloigor` | ДА |
 | `misattribution_removal` | `Aforgomon` | ДА |
 | `misattribution_removal` | `Kthulhut` | ДА |
-| `misattribution_removal` | `Umr at-Tawil` | ДА |
+| `misattribution_removal` | `Umr at-Tawil` (+ `'Umr at-Tawil`) | ДА |
 | `homonym_removal` | `Лао` | ДА |
+
+Результат: **37 карточек, 1 964 алиаса** (было 1 977), SHA-256
+`95B54F6DBCB3A12CBAD34EAEA57101AAC40226052C3FAFFFB430A320A0AE7A85`.
+`entities_table.csv` не переснимался и остаётся с pre-change hash
+`3954D596EED2828859113F16C1EBB9EDED45FC1DFC8DAD0DF471FCC66B253685`;
+поэтому counts §2–§9 и sample strata ещё не обновлены.
+
+Остались **неодобренные** поверхности, которые нельзя считать удалёнными:
+`Zhar and Lloigor` и длинная фраза с `Cxaxukluth` у `Наг и Йеб`,
+`Naggoob (Hyperborean name for Shaurash-Ho)` у `Боги Нежити`, `Ghisguth`
+(HOLD), `The Opener of the Way` (HOLD), `God of the Dead` (HOLD). Это не
+silent cleanup; для них нужны отдельные решения.
 
 **HOLD — не трогать до отдельного решения:**
 
@@ -448,8 +467,9 @@ probe 2. Каталог не мутируется до явного решени
 [`OUTPUT_GENERATOR_POLICY.md`](OUTPUT_GENERATOR_POLICY.md).
 
 Применение 12 операций меняет output/strata, поэтому sample probe 2 нельзя
-freeze до прогона с новым каталогом. Локальные коммиты допустимы; push — после
-probe 2.
+freeze до прогона с новым каталогом. Новый hash каталога зафиксирован; output
+и source-policy hash будут зафиксированы в manifest после прогона. Локальные
+коммиты допустимы; push — после probe 2.
 
 ## 11. Что это меняет в probe-интерпретации
 

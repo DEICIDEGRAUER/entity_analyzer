@@ -1,8 +1,10 @@
 # Targeted probe 2: один sample, incremental-конфигурации
 
-**Статус (2026-10-27): DESIGN ONLY.** Sample не набран, labels не сделаны,
-production/catalog/source не менялись. Это pre-registration дизайна; counts,
-seed и hashes фиксируются в отдельном manifest **до** разметки.
+**Статус (2026-10-27): DESIGN ONLY.** Sample не набран, labels не сделаны.
+12 approved catalog corrections применены к private catalog; source-файлы,
+production-код и frozen CSV не менялись, но новый output после catalog
+corrections ещё не снят. Это pre-registration дизайна; counts, seed и hashes
+фиксируются в отдельном manifest **до** разметки.
 
 Связанные документы:
 [`OUTPUT_TRUST_LEVELS.md`](OUTPUT_TRUST_LEVELS.md),
@@ -192,8 +194,9 @@ reportится как ограничение, а не как «B не работ
 ## 8. Следующий шаг
 
 1. Утвердить source cell или изменить source-usable стратификацию.
-2. Применить 12 approved catalog corrections в прогоне; зафиксировать новый
-   catalog/output hash.
+2. 12 approved catalog corrections уже применены к каталогу; **переснять
+   вывод** и зафиксировать новый catalog/output hash. Старый CSV для freeze
+   не годится.
 3. Утвердить generator design/exception list; C3 считать как симуляцию до
    реализации.
 4. Сгенерировать manifest 50 строк + source cell, затем labels.

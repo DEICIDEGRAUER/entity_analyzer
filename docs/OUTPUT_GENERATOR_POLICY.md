@@ -1,7 +1,9 @@
 # Generator policy для composite names: аудит и дизайн
 
-**Статус (2026-10-27): DESIGN ONLY.** Production-код, каталог,
-`entities_table.csv`, frozen-манифесты и Phase C не менялись. Этот документ
+**Статус (2026-10-27): DESIGN ONLY; audit snapshot pre-correction.**
+Production-код, `entities_table.csv`, source-файлы, frozen-манифесты и Phase C
+не менялись. 12 approved catalog corrections применены отдельно; counts ниже
+сняты до них и требуют нового прогона после catalog changes. Этот документ
 отвечает на вопрос «что именно генерирует `EntityCatalog` для составных имён
 и что даст `full phrase only`», но не реализует policy.
 
@@ -44,10 +46,14 @@ alias-overlap.
 
 - Вход: текущий диагностический full-output, пресет `minimal`;
   **37 406 строк**, **36 сущностей**, **2 615 файлов** с упоминаниями.
-- Каталог: **37 enabled-карточек**, **1 977 алиасов**, SHA-256
-  `B0FF04AE5A2679BA647475CCC40291BD95133BEAC4BF89CA41B64DC607146027`.
+- Каталог на момент аудита: **37 enabled-карточек**, **1 977 алиасов**,
+  SHA-256 `B0FF04AE5A2679BA647475CCC40291BD95133BEAC4BF89CA41B64DC607146027`.
+  После approved corrections: 1 964 алиаса, SHA-256
+  `95B54F6DBCB3A12CBAD34EAEA57101AAC40226052C3FAFFFB430A320A0AE7A85`;
+  counts ниже — pre-change.
 - Вывод: SHA-256
-  `3954D596EED2828859113F16C1EBB9EDED45FC1DFC8DAD0DF471FCC66B253685`.
+  `3954D596EED2828859113F16C1EBB9EDED45FC1DFC8DAD0DF471FCC66B253685`
+  (pre-change; новый вывод после catalog corrections ещё не снят).
 - Аудит выполнен временным console на собранной `EntityAnalyzer.Core.dll`:
   для каждой composite-карточки вызывался реальный
   `VariantFactory.GenerateTwoPass` для `Name` и `Canonical` с пустым
@@ -349,14 +355,15 @@ source-cell или на полном выводе; нельзя приписыв
 
 ## 8. Ограничения
 
-- 14 composite-карточек — по текущему каталогу; при добавлении карточек
-  число изменится.
-- Строки считаны по текущему выводу; это не end-to-end recall.
+- 14 composite-карточек — по каталогу на момент аудита; при добавлении
+  карточек число изменится.
+- Строки считаны по pre-correction выводу; это не end-to-end recall. После
+  12 approved catalog corrections нужен новый прогон; counts могут измениться.
 - Standalone-классификация author-side; формы с нулевой поддержкой не
   перечислены; alias overlap и `other` — разные вещи.
 - `full phrase only` не является catalog cleanup: 4 057 alias-overlap и
-  15 297 other строк остаются.
+  15 297 other строк остаются в pre-change снимке.
 - Exception list не одобрен; `Leng`, `Nug`/`Yeb`, `Tsang`, `Йиг`, `Эйбон`
   требуют owner/lore review.
-- Production-код и каталог не менялись; документ не является разрешением на
-  реализацию.
+- Production-код не менялся; каталог изменён только 12 approved операциями.
+  Документ не является разрешением на реализацию generator policy.

@@ -1,9 +1,10 @@
 # Trust levels: `strong` / `weak` / `needs_review`
 
-**Статус (2026-10-26): DESIGN ONLY.** Это документ о том, как объяснять
-пользователю доверие к строке. Код, каталог, CSV-контракт, Phase C и
-frozen-манифесты не меняются. `needs_review` — видимая metadata, не фильтр и
-не удаление.
+**Статус (2026-10-26; decisions 2026-10-27): DESIGN ONLY.** Это документ о
+том, как объяснять пользователю доверие к строке. Production-код, CSV-контракт,
+Phase C и frozen-манифесты не меняются. 12 approved catalog corrections
+применены отдельно (§10.5 catalog audit); source-файлы не менялись.
+`needs_review` — видимая metadata, не фильтр и не удаление.
 
 ## 0. Зачем это нужно
 
@@ -255,10 +256,11 @@ row-level readability.
    и 0 из 267. Выбран **B**: sidecar, 267 — `unknown`, не clean; дизайн —
    [`OUTPUT_SOURCE_POLICY.md`](OUTPUT_SOURCE_POLICY.md). 302 не использовать
    как список exclusion.
-2. Catalog correction: **12 операций одобрены** (6 owner_reassign + 5
-   misattribution_removal + 1 homonym_removal), 3 HOLD и `Leng` no-op;
-   решения — [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §10.5.
-   Каталог ещё не мутирован: сначала design review, затем прогон.
+2. Catalog correction: **12 операций одобрены и применены** (13 alias
+   strings; 6 owner_reassign + 5 misattribution_removal + 1 homonym_removal),
+   3 HOLD и `Leng` no-op; новый hash и residual surfaces —
+   [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §10.5. Output после
+   catalog changes ещё не переснят; sample нельзя freeze на старом CSV.
 3. Generator policy — design only: 14 composite names, full phrase only,
    exception list; [`OUTPUT_GENERATOR_POLICY.md`](OUTPUT_GENERATOR_POLICY.md).
 4. Зафиксировать targeted probe 2: seed, manifest, catalog/source hashes,
@@ -267,6 +269,7 @@ row-level readability.
 5. Разметить author-side, затем blind-подмножество; только после этого —
    решение о trusted-view/sidecar.
 
-До шага 5 production-код и каталог не меняются. Primary sample
-source-usable не измеряет source B; нужен отдельный source cell/full source
-check, иначе B нельзя объявлять полезным.
+До шага 5 production-код и source-файлы не меняются; каталог изменён только
+12 approved операциями. Primary sample source-usable не измеряет source B;
+нужен отдельный source cell/full source check, иначе B нельзя объявлять
+полезным.

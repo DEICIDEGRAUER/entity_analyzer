@@ -1,9 +1,10 @@
 # Source policy B: sidecar, degraded и unknown
 
-**Статус (2026-10-27): DESIGN ONLY.** Source files, каталог,
-production-код, `entities_table.csv`, frozen-манифесты и Phase C не менялись.
-Решение B принято как направление; реализация — после design review, без
-silent exclusion и без изменения source-файлов.
+**Статус (2026-10-27): DESIGN ONLY.** Source files, `entities_table.csv`,
+production-код, frozen-манифесты и Phase C не менялись. Решение B принято как
+направление; реализация — после design review, без silent exclusion и без
+изменения source-файлов. 12 approved catalog corrections применены отдельно;
+на source-аудит и counts этого документа они не влияют.
 
 Связанные документы:
 [`OUTPUT_SOURCE_AUDIT.md`](OUTPUT_SOURCE_AUDIT.md) — detector, batch 35,
