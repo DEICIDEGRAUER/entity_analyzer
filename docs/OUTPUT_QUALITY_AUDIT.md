@@ -258,15 +258,21 @@ trust-level gate:
    генерируется; catalog-only fix недостаточен. Код-путь зафиксирован, но
    production не менялся и не должен меняться до решения.
 2. Source batch 35: 35/35 проверены author-side; file-level детектор
-   подстановок даёт ровно 35 и 0 из 267. Source-policy A/B/C ждёт решения;
-   302 остаётся очередью, не exclusion list.
+   подстановок даёт ровно 35 и 0 из 267. Выбран **B**: sidecar, batch 35 вне
+   trusted/default, 267 — `unknown`, не clean; дизайн —
+   [`OUTPUT_SOURCE_POLICY.md`](OUTPUT_SOURCE_POLICY.md).
 3. Catalog correction: 4 операции (owner_reassign / misattribution_removal /
-   homonym_removal / no_op) и shared_unresolved; каталог не мутировать до
-   явного «да» по каждой строке.
-4. Зафиксировать targeted probe 2: 25 weak/composite + 25 strong,
-   source-usable, owner-unique, marker 13/12; cheap baseline и пороги — до
-   labels. Состав strata зависит от решений по source/catalog.
-5. Только после probe 2 — sidecar `entities_trust.csv` и решение о
+   homonym_removal / no_op) и shared_unresolved. **12 операций одобрены**
+   (6 reassign + 5 misattribution + 1 homonym); 3 HOLD (Opener, Ghisguth,
+   God of the Dead), `Leng` no-op. Каталог ещё не мутирован; решения — в
+   [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §10.5.
+4. Generator policy — design only; 14 composite names, full phrase only,
+   exception list. См. [`OUTPUT_GENERATOR_POLICY.md`](OUTPUT_GENERATOR_POLICY.md).
+5. Зафиксировать targeted probe 2: 50 строк, 25 weak/composite + 25 strong,
+   source-usable, owner-unique, marker 13/12; один sample, incremental-
+   конфигурации C0–C5, cheap baseline и пороги — до labels. Дизайн —
+   [`OUTPUT_QUALITY_PROBE2.md`](OUTPUT_QUALITY_PROBE2.md).
+6. Только после probe 2 — sidecar `entities_trust.csv` и решение о
    default-view. Phase C, entity graph и owner-таблицы остаются закрытыми.
 
 ## 9. Правило перед ML-фиксом (2026-10-27)
@@ -275,7 +281,7 @@ trust-level gate:
 topical retrieval, а не semantic; BoW выглядел «плохим» из-за не того
 benchmark; OCR-score выглядел «шумным», а это была систематическая
 лексическая подстановка плюс генерация падежей. Поэтому перед любым
-ML/эмбеддинг/классификаторным фиксом обязательны три проверки:
+ML/эмбеддинг/классификаторным фиксом обязательны четыре проверки:
 
 1. **Откуда данные в выводе?** Проследить provenance surface-формы:
    каталог, alias, generated variant, source, classifier. Нельзя лечить
@@ -287,6 +293,13 @@ ML/эмбеддинг/классификаторным фиксом обязат
    thran` — не случайный OCR-шум, а конкретная подстановка; `Книге` — не
    шум, а сгенерированная форма; `The Gate` — generic, а не «плохой
    эмбеддинг».
+4. **Не является ли «фикс» мёртвым кодом из-за другого слоя?** Перед
+   добавлением фикса проверить, не существует ли он уже и не перезаписывается
+   ли он архитектурой. `Книгу` есть в каталоге, но `EntityCatalog` /
+   `VariantFactory` перегенерирует её из composite name; каталог содержал
+   «фикс», который не срабатывал. Это третий случай паттерна: Phase C
+   (alias coverage vs semantic), BoW (не тот benchmark), теперь `Книгу`
+   (dead catalog fix). Проверка обязательна до нового fix.
 
 Практическое следствие: в pre-registration и отчёте фиксируются provenance
 гипотезы, дешёвый baseline и counts до labels. `HomonymClassifier` и ONNX

@@ -251,3 +251,22 @@ quality/review track.
 
 Никаких изменений в каталоге, источниках, CSV-контракте, Phase C, frozen
 labels/manifests или production-коде этот пост-аудит не вносит.
+
+## 11. Решения после аудита (2026-10-27)
+
+Метрики и labels этого probe не меняются.
+
+- Source policy: выбран **B** — sidecar, batch 35 вне trusted/default,
+  267 — `unknown`, не clean; дизайн — [`OUTPUT_SOURCE_POLICY.md`](OUTPUT_SOURCE_POLICY.md).
+- Catalog: **12 операций одобрены**, 3 HOLD (`Opener`, `Ghisguth`,
+  `God of the Dead`), `Leng` no-op; каталог ещё не мутирован, решения —
+  [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §10.5.
+- Generator: **design only**, 14 composite names; `full phrase only` и
+  exception list — [`OUTPUT_GENERATOR_POLICY.md`](OUTPUT_GENERATOR_POLICY.md).
+- Probe 2: один 50-строчный sample, одна разметка, incremental C0–C5;
+  пороги до labels — [`OUTPUT_QUALITY_PROBE2.md`](OUTPUT_QUALITY_PROBE2.md).
+  Primary sample source-usable не измеряет source B; нужен source cell/full
+  source check.
+
+До probe 2 production, каталог, source-файлы и frozen CSV не меняются;
+локальные docs-коммиты допустимы, push — после probe 2.

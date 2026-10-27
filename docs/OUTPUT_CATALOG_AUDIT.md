@@ -344,6 +344,8 @@ EntityCatalog with empty irregular:
 
 Граница: **catalog alias-only fix не является достаточным**; **generator fix
 не является catalog mutation**; их нельзя смешивать в одну операцию.
+Числа по всем 14 composite names, exception candidates и дизайн
+`full phrase only` — в [`OUTPUT_GENERATOR_POLICY.md`](OUTPUT_GENERATOR_POLICY.md).
 
 ## 10. Catalog correction: таксономия (не cleanup, не мутация)
 
@@ -410,6 +412,44 @@ removal неполон.
 
 Порядок: source policy → catalog correction approvals → generator policy →
 probe 2. Каталог не мутируется до явного решения по каждой строке.
+
+### 10.5. Решения 2026-10-27 (пока не применены)
+
+Пользователь явно одобрил **12 операций**; это решение, а не выполненная
+мутация:
+
+| Операция | Surface | Решение |
+|---|---|---|
+| `owner_reassign` | `Cxaxukluth` → `Ксаксаклут` | ДА |
+| `owner_reassign` | `Shaurash-Ho` → `Шаураш-Хо` | ДА |
+| `owner_reassign` | `Ghizghuth` → `Гизгут` | ДА |
+| `owner_reassign` | `Naggoob` → `Наггуб` | ДА |
+| `owner_reassign` | `Plateau of Tsang` → `Плато Цанг` | ДА |
+| `owner_reassign` | `Ptmak` → `Птмак` | ДА |
+| `misattribution_removal` | `Zhar` | ДА |
+| `misattribution_removal` | `Lloigor` | ДА |
+| `misattribution_removal` | `Aforgomon` | ДА |
+| `misattribution_removal` | `Kthulhut` | ДА |
+| `misattribution_removal` | `Umr at-Tawil` | ДА |
+| `homonym_removal` | `Лао` | ДА |
+
+**HOLD — не трогать до отдельного решения:**
+
+- `The Opener of the Way` — проверить 5–10 контекстов; возможен легитимный
+  эпитет Yog-Sothoth;
+- `Ghisguth`/`Гисгут` — owner-review; не смешивать с `Ghizghuth` → `Гизгут`;
+- `God of the Dead` — shared_unresolved; не Осирис, карточки Осириса нет;
+- 32 нормализованных дубля / 188 top-4 строк — `needs_review`, не удалять;
+- `Leng` — no-op; проблема в источнике, не в алиасе.
+
+`Книгу` — отдельный случай: generator policy первична, catalog correction
+вторична. Удаление alias без `full phrase only` не убирает генерируемые
+`Книге`/`Книгах`/`Книгой`/`Книгами`; полный дизайн — в
+[`OUTPUT_GENERATOR_POLICY.md`](OUTPUT_GENERATOR_POLICY.md).
+
+Применение 12 операций меняет output/strata, поэтому sample probe 2 нельзя
+freeze до прогона с новым каталогом. Локальные коммиты допустимы; push — после
+probe 2.
 
 ## 11. Что это меняет в probe-интерпретации
 

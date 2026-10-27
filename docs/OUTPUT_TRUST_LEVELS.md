@@ -66,6 +66,9 @@ Trust level — это производная от этих измерений, 
 | `unknown` | не проверено |
 
 `degraded_*` — **не** automatically excluded; это причина `needs_review`.
+`unknown` (267 хвостовых кандидатов) — **не** `clean`: он виден в default view
+с badge/`needs_review`, но не считается degraded. Source-policy design:
+[`OUTPUT_SOURCE_POLICY.md`](OUTPUT_SOURCE_POLICY.md).
 
 ### 1.4. Owner
 
@@ -174,6 +177,13 @@ columns: trust;trust_reason;alias_class;source_quality;owner_status;match
 Запускать только после решений по source batch 35 и catalog correction.
 Иначе состав `weak`/`strong` изменится между freeze и разметкой.
 
+**Обновление 2026-10-27:** source B и 12 catalog corrections решены; generator
+policy — design only. Актуальный дизайн одного sample с incremental-
+конфигурациями и порогами — [`OUTPUT_QUALITY_PROBE2.md`](OUTPUT_QUALITY_PROBE2.md).
+Важно: primary sample source-usable не измеряет source B; для B нужен
+отдельный source cell/full source check. Это ограничение нельзя обходить
+постфактум.
+
 ### 6.1. Состав
 
 - 50 строк: **25 weak/composite + 25 strong**.
@@ -242,15 +252,21 @@ row-level readability.
 ## 8. Следующий шаг
 
 1. Source batch 35 проверен 35/35; file-level детектор даёт ровно 35 файлов
-   и 0 из 267. Выбрать source-policy A/B/C; 302 не использовать как список
-   exclusion.
-2. Принять catalog correction по каждой строке (owner_reassign /
-   misattribution_removal / homonym_removal / no_op; shared_unresolved — не
-   операция) и решить generation policy для composite names. Без этого
-   состав weak/strong нестабилен.
-3. Зафиксировать targeted probe 2: seed, manifest, catalog/source hashes,
-   25+25, 13/12 marker cells, baselines и пороги.
-4. Разметить author-side, затем blind-подмножество; только после этого —
+   и 0 из 267. Выбран **B**: sidecar, 267 — `unknown`, не clean; дизайн —
+   [`OUTPUT_SOURCE_POLICY.md`](OUTPUT_SOURCE_POLICY.md). 302 не использовать
+   как список exclusion.
+2. Catalog correction: **12 операций одобрены** (6 owner_reassign + 5
+   misattribution_removal + 1 homonym_removal), 3 HOLD и `Leng` no-op;
+   решения — [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §10.5.
+   Каталог ещё не мутирован: сначала design review, затем прогон.
+3. Generator policy — design only: 14 composite names, full phrase only,
+   exception list; [`OUTPUT_GENERATOR_POLICY.md`](OUTPUT_GENERATOR_POLICY.md).
+4. Зафиксировать targeted probe 2: seed, manifest, catalog/source hashes,
+   25+25, 13/12 marker cells, incremental C0–C5, baselines и пороги; дизайн —
+   [`OUTPUT_QUALITY_PROBE2.md`](OUTPUT_QUALITY_PROBE2.md).
+5. Разметить author-side, затем blind-подмножество; только после этого —
    решение о trusted-view/sidecar.
 
-До шага 4 production-код и каталог не меняются.
+До шага 5 production-код и каталог не меняются. Primary sample
+source-usable не измеряет source B; нужен отдельный source cell/full source
+check, иначе B нельзя объявлять полезным.

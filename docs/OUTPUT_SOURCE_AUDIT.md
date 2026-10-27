@@ -231,6 +231,16 @@ unflagged-строк тоже будут скрыты, хотя они тоже 
 файлы автоматически и не смешивать source exclusion с catalog correction.
 `needs_review` должен быть видимым, а не тихим фильтром.
 
+### D. Решение 2026-10-27: B (design only)
+
+Выбран **B**: batch 35 (`degraded_lexical`) не попадает в trusted/default
+view, но остаётся в raw/review и в явном sidecar; 267 хвостовых кандидатов —
+`source_quality=unknown`, **не clean**, видны в default с badge/`needs_review`;
+`degraded_ocr` — не file-level exclusion, а row-level review. Основной
+8-колоночный CSV не меняется; sidecar не является `--include-degraded`-флагом.
+Полный контракт, counts и границы — [`OUTPUT_SOURCE_POLICY.md`](OUTPUT_SOURCE_POLICY.md).
+Source-файлы не менялись; реализация после design review.
+
 ## 7. Дешёвый non-ML baseline и его границы
 
 File-level детектор из §3 (`все шесть` маркеров + плотность ≥1%) — дешёвый
