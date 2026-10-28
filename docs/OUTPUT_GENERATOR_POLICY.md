@@ -1,12 +1,14 @@
-# Generator policy для composite names: аудит и дизайн
+# Generator policy для composite names: аудит, inspection и opt-in реализация
 
-**Статус (2026-10-27): DESIGN ONLY; pre-change audit + post-catalog
-diagnostic.** Production-код, `entities_table.csv`, source-файлы,
-frozen-манифесты и Phase C не менялись. 12 approved catalog corrections
-применены отдельно; post-catalog output снят (33 430 строк; §3.5), но
-incremental probe 2 всё ещё требует pre-change baseline для C0/C2. Этот
-документ отвечает на вопрос «что именно генерирует `EntityCatalog` для
-составных имён и что даст `full phrase only`», но не реализует policy.
+**Статус (2026-10-28): QUALITATIVE INSPECTION + OPT-IN IMPLEMENTATION;
+production default не изменён.** Pre-change audit и post-catalog diagnostic
+(33 430 строк; §3.5) не переписаны. 12 approved catalog corrections
+применены отдельно; source-файлы, `entities_table.csv`, frozen-манифесты,
+Phase C и selfcheck baseline не менялись. Policy реализована как
+`CompositeVariantMode` / `FullPhraseMorphology` и проверена тестами, но
+`CompositeGeneratorPolicy.DefaultMode` остаётся `Legacy` до отдельного
+activation-прогона; это не скрытая смена default. Exception list прошёл
+qualitative inspection 20–30 affected rows (§10), а не probe 3.
 
 Связанные документы:
 [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §9 —
@@ -34,11 +36,12 @@ incremental probe 2 всё ещё требует pre-change baseline для C0/C
    `Leng` — alias карточки `Плато Ленг`, а не сгенерированная форма; в
    post-catalog выводе его **6 141** (pre-change 6 139). Он не должен исчезнуть
    от смены генератора. Это отдельный catalog/owner и trust-вопрос.
-5. Рекомендация дизайна: **full phrase only** для composite names —
-   генерировать полные формы (canonical/name и их падежные варианты), не
-   эмитить standalone head/tail case-формы. Исключения — только явный
-   data-driven список, а не эвристика по длине/роду. Реализация — после
-   design review и probe 2; сейчас production не меняется.
+5. Реализация: **full phrase only** для composite names — генерировать
+   полные формы (canonical/name и их падежные варианты), не эмитить
+   standalone head/tail case-формы. Исключения — только явный data-driven
+   список, а не эвристика по длине/роду. Код добавлен opt-in (§11);
+   production default остаётся `Legacy`, пока activation не подтверждён
+   отдельным selfcheck/output comparison.
 
 Главная граница: **generator fix не является catalog correction**.
 `Книгу` есть в каталоге и одновременно генерируется; удаление alias без
@@ -427,10 +430,11 @@ incremental C0→C2 нужны оба хэша и один label set; post-catal
   перечислены; alias overlap и `other` — разные вещи.
 - `full phrase only` не является catalog cleanup: 4 057 alias-overlap и
   11 260 other строк остаются в post-catalog снимке (pre-change: 15 297).
-- Exception list не одобрен; `Leng`, `Nug`/`Yeb`, `Tsang`, `Йиг`, `Эйбон`
-  требуют owner/lore review.
-- Production-код не менялся; каталог изменён только 12 approved операциями.
-  Документ не является разрешением на реализацию generator policy.
+- Exception list ограничен inspection-решением: `Ленгом`, `Цанга`, `Цанге`;
+  `Leng`, `Nug`/`Yeb`, `Tsang`, `Йиг`, `Эйбон` остаются aliases и HOLD.
+- Production default пока `Legacy`; policy реализована opt-in, чтобы не
+  ломать selfcheck/guard без отдельного перепрогона.
+- Каталог изменён только 12 approved операциями; source-файлы не менялись.
 
 ## 9. Probe 2: generator не удалось измерить (2026-10-28)
 
@@ -442,8 +446,8 @@ owner-unique фильтр их исключает. C3 в отчёте равна
 
 Следствия:
 
-- `FullPhraseOnly` остаётся design-only; реализация за флагом и default не
-  включаются.
+- `FullPhraseOnly` реализован opt-in; default пока `Legacy`, activation —
+  отдельное решение после перепрогона guard/selfcheck.
 - Для будущего generator probe нужна отдельная generator cell с owner,
   взятым из output-строки, и labels на expected owner; нельзя повторно
   использовать primary 50.
@@ -451,3 +455,99 @@ owner-unique фильтр их исключает. C3 в отчёте равна
   смешивать с primary precision.
 - Решение probe 2: combined C2 P=0,523<0,85 → trust-level design; generator
   не является следующим фиксом.
+
+## 10. Qualitative inspection (2026-10-28)
+
+Inspection выполнен на post-catalog output (33 430 строк; baseline §3.5
+даёт **5 255** generator-only строк для composite-карточек; reconciliation с
+широким счётчиком 5 269 — §12): 30
+representative строк плюс все редкие формы `Куачиль Уттаус` (8), `Монахи
+Ленга` (6), `Плато Цанг` (5), `Плато Ленг` (13). Контексты читались
+author-side; это не precision-измерение. Повторный form-level пересчёт в
+ходе inspection не заменяет baseline и не используется как метрика.
+
+| Наблюдение | Строк | Классификация |
+|---|---:|---|
+| `Книга Эйбона`: `Книге`, `Книгах`, `Книгой`, `Книгами` | 3 682 | generic head, чужой/общий контекст → **suppress** |
+| `Сад Йига`: `Сада`, `Садов`, `Садах`, `Садами`, `Садом`, `Садам` | 709 | generic «сад» → **suppress** |
+| `Безымянный Туман`: `Тумане`, `Туманом`, `Туманов`, `Туманами`, `Туману`, `Туманах`, `Туманам` | 668 | generic «туман» → **suppress** |
+| `Наг и Йеб`: `Нагов`, `Наги`, `Нагами`, `Нагах`, `Нагам` | 91 | race/naga/чужие омонимы → **suppress** |
+| `Книга Эйбона`: `Эйбоне` | 3 | человек Eibon, не книга → **suppress** |
+| `Сад Йига`: `Йиге` | 15 | Yig, не сад → **suppress** |
+| `Сад Йига`: `Саде`, `Сади` | 12 | персидский праздник / поэт → **suppress** |
+| `Монахи Ленга`: `Ленгу` | 6 | регион Leng, не монахи → **suppress** |
+| `Плато Цанг`: `Цангом` | 3 | 2/3 человек Chogsum Tsang, 1/3 «Горы за Цангом»; mixed → **suppress** |
+| `Плато Ленг`: `Ленгом` | 13 | регион Leng, 13/13 валидны → **exception approve** |
+| `Плато Цанг`: `Цанга`, `Цанге` | 2 | место Tsang, 2/2 валидны → **exception approve** |
+| `Куачиль Уттаус`: `Куачиля` | 1 | короткое имя, валидно, но редко → **candidate / HOLD** |
+| `Наг и Йеб`: `Нагом`, `Йебом`, `Йебу`, `Йеба` | 28 | легитимные члены пары смешаны с `Шуб-Наге`, городом `Кри-Йеб` и race naga → **HOLD, не exception** |
+
+Full-phrase контексты `Куачиль Уттаус`/`Куачил Уттаус` подтверждают, что
+полные формы нужны; bare `Куачиля` без второй части — только 1 строка и
+остаётся HOLD. `Ленгом`, `Цанга`, `Цанге` — единственные approved
+standalone exceptions; они эмитятся **только** для своей карточки, не как
+общий tail-генератор. `Leng`, `Nug`, `Yeb`, `Tsang`, `Йиг`, `Эйбон`
+остаются aliases и не удаляются.
+
+## 11. Реализация (2026-10-28)
+
+- `CompositeVariantMode` (`Legacy`, `FullPhraseOnly`,
+  `FullPhrasePlusExceptions`) и `CompositeGeneratorPolicy` —
+  `src/EntityAnalyzer.Core/Variants/CompositeVariantPolicy.cs`.
+- `FullPhraseMorphology` — полные формы: `Книге Эйбона`, `Нага и Йеба`,
+  `Плато Ленгом`, `Безымянного Тумана`, `Черного Солнца`,
+  `Монахов Ленга`, `Куачиля Уттауса`.
+- `VariantFactory.Generate/GenerateTwoPass` принимают mode/exceptions;
+  `EntityDefinition` получает `CompositeMode` и `StandaloneExceptions`.
+- `Legacy` оставлен default в `CompositeGeneratorPolicy.DefaultMode`:
+  selfcheck baseline и frozen guards не переписаны. Activation — отдельный
+  commit после перепрогона `verify.ps1`/selfcheck и сравнения output; это не
+  скрытая смена default.
+- Tests: `FullPhraseMorphologyTests`, `CompositeVariantPolicyTests` (900
+  Core tests проходят). Проверяется отсутствие bare head/tail, сохранение
+  союза `и`, approved exceptions и Legacy-совместимость.
+- Layer check по `OUTPUT_QUALITY_AUDIT.md` §9(d): `EntityCatalog` передаёт
+  mode и exceptions в оба вызова (`Canon` и `Name`); `VariantFactory`
+  применяет full-phrase branch к composite-форме и не пропускает
+  standalone-формы в итоговый `VariantsByEntity`. Более поздний слой не
+  добавляет их обратно. Тесты проверяют итоговый `VariantsByEntity`, а не
+  только helper, поэтому fix не является dead code. При `Legacy` production
+  output остаётся прежним.
+- Следующий шаг: при отдельном решении включить
+  `FullPhrasePlusExceptions` в `CodexSearchAdapter`/настройке, снять новый
+  diagnostic output и сравнить 5 255 generator-only строк; до этого policy
+  не влияет на production output.
+
+## 12. Reconciliation 5 255 vs 5 269 (2026-10-29)
+
+Это разные счётчики, а не расхождение в данных. Оба воспроизведены на одном
+post-catalog CSV; параметры прогона: 14 composite-карточек, **33 430** строк,
+каталог `codex.json` SHA-256
+`95B54F6DBCB3A12CBAD34EAEA57101AAC40226052C3FAFFFB430A320A0AE7A85`,
+output SHA-256
+`6553A62C7174FCA26B70D9BB45262EF74E5B51856340429975D036269578B27F`.
+
+- **5 255** — `standalone_generated_rows`: variant не входит в alias set и не
+  является полной фразой (нет пробела и это не конкатенация имени). Именно это
+  число используется как generator-only baseline в §3 и §4.
+- **5 269** — все non-alias формы composite-карточек, включая полные фразы,
+  которые generator всё равно обязан сохранять. Это широкая проверка
+  «сколько строк не являются alias», а не population для удаления.
+- Разница **14** строк — ровно полные фразы:
+
+| Карточка | Полная форма | Строк |
+|---|---:|---:|
+| Куачиль Уттаус | Куачил Уттаус | 9 |
+| Плато Ленг | Плато Ленга | 4 |
+| Наг и Йеб | НагиЙеб | 1 |
+| **Итого** | | **14** |
+
+Проверка по карточкам для 5 255: Книга Эйбона 3 685, Сад Йига 736,
+Безымянный Туман 668, Наг и Йеб 134, Плато Ленг 13, Куачиль Уттаус 8,
+Монахи Ленга 6, Плато Цанг 5. Сумма — 5 255. Остальные composite-карточки
+не дают standalone generator-only строк в этом output.
+
+Правило на будущее: regression-сравнение generator behavior ведётся по
+**5 255** при `Legacy`; 5 269 можно использовать только как широкую
+диагностику, иначе полные фразы будут ошибочно засчитаны как standalone
+шум. В отчётах указывать оба числа нельзя без определения метрики.

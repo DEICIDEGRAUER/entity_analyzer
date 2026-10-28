@@ -12,7 +12,19 @@ public sealed record EntityDefinition(
     IReadOnlyList<string> Irregular,
     IReadOnlyList<string> Titles,
     bool Enabled = true,
-    string Group = "");
+    string Group = "")
+{
+    /// <summary>
+    /// Composite-only generator policy. Single names are unaffected. The
+    /// default is <see cref="CompositeVariantMode.Legacy"/> until activation;
+    /// full-phrase modes only emit approved standalone exceptions.
+    /// </summary>
+    public CompositeVariantMode CompositeMode { get; init; } =
+        CompositeGeneratorPolicy.DefaultMode;
+
+    public List<string> StandaloneExceptions { get; init; } =
+        CompositeGeneratorPolicy.ExceptionsFor(Name).ToList();
+}
 
 /// <summary>Payload attached to every automaton hit.</summary>
 public readonly record struct EntityRef(string Entity, string Variant);
@@ -59,7 +71,10 @@ public sealed class EntityCatalog
             if (generateVariants)
             {
                 var isCommon = IsCommonWordCandidate(def);
-                var (narrow, wide) = factory.GenerateTwoPass(def.Canon, def.Irregular, isCommon);
+                var (narrow, wide) = factory.GenerateTwoPass(
+                    def.Canon, def.Irregular, isCommon,
+                    compositeMode: def.CompositeMode,
+                    standaloneExceptions: def.StandaloneExceptions);
                 Absorb(narrow);
                 Absorb(wide);
                 Absorb(VariantFactory.HyphenShapes(Transliterator.Basic(def.Canon)));
@@ -70,7 +85,10 @@ public sealed class EntityCatalog
                 if (!string.Equals(def.Name, def.Canon, StringComparison.OrdinalIgnoreCase)
                     && def.Name.Length >= 3)
                 {
-                    var (nameNarrow, nameWide) = factory.GenerateTwoPass(def.Name, [], isCommon);
+                    var (nameNarrow, nameWide) = factory.GenerateTwoPass(
+                        def.Name, [], isCommon,
+                        compositeMode: def.CompositeMode,
+                        standaloneExceptions: def.StandaloneExceptions);
                     Absorb(nameNarrow);
                     Absorb(nameWide);
                 }

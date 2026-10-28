@@ -141,9 +141,17 @@ public sealed class VariantFactory
     private readonly int _maxVariants;
     private const string RuVowels = "аеёиоуыэюя";
 
+    private static readonly IReadOnlyCollection<string> EmptySet =
+        new HashSet<string>(StringComparer.Ordinal);
+
     public VariantFactory(int maxVariants = 600) => _maxVariants = Math.Max(8, maxVariants);
 
-    public List<string> Generate(string canon, bool deepCorrupt = true, int iterations = 1)
+    public List<string> Generate(
+        string canon,
+        bool deepCorrupt = true,
+        int iterations = 1,
+        CompositeVariantMode compositeMode = CompositeVariantMode.Legacy,
+        IReadOnlyCollection<string>? standaloneExceptions = null)
     {
         if (string.IsNullOrWhiteSpace(canon)) return [];
 
@@ -184,9 +192,24 @@ public sealed class VariantFactory
                 Absorb(RussianMorphology.Decline(v));
         }
 
-        // Составные каноны («Наг и Йеб»): склоняем каждое значимое слово отдельно.
-        foreach (var form in RussianMorphology.DeclineCompound(canon))
-            Absorb([form]);
+        // Составные каноны («Наг и Йеб»): legacy склонял каждое значимое
+        // слово отдельно и потому эмитил bare head/tail. Full-phrase режим
+        // склоняет фразу как единицу; standalone-формы допускаются только
+        // через явный approved exception list.
+        if (compositeMode == CompositeVariantMode.Legacy)
+        {
+            foreach (var form in RussianMorphology.DeclineCompound(canon))
+                Absorb([form]);
+        }
+        else if (isCompound)
+        {
+            foreach (var form in FullPhraseMorphology.Decline(canon))
+                Absorb([form]);
+
+            if (compositeMode == CompositeVariantMode.FullPhrasePlusExceptions)
+                foreach (var exception in standaloneExceptions ?? EmptySet)
+                    Absorb([exception]);
+        }
 
         if (deepCorrupt && !isCompound)
         {
@@ -199,7 +222,12 @@ public sealed class VariantFactory
 
     /// <summary>Narrow = curated irregulars + basic translit; Wide = generated corpus.</summary>
     public (List<string> Narrow, List<string> Wide) GenerateTwoPass(
-        string canon, IReadOnlyList<string> irregular, bool isCommonWord, int iterations = 2)
+        string canon,
+        IReadOnlyList<string> irregular,
+        bool isCommonWord,
+        int iterations = 2,
+        CompositeVariantMode compositeMode = CompositeVariantMode.Legacy,
+        IReadOnlyCollection<string>? standaloneExceptions = null)
     {
         var basic = Transliterator.Basic(canon);
         var narrow = new List<string>();
@@ -208,7 +236,9 @@ public sealed class VariantFactory
 
         var wide = Generate(canon,
             deepCorrupt: canon.Length > 6 && !isCommonWord,
-            iterations: canon.Length > 6 ? iterations : 1);
+            iterations: canon.Length > 6 ? iterations : 1,
+            compositeMode: compositeMode,
+            standaloneExceptions: standaloneExceptions);
 
         return (narrow, wide);
     }

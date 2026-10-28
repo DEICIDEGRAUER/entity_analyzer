@@ -361,6 +361,8 @@ EntityCatalog with empty irregular:
 не является catalog mutation**; их нельзя смешивать в одну операцию.
 Числа по всем 14 composite names, exception candidates и дизайн
 `full phrase only` — в [`OUTPUT_GENERATOR_POLICY.md`](OUTPUT_GENERATOR_POLICY.md).
+**Обновление 2026-10-28:** full-phrase mode реализован opt-in, production
+default остаётся `Legacy`; каталог не мутировался. См. generator §10–§11.
 
 ## 10. Catalog correction: таксономия (не cleanup, не мутация)
 
@@ -471,6 +473,13 @@ silent cleanup; для них нужны отдельные решения.
 - `God of the Dead` — shared_unresolved; не Осирис, карточки Осириса нет;
 - 32 нормализованных дубля / 188 top-4 строк — `needs_review`, не удалять;
 - `Leng` — no-op; проблема в источнике, не в алиасе.
+
+`Цангом` в `Плато Цанг` (3 строки) остаётся suppressed, но причина не
+«человек» в чистом виде: 2/3 контекстов — Чогсом Цангом (человек), 1/3 —
+«Горы за Цангом» (место). Это смешанная форма с доминирующим личным
+употреблением; approved exceptions остаются только `Цанга`/`Цанге`.
+Добавлять `Цангом` в exception без owner-disambiguation нельзя; вопрос
+остаётся HOLD, а не удалением alias.
 
 `Книгу` — отдельный случай: generator policy первична, catalog correction
 вторична. Удаление alias без `full phrase only` не убирает генерируемые
