@@ -522,7 +522,9 @@ standalone exceptions; они эмитятся **только** для свое�
 
 Это разные счётчики, а не расхождение в данных. Оба воспроизведены на одном
 post-catalog CSV; параметры прогона: 14 composite-карточек, **33 430** строк,
-каталог `codex.json` SHA-256
+фильтр `entity ∈ composites`, `variant.casefold() ∉ aliases`, full phrase =
+пробел или конкатенация имени; независимый локальный Python-счётчик (не
+коммитится, приватных имён в отчёте нет). Каталог `codex.json` SHA-256
 `95B54F6DBCB3A12CBAD34EAEA57101AAC40226052C3FAFFFB430A320A0AE7A85`,
 output SHA-256
 `6553A62C7174FCA26B70D9BB45262EF74E5B51856340429975D036269578B27F`.
