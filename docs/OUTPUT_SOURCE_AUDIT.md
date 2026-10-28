@@ -246,10 +246,12 @@ unflagged-строк тоже будут скрыты, хотя они тоже 
 
 ### D. Решение 2026-10-27: B (design only)
 
-Выбран **B**: batch 35 (`degraded_lexical`) не попадает в trusted/default
-view, но остаётся в raw/review и в явном sidecar; 267 хвостовых кандидатов —
-`source_quality=unknown`, **не clean**, видны в default с badge/`needs_review`;
-`degraded_ocr` — не file-level exclusion, а row-level review. Основной
+Выбран **B**: batch 35 (`degraded_lexical`) не попадает в trusted/strict
+view, но остаётся в raw/default/review и в явном sidecar; 267 хвостовых
+кандидатов — design-target `source_quality=unknown`, **не clean**, видны в
+raw/default с badge/`needs_review` после подключения sidecar; сейчас detector
+ещё даёт им `usable`. `degraded_ocr` — не file-level exclusion, а row-level
+review. Основной
 8-колоночный CSV не меняется; sidecar не является `--include-degraded`-флагом.
 Полный контракт, counts и границы — [`OUTPUT_SOURCE_POLICY.md`](OUTPUT_SOURCE_POLICY.md).
 Source-файлы не менялись; реализация после design review.

@@ -262,7 +262,8 @@ trust-level gate:
    production не менялся и не должен меняться до решения.
 2. Source batch 35: 35/35 проверены author-side; file-level детектор
    подстановок даёт ровно 35 и 0 из 267. Выбран **B**: sidecar, batch 35 вне
-   trusted/default, 267 — `unknown`, не clean; дизайн —
+   trusted/strict; default/raw сохраняет все строки. 267 — design-target
+   `unknown`, не clean; дизайн —
    [`OUTPUT_SOURCE_POLICY.md`](OUTPUT_SOURCE_POLICY.md).
 3. Catalog correction: 4 операции (owner_reassign / misattribution_removal /
    homonym_removal / no_op) и shared_unresolved. **12 операций одобрены и

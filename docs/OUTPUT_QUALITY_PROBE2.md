@@ -136,7 +136,7 @@ HOLD/owner review; C3 design baseline — full phrase only без исключе
 | ID | Конфигурация | Что добавляет | Что проверяет |
 |---|---|---|---|
 | C0 | **Current / pre-change baseline** | pre-change output (37 406) до фиксов | reference |
-| C1 | **+ source B** | sidecar: `degraded_lexical` вне trusted/default; `unknown` видим с badge | вклад source policy |
+| C1 | **+ source B** | sidecar: `degraded_lexical` вне trusted/strict; `unknown` видим в raw/default с badge | вклад source policy |
 | C2 | **+ source B + catalog** | 12 approved corrections: 6 owner_reassign, 5 misattribution_removal, 1 homonym_removal | вклад catalog |
 | C3 | **+ source B + catalog + generator** | full phrase only по [`OUTPUT_GENERATOR_POLICY.md`](OUTPUT_GENERATOR_POLICY.md); source B и catalog остаются; aliases не меняются | вклад generator |
 | C4 | **Strict canonical-only** | только canonical; дешёвый non-ML baseline | не замена, а нижняя/верхняя граница |

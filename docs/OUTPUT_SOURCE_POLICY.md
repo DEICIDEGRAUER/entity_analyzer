@@ -44,7 +44,7 @@ strict теперь требуют `source=usable`, поэтому `unknown`/`de
 
 ## 1. Классы source_quality
 
-| Значение | Что означает | Default/trusted view | Raw/review |
+| Значение | Что означает | Trusted/strict | Raw/review/default |
 |---|---|---|---|
 | `usable` | Детектор batch 35 отрицательный; известной OCR-сигнатуры нет. Не ручная гарантия. | видима | видима |
 | `degraded_lexical` | Файл прошёл все шесть маркеров и density ≥1%; 35/35 проверены author-side. | **не показывается** в trusted/strict; в default/raw видима | видима полностью |
