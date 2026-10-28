@@ -10,7 +10,9 @@ public static class CodexSearchAdapter
     /// Aliases (incl. migrated titles/irregular forms) become Irregular;
     /// VariantFactory adds morphology on top when generateVariants is on.
     /// </summary>
-    public static IEnumerable<EntityDefinition> ToDefinitions(CodexDocument doc)
+    public static IEnumerable<EntityDefinition> ToDefinitions(
+        CodexDocument doc,
+        CompositeVariantMode compositeMode = CompositeVariantMode.Legacy)
     {
         foreach (var c in doc.Cards)
         {
@@ -39,7 +41,10 @@ public static class CodexSearchAdapter
                 irregular,
                 [],
                 Enabled: true,
-                Group: c.Group);
+                Group: c.Group)
+            {
+                CompositeMode = compositeMode,
+            };
         }
     }
 
