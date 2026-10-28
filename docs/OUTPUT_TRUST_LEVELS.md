@@ -1,9 +1,18 @@
 # Trust levels: `strong` / `weak` / `needs_review`
 
-**Статус (2026-10-28): DESIGN ONLY; strong alias требует marker.** Это документ о
-том, как объяснять пользователю доверие к строке. Production-код, CSV-контракт,
-Phase C и frozen-манифесты не меняются. 12 approved catalog corrections
-применены отдельно (§10.5 catalog audit); source-файлы не менялись.
+**Статус (2026-10-29): EXPLORATORY IMPLEMENTATION; default view не меняется.**
+Trusted и strict canonical-only добавлены как **явные additive-фильтры**;
+raw/review остаётся default. Sidecar `entities_trust.csv` пишется рядом с
+основным CSV, основной 8-колоночный контракт не изменён. Классификатор
+`TrustViewClassifier` детерминированно воспроизводит trusted-набор probe 2
+(14/14; P=1,000, Wilson lower 0,785), но это exploratory-эвристика, не
+production-SLO и не owner-таблица. Source-гейт теперь требует явный
+`source=usable`: `unknown` и `degraded_*` остаются в raw/review. Детектор
+реализован только для reproducible batch-35 сигнатуры; 267 хвостовых
+кандидатов до отдельного sidecar всё ещё получают detector-negative
+`usable`, поэтому считаются residual data gap, а не доказанно clean.
+12 approved catalog corrections применены отдельно (§10.5 catalog audit);
+source-файлы не менялись.
 `needs_review` — видимая metadata, не фильтр и не удаление. Probe 2 показал:
 strong alias без marker — **4/11 good**, с marker — **11/11 good**; поэтому
 старое правило «strong alias = trusted без marker» отменено (§2.1).
@@ -68,9 +77,11 @@ Trust level — это производная от этих измерений, 
 | `degraded_ocr` | OCR/PDF-порча без лексического словаря: склейки, пропуски |
 | `unknown` | не проверено |
 
-`degraded_*` — **не** automatically excluded; это причина `needs_review`.
-`unknown` (267 хвостовых кандидатов) — **не** `clean`: он виден в default view
-с badge/`needs_review`, но не считается degraded. Source-policy design:
+`source=usable` — **единственное** состояние, которое может войти в trusted
+или strict canonical-only. `degraded_*` и `unknown` не удаляются из
+raw/review и видны там с badge/`needs_review`, но в trusted/strict не
+проходят. `unknown` (267 хвостовых кандидатов) — **не** `clean`; отсутствие
+sidecar не повышает его до usable. Source-policy design:
 [`OUTPUT_SOURCE_POLICY.md`](OUTPUT_SOURCE_POLICY.md).
 
 ### 1.4. Owner
@@ -111,15 +122,29 @@ Probe 2, frozen labels (n=50; source-usable; owner unique; C2 view):
 | weak + marker | 13 | 5 | 0,385 | **weak, не trusted** |
 | weak без marker | 12 | 0 | 0,000 | needs_review |
 
-`trusted`-вкладка = canonical **или** strong alias + marker, только
-`source=usable` и `owner=unique`: 14/14 good, P 1,000 (Wilson lower 0,785),
-**R=14/23=0,609**. Weak с marker остаётся weak-бейджем, но **не** входит в
-trusted: 5/13 good — слишком мало. Это **фильтр для отдельной trusted-вкладки**,
-а не metadata и не удаление: raw/review всегда содержит все строки. Старый
-критерий R≥0,80 marker-gated strong **не выполняет** (0,609); поэтому это
-precision-first режим, а не замена default. Strict canonical-only (3/3,
-R=0,130) остаётся явным conservative view. Для trusted P≥0,85 с CI нужен
-probe 3, а не перенос точки из 14/14.
+`trusted`-вкладка = canonical **или** strong alias + marker; в probe 2
+дополнительно `source=usable` и `owner=unique`: 14/14 good, P 1,000 (Wilson
+lower 0,785), **R=14/23=0,609**. Runtime-классификатор проверяет owner
+uniqueness по каталогу, а view/export require `source=usable`: `degraded_*`
+и `unknown` дают `review`. Для 267 хвостовых кандидатов detector пока
+возвращает `usable`, поэтому sidecar остаётся незакрытым data gap; это не
+разрешение считать `unknown` clean. Weak с marker
+остаётся weak-бейджем, но **не** входит в trusted: 5/13 good — слишком мало.
+Это **additive view**, а не metadata и не удаление: raw/review всегда
+содержит все строки.
+
+**Критерий R применён правильно:** R≥0,80 относится к **replacement
+default-view** — фильтру, который убирает строки из единственного вывода.
+Для additive trusted R отчётный, не gate: 39% good остаются в raw/review и
+не теряются из продукта. Поэтому R=0,609 не является провалом дизайна; это
+цена precision-first вкладки, а не потеря данных. Если позже trusted захочет
+стать default, тогда R≥0,80 снова станет gate.
+
+Trusted выпускается как **exploratory**: P=1,000 по точке, Wilson lower
+0,785 — достаточно для явной exploratory-метки, но не для production-SLO.
+Probe 3 для marker-gated strong **не нужен**: он подтвердил бы уже
+подтверждённое; SLO при необходимости набирается отдельно. Strict
+canonical-only (3/3, R=0,130) остаётся отдельным conservative view.
 
 Пояснения:
 
@@ -171,9 +196,15 @@ probe 3, а не перенос точки из 14/14.
 
 ```
 entities_trust.csv
-key: file;num;entity;variant;line
-columns: trust;trust_reason;alias_class;source_quality;owner_status;match
+key: file,num,entity,variant,line
+columns: trust,alias_class,marker,source_quality,source_reason,trust_reason,exploratory
 ```
+
+Фактический header: `file,num,entity,variant,line,trust,alias_class,marker,
+source_quality,source_reason,trust_reason,exploratory`. Это additive CSV с
+запятыми; основной 8-колоночный `entities_table.csv` не меняется.
+`owner_status`/`match` пока не выводятся: owner-таблицы и полный match-статус
+не открывались; это не скрытая замена полей.
 
 - Sidecar строится рядом с выводом; отсутствие sidecar не меняет поведение
   старого клиента.
@@ -185,9 +216,8 @@ columns: trust;trust_reason;alias_class;source_quality;owner_status;match
   weak/misleading под видом trusted.
 - **Conservative view** — отдельный strict canonical-only режим (3/3,
   R=0,130); не заменяет trusted и не является default.
-- Default view (strict / trusted / current) **не выбирается этим документом**;
-  это продуктовое решение после probe 3/ревью. До него нельзя silently
-  фильтровать.
+- Default view остаётся **current raw/review**; trusted и strict — отдельные
+  additive exploratory-вкладки. Нельзя silently фильтровать default.
 - Если позже понадобится колонка в отчёте, это новое поле/версия, а не
   тихая замена существующего CSV.
 
@@ -223,21 +253,27 @@ Probe 2 (frozen labels; per-bucket §2.1):
 | strict canonical-only | 3 | 1,000 | 0,130 |
 
 Главный вывод: strong без marker — 72% good (18/25), поэтому strong-bucket в
-старом design не является trusted. Marker-gated strong — 14/14 good, но
-R=0,609; это precision-first, не выполнение старого R≥0,80.
+старом design не является trusted. Marker-gated strong — 14/14 good,
+P=1,000; R=0,609 **не gate для additive view** и не «провал». Это
+precision-first exploratory-вкладка; raw/review сохраняет остальные good.
+R≥0,80 применяется только если trusted когда-нибудь заменит default.
 
-## 6. Probe 2 (completed) и probe 3 (proposed)
+## 6. Probe 2 (completed); probe 3 не нужен
 
 Probe 2 завершён; freeze и результаты —
 [`OUTPUT_QUALITY_PROBE2.md`](OUTPUT_QUALITY_PROBE2.md) §9–§11. Source B и 12
-catalog corrections решены; generator policy — design only. Для source B
-выбран **отдельный source cell**; primary остаётся source-usable. Для catalog
-incremental выбран **pre-change C0 + post-catalog C2**. Generator exception
-set пуст: все кандидаты HOLD. Эти решения нельзя обходить постфактум.
+catalog corrections решены; generator policy реализована opt-in, default —
+`Legacy`. Для source B выбран **отдельный source cell**; primary остаётся
+source-usable. Для catalog incremental выбран **pre-change C0 + post-catalog
+C2**. Изначально exception set был пуст (все кандидаты HOLD); после отдельного
+qualitative inspection одобрены только `Ленгом`, `Цанга`, `Цанге`. Это не
+probe 3 и не меняет frozen labels; C3 остаётся n/e.
 
-Probe 3 (если R≥0,80 остаётся обязательным): отдельная marker-gated strong
-cell для сужения CI 11/11 и generator-only cell для C3. Это новый sample, не
-правка frozen probe 2.
+Probe 3 **не нужен** для marker-gated strong: 14/14 уже достаточно для
+exploratory, а добор n ради CI lower≥0,85 не даёт продуктового решения.
+Generator также не измеряется через probe 3: вместо него — qualitative
+inspection 20–30 generator-affected строк и exception list. Это отдельный
+technical-debt трек, не новый 50-строчный sample.
 
 ### 6.1. Состав
 
@@ -287,17 +323,18 @@ row-level readability.
 
 ### 6.4. Что считается успехом
 
-- Marker-gated strong проходит P≥0,85 по точке (14/14), **но R=0,609 <0,80**.
-  Значит, это precision-first вкладка, а не default-view по старому критерию.
-  Нельзя одновременно получить P≥0,85 и R≥0,80 из этих бакетов: weak+marker
-  добавляет 5 good и 8 не-good, strong без marker — 4 good и 7 misleading.
+- Marker-gated strong проходит P≥0,85 по точке (14/14). R=0,609 **отчётный,
+  не gate** для additive view: raw/review сохраняет все строки, поэтому
+  replacement-критерий R≥0,80 к trusted не применяется.
+- Если trusted когда-нибудь станет **заменой default**, R≥0,80 снова станет
+  gate; тогда одного marker-гейта недостаточно (нельзя одновременно получить
+  P≥0,85 и R≥0,80 из этих бакетов). Это отдельное продуктовое решение, не
+  блокер текущей exploratory-вкладки.
 - Strict остаётся альтернативой, если P≥0,95 и canonical loss≤5%; в probe 2
   strict P=1,000, R=0,130.
-- Если R≥0,80 остаётся жёстким требованием, ни один текущий bucket не
-  проходит; тогда — targeted probe 3 (marker-gated strong + generator-only),
-  а не перенос точки 14/14 в production.
 - Никаких выводов по 50 строкам без confidence interval: 14/14 даёт Wilson
-  lower 0,785; решение по counts и CI, не по точечной оценке.
+  lower 0,785; exploratory-метка честна, production-SLO — нет. SLO
+  набирается отдельно, не через probe 3 «для доказательства P=1.0».
 
 ## 7. Чего этот дизайн не делает
 
@@ -307,7 +344,7 @@ row-level readability.
   конкретных случаев после probe, не как абстрактное улучшение.
 - Не переоткрывает Phase C и не трогает ONNX/BoW/hybrid.
 - Не выбирает strict-view по умолчанию. Это отдельный conservative view;
-  решение о default — после probe 3/ревью.
+  default остаётся текущим raw/review. Strict — exploratory, не замена.
 - Не заменяет source/catalog audit: `needs_review` лишь объясняет, почему
   строка не стала strong/weak.
 
@@ -323,8 +360,11 @@ row-level readability.
    [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §10.5. Post-catalog
    output снят (**33 430 строк**, hash §10.6); для probe 2 он является C2,
    а C0 — pre-change snapshot.
-3. Generator policy — design only: 14 composite names, full phrase only,
-   approved exception set пуст; [`OUTPUT_GENERATOR_POLICY.md`](OUTPUT_GENERATOR_POLICY.md).
+3. Generator policy — **opt-in implementation**: 14 composite names,
+   `CompositeVariantMode`, `FullPhraseMorphology` и approved exceptions
+   (`Ленгом`, `Цанга`, `Цанге`); production default пока `Legacy`, чтобы не
+   ломать selfcheck/guard без отдельного перепрогона. См.
+   [`OUTPUT_GENERATOR_POLICY.md`](OUTPUT_GENERATOR_POLICY.md) §8.
 4. Targeted probe 2 **заморожен 2026-10-28**: manifest
    `becb1a83…`, 25+25 primary, 13/12 markers в каждой страте, 12 source-cell,
    12/12 catalog operations; дизайн — [`OUTPUT_QUALITY_PROBE2.md`](OUTPUT_QUALITY_PROBE2.md) §9.
@@ -340,11 +380,14 @@ row-level readability.
    **11/11**; strong alias без marker 4/11; weak + marker 5/13; weak без marker
    0/12; trusted (canonical + strong alias marker) **14/14, P=1,000,
    R=0,609**. Решение: trusted-вкладка = marker-gated strong, weak не
-   повышается; strict canonical-only — отдельный conservative view. Старый
-   R≥0,80 не выполняется; если R обязателен — probe 3, не production.
-7. **Probe 3 предложение:** отдельная marker-gated strong cell (валидация
-   11/11, CI lower 0,741) + generator-only cell (C3); новый sample, не менять
-   frozen probe 2. До него production-код не меняется.
+   повышается; strict canonical-only — отдельный conservative view.
+   **Trusted — additive exploratory view**, не default; R отчётный, не gate.
+   Probe 3 для marker-gated strong не нужен.
+7. **Generator:** не probe 3, а qualitative inspection 20–30
+   generator-affected строк в полном diagnostic output; inspection выполнен
+   (30 representative + all rare forms), exception list зафиксирован, код
+   full-phrase-only реализован opt-in. Это отдельный technical-debt трек,
+   не смешивать с release trusted view.
 
 По итогам шага 5 production-код и source-файлы не меняются; каталог изменён
 только 12 approved операциями. Primary sample source-usable не измеряет source
@@ -352,3 +395,49 @@ B; source cell измеряет отдельно. Manifest включает pre-
 post-catalog C2; после labels он не меняется. Source B/generator defaults не
 включены; catalog corrections применены, default view не менялся. Push
 docs-результатов — после per-bucket, не production.
+
+## 9. Реализация exploratory view (2026-10-28)
+
+Код:
+
+- `src/EntityAnalyzer.Core/Analysis/TrustView.cs` — детерминированный
+  `TrustViewClassifier`: canonical exact; strong alias с полной фразой или
+  независимым anchor; generic/title/частичные формы остаются weak.
+- `src/EntityAnalyzer.App/ViewModels/ResultsViewModel.cs` — явные режимы
+  `Trusted (exploratory)` и `Canonical only (exploratory)`. Default остаётся
+  `Все`; raw/review не меняется.
+- `src/EntityAnalyzer.Core/Persistence/ReportExporter.cs` — additive
+  `entities_trust.csv` (file,num,entity,variant,line,trust,alias_class,marker,
+  source_quality,source_reason,trust_reason,exploratory). Основной
+  `entities_table.csv` остаётся 8-колоночным.
+- `src/EntityAnalyzer.Core/Analysis/SourceQuality.cs` — file-level detector
+  только для воспроизводимой batch-35 сигнатуры (шесть маркеров + density
+  ≥1%); `unknown` не повышается до clean. 267 row-level хвостов всё ещё
+  требуют отдельного sidecar, поэтому detector-only результат не выдаётся
+  за полный source B.
+- `tests/.../TrustViewClassifierTests.cs` — проверки canonical, full-phrase,
+  marker, weak+marker, homonym, pair-member и shared owner. `SourceQualityTests`
+  — batch-35 signature/detector-negative/empty. Все **900** Core tests проходят.
+- `TrustViewClassifier` строит reverse owner index: alias/name/canonical,
+  принадлежащий более чем одной карточке, получает `weak` с причиной
+  `shared alias/owner conflict`. Повторная проверка на frozen probe 2 после
+  этого ограничения дала те же 14/14 trusted строк.
+
+Ограничения:
+
+- Это lexical heuristic, не owner-таблица. Owner uniqueness проверяется по
+  каталогу, но alias ownership не является полной owner-моделью. На population
+  результат не измерен и остаётся exploratory.
+- Source-гейт в UI и `entities_trust.csv` требует `source=usable`;
+  `unknown`/`degraded_*` остаются в raw/review с badge. 267 хвостов пока
+  получают detector-negative `usable`, поэтому sidecar — зафиксированный
+  data gap, а не скрытый clean.
+- `entities_trust.csv` ставит `trust=trusted` только для classifier-trusted
+  строк с source `usable`; для `degraded_lexical` пишет `review` и
+  `trust_reason=lexical trust blocked by degraded source`, для `unknown` —
+  `review` и `trust_reason=trust blocked by non-usable source (unknown)`.
+- Strict canonical-only — отдельная exploratory-вкладка, не default и не
+  замена trusted.
+- Selfcheck/frozen baselines не переписывались. Trusted-фильтр не меняет
+  ни одного сохранённого CSV/манифеста; sidecar добавляется только при
+  экспорте с codex.

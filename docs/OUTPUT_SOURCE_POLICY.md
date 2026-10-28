@@ -1,11 +1,15 @@
 # Source policy B: sidecar, degraded и unknown
 
-**Статус (2026-10-27): DESIGN ONLY.** Source files, frozen
-`entities_table.csv`, production-код, frozen-манифесты и Phase C не менялись.
-Решение B принято как направление; реализация — после design review, без
-silent exclusion и без изменения source-файлов. 12 approved catalog
-corrections применены отдельно; post-catalog diagnostic run снят (33 430
-строк), counts §4 обновлены по нему. File-level 35/267 не изменился.
+**Статус (2026-10-29): FILE-LEVEL DETECTOR + SOURCE=USABLE GATE IMPLEMENTED;
+ROW-LEVEL SIDECAR PARTIAL.** Source files, frozen `entities_table.csv`,
+frozen-манифесты и Phase C не менялись. Решение B остаётся sidecar-only, без
+silent exclusion. 12 approved catalog corrections применены отдельно;
+post-catalog diagnostic run снят (33 430 строк), counts §4 обновлены по нему.
+`SourceQuality` реализует ровно batch-35 сигнатуру (35/35, 0/267); trusted и
+strict теперь требуют `source=usable`, поэтому `unknown`/`degraded_*` не
+проходят в них, но остаются в raw/review. 267-tail row-level `unknown` пока
+не построен как отдельный sidecar: detector возвращает им `usable`, значит
+исходный список ещё не применяется и data gap честно не закрыт.
 
 Связанные документы:
 [`OUTPUT_SOURCE_AUDIT.md`](OUTPUT_SOURCE_AUDIT.md) — detector, batch 35,
@@ -19,14 +23,15 @@ corrections применены отдельно; post-catalog diagnostic run с�
 
 1. **Batch 35** (`degraded_lexical`) — 35 файлов с систематической
    лексической подстановкой (`Dee/Kent/irem/Ohio/Mu/thran`), проверенные
-   35/35. Строки batch 35 не попадают в trusted/default view, но остаются в
+   35/35. Строки batch 35 не попадают в trusted/strict view, но остаются в
    raw/review и в явном sidecar. Это не удаление файлов и не удаление строк
    из основного CSV.
-2. **267 хвостовых кандидатов** — `unknown`, **не** `clean`: file-level
-   detector их не выбрал, но они не проверялись вручную; среди 11 ранее
-   проверенных файлов вне batch был один с настоящей missing-space OCR-порчей.
-   `unknown` виден в default view с badge/`needs_review`, но не считается
-   `degraded` и не исключается молча.
+2. **267 хвостовых кандидатов** — design-target `unknown`, **не** `clean`:
+   file-level detector их не выбрал, но они не проверялись вручную; среди 11
+   ранее проверенных файлов вне batch был один с настоящей missing-space
+   OCR-порчей. В текущем runtime row-level `unknown` ещё не построен (см.
+   статус выше), поэтому 267 не получают `usable` по ручной проверке; они
+   видны в default view и не исключаются молча.
 3. **Остальные файлы** — `usable` только в смысле «детектор не нашёл
    сигнатуру batch 35 и нет известной OCR-порчи». Это не гарантия
    читаемости; `usable` не равно «проверено вручную».
@@ -35,16 +40,16 @@ corrections применены отдельно; post-catalog diagnostic run с�
    проверенный file-level список этого дефекта; 267 — unknown tail.
 5. Никакого auto-delete, переписывания источников, `--include-degraded` как
    единственного способа доступа и скрытого фильтра. Sidecar должен быть
-   документирован и доступен так же, как будущий `entities_trust.csv`.
+   документирован и доступен так же, как additive `entities_trust.csv`.
 
 ## 1. Классы source_quality
 
 | Значение | Что означает | Default/trusted view | Raw/review |
 |---|---|---|---|
 | `usable` | Детектор batch 35 отрицательный; известной OCR-сигнатуры нет. Не ручная гарантия. | видима | видима |
-| `degraded_lexical` | Файл прошёл все шесть маркеров и density ≥1%; 35/35 проверены author-side. | **не показывается** в trusted/default; отдельный degraded view | видима полностью |
+| `degraded_lexical` | Файл прошёл все шесть маркеров и density ≥1%; 35/35 проверены author-side. | **не показывается** в trusted/strict; в default/raw видима | видима полностью |
 | `degraded_ocr` | Известная OCR/PDF-порча без словаря подстановок (например, missing-space); file-level detector её не ловит. | только review/row-level, не file-level exclusion | видима |
-| `unknown` | 267 хвостовых кандидатов: row-level score ≥0.10, но file-level detector отрицательный; вручную не читались. | **видима с badge** `source_quality=unknown` + `needs_review`; не strong | видима |
+| `unknown` | 267 хвостовых кандидатов: row-level score ≥0.10, но file-level detector отрицательный; вручную не читались. | **не проходит** в trusted/strict; в default/raw видима с badge `unknown` + `needs_review` | видима |
 
 Важно:
 
@@ -103,26 +108,27 @@ columns: source_quality;source_reason;evidence_level
 Все строки, включая batch 35 и unknown, с `source_quality` badge и
 `trust_reason`. Ничего не удаляется. Это источник истины и база для проверки.
 
-### 3.2. Trusted/default
+### 3.2. Trusted/strict
 
-- `usable` — обычный вид;
-- `degraded_lexical` — не показывается в trusted/default, но есть явная
-  ссылка «degraded sources»/sidecar и счётчик строк; не `--include-degraded`
-  как единственный вход;
-- `unknown` — **показывается** с badge `unknown`/`needs_review`; не
-  считается clean, но и не исключается; пользователь видит, что это
-  кандидат на проверку;
+- `usable` — единственное состояние, которое проходит в trusted/strict;
+- `degraded_lexical` — не показывается в trusted/strict, но остаётся в
+  raw/review; есть явная ссылка «degraded sources»/sidecar и счётчик строк;
+  не `--include-degraded` как единственный вход;
+- `unknown` — **не проходит** в trusted/strict; в default/raw показывается с
+  badge `unknown`/`needs_review`; не считается clean;
 - `degraded_ocr` — review/row-level; не file-level quarantine.
 
-Это компромисс B: default не забит заведомо бесполезными 22,7% строк batch 35
-(post-catalog; pre-change 29,9%), но 267 tail не объявлен чистым и не потерян.
+Это компромисс B: default/raw не забит заведомо бесполезными 22,7% строк
+batch 35 (post-catalog; pre-change 29,9%), но 267 tail не объявлен чистым и
+не потерян. Default остаётся raw/review, а не trusted.
 
 ### 3.3. Default-view decision
 
 Сам default view (какие badge включены по умолчанию) остаётся продуктовым
-решением после probe 2. B задаёт sidecar и правило исключения **только**
-`degraded_lexical`; он не выбирает Strict и не превращает `needs_review` в
-тихий фильтр. `unknown` должен быть видим в default; иначе B нарушает
+решением после probe 2. B задаёт sidecar и правило trusted/strict:
+`source=usable`, не только исключение `degraded_lexical`. Default/raw
+показывает все строки, включая `unknown`; `needs_review` не становится тихим
+фильтром. `unknown` должен быть видим в default/raw; иначе B нарушает
 уточнение про 267.
 
 ## 4. Counts и границы
@@ -158,23 +164,63 @@ file-level список, построенный на pre-change выводе; po
 
 1. **Freeze detector**: шесть маркеров + density ≥1%; batch 35 list hash
    `C3F5E7FBD7DE653756E817E79CA9F6F1F9AAF869E1F696B457B5B1598F868516`.
-2. **Build source sidecar**: пройти по всем 2 597 файлам с упоминаниями;
-   выставить `degraded_lexical` ровно 35, `unknown` 267, `degraded_ocr` для
-   подтверждённого OCR-случая, остальным `usable` по detector-negative.
-3. **Join rows**: `source_quality` попадёт в `entities_from_degraded_sources.csv`
-   и будущий `entities_trust.csv`; основной CSV не меняется.
-4. **View layer**: raw/review показывает всё; trusted/default применяет
-   только правило B и badge; `unknown` остаётся видимым.
+2. **Partial source sidecar**: `SourceQuality` проходит по тексту и выставляет
+   `degraded_lexical` ровно для batch-35 сигнатуры, иначе `usable`; 267-tail
+   row-level `unknown` пока **не** построен. `degraded_ocr` не добавлялся:
+   известный OCR-случай вне batch не является проверенным file-level списком.
+3. **Join rows**: `source_quality`/`source_reason` добавлены в additive
+   `entities_trust.csv`; `entities_from_degraded_sources.csv` (7 601 строка
+   post-catalog) остаётся отдельным pending-артефактом. Основной CSV не
+   меняется.
+4. **View layer**: raw/review показывает всё; trusted/strict проходят только
+   при `SourceQuality.IsUsable`; `unknown`/`degraded_*` остаются в
+   raw/review с badge.
 5. **Tests**:
-   - file-level detector даёт 35/35 и 0/267;
-   - 267 не попадают в `degraded_lexical` и не получают `usable`;
+   - file-level detector synthetic тест: шесть маркеров + density;
+   - detector-negative → `usable`, empty → `unknown`;
    - batch 35 не удаляется из raw/review;
-   - `entities_from_degraded_sources.csv` содержит все **7 601** строку batch 35
-     в post-catalog выводе (pre-change 11 189);
-   - отсутствие sidecar не меняет старый CSV;
-   - counts в отчёте совпадают с counts фильтра.
+   - canonical + `unknown` не получает `trust=trusted`;
+   - canonical + `usable` остаётся trusted;
+   - `entities_from_degraded_sources.csv` не реализован;
+   - отсутствие sidecar не меняет старый CSV.
 6. **Report**: команда, scope, detector version, фильтры, counts, сколько
    строк/файлов в каждом классе; никаких «очищено» без evidence.
+
+### 5.1. `source=usable` gate: scope + design (2026-10-29)
+
+**Scope.** Гейт применяется только к additive trusted/strict и к
+`trust=trusted` в `entities_trust.csv`. Raw/default/export все строки
+сохраняют; `needs_review` не удаляется. Гейт не меняет основной
+8-колоночный CSV и не является source-exclusion.
+
+**Предикат.** Разрешено ровно `source_quality == usable`. `unknown`,
+`degraded_lexical`, `degraded_ocr` и любое неизвестное значение дают
+`review`, даже если classifier-trusted. Для `unknown` причина в sidecar —
+`trust blocked by non-usable source (unknown)`, для degraded — сохранённый
+`lexical trust blocked by degraded source`.
+
+**Текущее состояние.** Проверка реализована в `ResultsViewModel` и
+`ReportExporter.WriteTrustCsv`; старые cache-записи без source-поля имеют
+`unknown` и поэтому больше не считаются clean. Остаётся data gap: detector
+даёт `usable` 267 хвостовым кандидатам. Пока отдельный sidecar не загружен,
+гейт не может отличить их от detector-negative файлов; это видимое
+ограничение, не разрешение считать их clean.
+
+**Sidecar (следующий слой, ещё не реализован).** Входной file-level
+`entities_source_quality.csv` с ключом `file` и полями из §2; для 267
+`source_quality=unknown`, `source_reason=candidate_tail`,
+`evidence_level=not_assessed`, `batch_id=unknown-267`. Sidecar должен
+покрывать все файлы с упоминаниями; отсутствующая запись = `unknown`, не
+`usable`. Приоритет: sidecar > detector; batch-35 detector сохраняется как
+fallback для запусков без sidecar. Hash/версия sidecar входят в cache
+signature. Приватные имена файлов и source hash остаются вне публичного
+Git; публичный тест использует синтетические имена.
+
+**Acceptance.** (1) 14/14 trusted probe-2 не меняются при полном `usable`
+sidecar; (2) 267 unknown и 35 degraded дают `review`; (3) raw/review row
+count не меняется; (4) основной CSV остаётся 8-колоночным; (5) badge
+`unknown` виден в default/raw. До выполнения этих пунктов generator
+activation, replacement/default и entity graph не двигаются.
 
 ## 6. Проверка пользы B
 
@@ -217,6 +263,8 @@ Source cell: 12 строк (6 batch 35 + 6 unknown). Raw: 3 good / 3 ambiguous /
 
 Primary 50 source-usable, поэтому C1 на нём равен C0 по построению; source B
 нельзя приписывать primary-улучшение. `unknown` не скрывается и не получает
-`clean`; batch35 остаётся в raw/review. Sidecar и production default не
-включены: combined C2 P=0,523<0,85 → trust-level design
+`clean`; batch35 остаётся в raw/review. Additive `entities_trust.csv`
+реализован 2026-10-28 и содержит source columns; production default не
+изменён, 267-tail row-level sidecar pending. Combined C2 P=0,523<0,85 →
+trust-level exploratory view, не replacement
 ([`OUTPUT_QUALITY_PROBE_RESULTS.md`](OUTPUT_QUALITY_PROBE_RESULTS.md) §12).

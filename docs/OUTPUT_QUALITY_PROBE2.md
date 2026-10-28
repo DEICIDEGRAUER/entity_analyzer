@@ -1,13 +1,13 @@
 # Targeted probe 2: один sample, incremental-конфигурации
 
-**Статус (2026-10-27): DESIGN ONLY.** Sample не набран, labels не сделаны.
-12 approved catalog corrections применены к private catalog; post-catalog
-diagnostic output снят: **33 430 строк**, SHA-256
+**Статус (2026-10-28): COMPLETED; manifest и labels заморожены.**
+Sample 50 primary + 12 source-cell набран и размечен author-side; labels не
+меняются. 12 approved catalog corrections применены к private catalog;
+post-catalog diagnostic output снят: **33 430 строк**, SHA-256
 `6553A62C7174FCA26B70D9BB45262EF74E5B51856340429975D036269578B27F`.
-Source-файлы, production-код и frozen CSV не менялись. Sample всё ещё не
-заморожен: не решён baseline для incremental catalog (C0/C2) и source cell.
-Это pre-registration дизайна; counts, seed и hashes фиксируются в отдельном
-manifest **до** разметки.
+Source-файлы, production-код и frozen CSV не менялись. Manifest
+`becb1a83…`, labels `049d28ad…`; результаты — §10–§11. Это targeted sample,
+не population estimate.
 
 Связанные документы:
 [`OUTPUT_TRUST_LEVELS.md`](OUTPUT_TRUST_LEVELS.md),
@@ -121,6 +121,9 @@ surface.
 **Решение 2026-10-27:** generator exception list не одобрен — approved
 exception set пустой. `Leng`, `Nug`/`Yeb`, `Tsang`, `Йиг`, `Эйбон` остаются
 HOLD/owner review; C3 design baseline — full phrase only без исключений.
+**Обновлено 2026-10-28:** qualitative inspection одобрил только `Ленгом`,
+`Цанга`, `Цанге`; C3 в primary всё равно n/e. См.
+[`OUTPUT_GENERATOR_POLICY.md`](OUTPUT_GENERATOR_POLICY.md) §10–§11.
 
 `needs_review` — видимая metadata; даже если строка не попала в sample, она не
 исчезает из raw/review. Sample — не population estimate.
@@ -252,8 +255,9 @@ reportится как ограничение, а не как «B не работ
 4. Считать C0–C5 на одном label set; отчёт обязан указать команду, scope,
    фильтры и counts: сколько строк/файлов исключено, сколько visible,
    сколько `needs_review`.
-5. Не объявлять default view до отчёта; sidecar `entities_trust.csv` — после
-   probe 2, не до.
+5. Не объявлять default view до отчёта; sidecar `entities_trust.csv`
+   реализован после probe 2 (2026-10-28) как additive-файл, default view не
+   изменён.
 
 ## 7. Риски и ограничения
 
@@ -290,7 +294,9 @@ reportится как ограничение, а не как «B не работ
    `6553A62C7174FCA26B70D9BB45262EF74E5B51856340429975D036269578B27F`;
    он не является C0.
 3. ~~Утвердить generator design/exception list.~~ **Сделано 2026-10-27:**
-   exception set пуст; C3 остаётся симуляцией до реализации.
+   exception set пуст; C3 остаётся симуляцией до реализации. **Обновлено
+   2026-10-28:** qualitative inspection утвердил `Ленгом`, `Цанга`, `Цанге`;
+   policy реализована opt-in, см. generator §10–§11.
 4. ~~Сгенерировать manifest 50 строк + source cell и разметить.~~ **Сделано
    2026-10-28:** manifest `becb1a83…`, labels `049d28ad…`; см. §9–§10.
 5. После отчёта решить default view; не пушить до probe 2, локальные
@@ -361,9 +367,9 @@ source B скрывает 6 batch35 (все misleading), оставляет 6 un
 **C3 не оценивается.** В primary нет generator-only строк: все 50 имеют
 `variant_source` alias (38), catalog_target (9) или canonical_postonly (3);
 generator-only usable rows имеют owner 0 и не проходят owner-unique. Поэтому
-C3=C2 — это не результат generator policy. Generator остаётся design-only;
-для следующего генераторного probe нужна отдельная generator cell с owner,
-взятым из output, а не из alias-каталога.
+C3=C2 — это не результат generator policy. Generator policy реализована
+opt-in отдельно, но C3 остаётся n/e; для следующего генераторного probe нужна
+отдельная generator cell с owner, взятым из output, а не из alias-каталога.
 
 **C4** — strict baseline: P=1,000, но R=0,130; canonical loss 87% >5%,
 поэтому Strict не является кандидатом на замену. **C5** — reference всех
@@ -405,8 +411,10 @@ targets скрыты. Это не меняет вывод: marker gate нуже�
 **Интерпретация:** сильный alias в clean source — не автоматический trusted:
 18/25 = 72% good, 7 misleading. Но marker-гейт даёт 13/13 (или 14/14 с
 canonical) при цене recall: trusted view — 14/23 good (60,9%), strong recall
-14/18 (77,8%), weak good 0/5. Это **фильтр**, а не metadata; raw/review
-сохраняет все строки. 14/14 имеет CI lower 0,785, поэтому это кандидат в
-trusted, а не доказанный production-порог; для подтверждения нужен targeted
-probe 3 (marker-gated strong) и отдельная generator cell. Generator policy
-остаётся design-only.
+14/18 (77,8%), weak good 0/5. Это **additive exploratory view**, а не metadata
+и не замена default; raw/review сохраняет все строки, поэтому R=0,609 —
+отчётная цена вкладки, не gate replacement-фильтра. 14/14 имеет CI lower
+0,785: достаточно для exploratory-метки, но не для production-SLO. Probe 3
+для marker-гейта не нужен; generator — отдельный qualitative inspection, не
+probe 3. Generator policy реализована opt-in; default остаётся `Legacy` до
+отдельного activation-прогона.

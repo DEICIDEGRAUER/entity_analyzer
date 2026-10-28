@@ -270,8 +270,10 @@ trust-level gate:
    3 HOLD (Opener, Ghisguth, God of the Dead), `Leng` no-op. Новый catalog hash
    и residual surfaces — в [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md)
    §10.5; post-catalog output снят (33 430 строк; §10.6), но он C2, не C0.
-4. Generator policy — design only; 14 composite names, full phrase only,
-   exception list. См. [`OUTPUT_GENERATOR_POLICY.md`](OUTPUT_GENERATOR_POLICY.md).
+4. Generator policy — **implemented opt-in**; 14 composite names, full phrase
+   only, approved exception list (`Ленгом`, `Цанга`, `Цанге`). Production
+   default остаётся `Legacy` до отдельного перепрогона selfcheck/guard. См.
+   [`OUTPUT_GENERATOR_POLICY.md`](OUTPUT_GENERATOR_POLICY.md) §8.
 5. Targeted probe 2 **завершён 2026-10-28**: manifest `becb1a83…`, 50
    primary + 12 source-cell, 12/12 catalog operations; labels 23 good / 4
    ambiguous / 23 misleading. C0 P=0,362/R=0,739 → C2 P=0,523/R=1,000;
@@ -279,11 +281,17 @@ trust-level gate:
    generator-only rows), combined P<0,85 → **trust-level design**.
    Per-bucket: canonical 3/3, strong alias+marker 11/11, strong alias без
    marker 4/11, weak+marker 5/13, weak без marker 0/12. Trusted =
-   marker-gated strong; P=1,000, R=14/23=0,609, old R≥0,80 not met; probe 3
-   proposed. [`OUTPUT_QUALITY_PROBE2.md`](OUTPUT_QUALITY_PROBE2.md) §10–§11;
+   marker-gated strong; P=1,000, R=14/23=0,609. R≥0,80 — критерий
+   replacement-default, не additive view; trusted выпускается как
+   exploratory, raw/review сохраняет все строки.
+   [`OUTPUT_QUALITY_PROBE2.md`](OUTPUT_QUALITY_PROBE2.md) §10–§11;
    полные результаты — [`OUTPUT_QUALITY_PROBE_RESULTS.md`](OUTPUT_QUALITY_PROBE_RESULTS.md) §12.
-6. Только после probe 2 — sidecar `entities_trust.csv` и решение о
-   default-view. Phase C, entity graph и owner-таблицы остаются закрытыми.
+6. После probe 2 — trusted view как **additive exploratory** + sidecar
+   `entities_trust.csv` **реализованы** (2026-10-28): `TrustViewClassifier`,
+   UI-режимы `Trusted (exploratory)` / `Canonical only (exploratory)`,
+   file-level batch-35 detector. Default-view не меняется; 267 `unknown`
+   остаются видимыми. Phase C, entity graph и owner-таблицы остаются
+   закрытыми. См. [`OUTPUT_TRUST_LEVELS.md`](OUTPUT_TRUST_LEVELS.md) §9.
 
 ## 9. Правило перед ML-фиксом (2026-10-27)
 

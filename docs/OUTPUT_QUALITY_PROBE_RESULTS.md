@@ -266,8 +266,9 @@ frozen labels/manifests или production-код. Отдельно, уже по�
 - Catalog: **12 операций одобрены и применены** (13 alias strings), 3 HOLD
   (`Opener`, `Ghisguth`, `God of the Dead`), `Leng` no-op; решения и новый
   hash — [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §10.5.
-- Generator: **design only**, 14 composite names; `full phrase only` и
-  exception list — [`OUTPUT_GENERATOR_POLICY.md`](OUTPUT_GENERATOR_POLICY.md).
+- Generator: **opt-in implementation**, 14 composite names; `full phrase
+  only` и approved exceptions (`Ленгом`, `Цанга`, `Цанге`) —
+  [`OUTPUT_GENERATOR_POLICY.md`](OUTPUT_GENERATOR_POLICY.md).
 - Probe 2 **выполнен 2026-10-28**: 50 primary + 12 source-cell, manifest
   hash `becb1a83…`; результаты — §12. Primary source-usable, поэтому source B
   измерялся отдельной source cell; generator-only строк в primary нет.
@@ -294,8 +295,8 @@ Blind: 20 primary, 19/20 совпадений; `P2-16` adjudicated ambiguous д�
 - Catalog incremental: ΔP=**+0,161**, ΔR=**+0,261**, threshold passes.
 - Generator: **not evaluable**; primary has 0 generator-only rows (38 alias,
   9 catalog_target, 3 canonical_postonly). C3=C2 is not a generator result.
-  Generator remains design-only; future generator cell must use output-owned
-  forms, not alias/catalog owner-unique filtering.
+  Generator policy is implemented opt-in; future generator cell must use
+  output-owned forms, not alias/catalog owner-unique filtering.
 - Strict: P=1,000, R=0,130; canonical loss 87% >5%, not a candidate.
 - Combined C2 P=**0,523 <0,85**. This triggers the pre-registered decision:
   **trust-level design**, not more catalog/generator fixes. Source B/generator
@@ -319,13 +320,11 @@ the alias label alone, is the discriminator.
 
 Design decision: **trusted view = canonical OR strong alias + marker**, source
 usable, owner unique. Weak + marker is **not** trusted (5/13 good); strong
-without marker is `needs_review`. Trusted view is a filter/tab, not metadata:
-14/50 rows, P=1,000, **R=14/23=0,609**; raw/review keeps every row. Strict
-canonical-only remains an explicit conservative view (3/3, R=0,130). The old
-R≥0,80 target is **not met**; if it is mandatory, probe 3 is required, not a
-production default. The 14/14 CI lower bound is 0,785, so do not call
-production-trusted yet.
-
-Probe 3 proposal: marker-gated strong validation cell plus generator-only cell
-(for C3). No production code until then; docs-only commits are pushed after
-this per-bucket analysis.
+without marker is `needs_review`. Trusted view is an **additive** filter/tab,
+not metadata and not a default replacement: 14/50 rows, P=1,000,
+**R=14/23=0,609**; raw/review keeps every row. R≥0,80 is the criterion for a
+replacement filter, not for an additive view, so R is reported here and is
+not a gate. Strict canonical-only remains an explicit conservative view (3/3,
+R=0,130). The 14/14 CI lower bound is 0,785: release as **exploratory**, not as
+a production SLO. Marker validation does not need probe 3; generator is handled
+by a separate qualitative inspection, not a 50-row probe.
