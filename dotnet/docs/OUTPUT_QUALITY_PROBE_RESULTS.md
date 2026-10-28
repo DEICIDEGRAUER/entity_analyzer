@@ -1,0 +1,330 @@
+# Output Trust Probe: results
+
+**Статус (2026-10-26): PROBE RESULTS ONLY.** Ни production-код, ни каталог,
+ни frozen-артефакты не менялись. Это не gate для shipping и не population
+precision.
+
+Pre-registration: [`OUTPUT_QUALITY_PROBE.md`](OUTPUT_QUALITY_PROBE.md)
+(commit `34c5fa7`, до разметки). Аудит: [`OUTPUT_QUALITY_AUDIT.md`](OUTPUT_QUALITY_AUDIT.md).
+
+## 1. Что размечено
+
+- 50 строк: 10 × 5 страт, seed `20261026`, один файл — не более одной строки.
+- Manifest SHA-256: `F37EC1F5913CD76FFDF21B1F18916A3936073BE0E008DC5B7C70EF5135675C06`.
+- Labels SHA-256: `EF3114E93A51B312BB92602F53895750AD34001241CE781FB17680AC5D72CF74`.
+- Сырые контексты и пути — только в ignored
+  `output/quality-probe-2026-10-26/`; в публичный Git не попадают.
+- Разметка author-side, без blind-прохода. Это ограничение результата, не
+  скрытая деталь.
+
+## 2. Результат по стратам
+
+| Страта | Строк | good | weak | partial | ambiguous | misleading |
+|---|---:|---:|---:|---:|---:|---:|
+| canonical | 10 | 10 | 0 | 0 | 0 | 0 |
+| strong alias | 10 | 5 | 0 | 0 | 0 | 5 |
+| weak/composite | 10 | 0 | 0 | 0 | 0 | 10 |
+| ambiguous alias | 10 | 2 | 0 | 0 | 1 | 7 |
+| OCR / quality | 10 | 0 | 0 | 0 | 0 | 10 |
+| **Итого** | **50** | **17** | **0** | **0** | **1** | **32** |
+
+Первичная положительная метка — `good + weak`: **17/50**. Но это
+стратифицированный probe, а не доля по всему выводу; 10 weak и 10 OCR
+специально перепредставлены.
+
+## 3. Важная поправка к дизайну
+
+Пятая страта оказалась не «типом алиаса», а **quality-enriched** выборкой:
+OCR — это свойство контекста/источника, ортогональное типу алиаса. Это ровно
+то смешение, о котором было предупреждение. Пороги и pre-registered
+baseline’ы не менялись; ниже дан cross-tab, который разделяет измерения.
+
+| Страта | usable context | unusable context | good | misleading |
+|---|---:|---:|---:|---:|
+| canonical | 10 | 0 | 10 | 0 |
+| strong alias | 7 | 3 | 5 | 5 |
+| weak/composite | 10 | 0 | 0 | 10 |
+| ambiguous alias | 10 | 0 | 2 | 7 (+1 ambiguous) |
+| OCR / quality | 1 | 9 | 0 | 10 |
+
+Вывод: **strong alias сам по себе не является гарантией**. Пять хороших
+strong-строк — это P13, P14, P17, P18, P19. Пять плохих распадаются на:
+
+- два каталожных/омонимических случая в читаемом контексте: `Лао` → Ляо,
+  `Гисгут` → Наг и Йеб;
+- три OCR-контекста: `Zhar`, `Leng`, `Nug`.
+
+То есть strong-алиасы нужно проверять и по каталогу, и по качеству источника.
+
+## 4. Baseline’ы
+
+`P` и `R` считаются на probe. `P` — среди retained-строк без partial/ambiguous;
+`R` — доля `good + weak` из 17, сохранённая baseline’ом. `canonical_loss`
+измерен на canonical-строках, уже попавших в current output; это **не**
+end-to-end recall.
+
+| Baseline | Retained | good | misleading | P | R | canonical loss | Вердикт |
+|---|---:|---:|---:|---:|---:|---:|---|
+| Current | 50 | 17 | 32 | 0,347 | 1,000 | 0 | — |
+| Strict (canonical only) | 10 | 10 | 0 | **1,000** | **0,588** | 0 | literal pass, но потеря 41 % good |
+| Intermediate | 20 | 15 | 5 | **0,750** | 0,882 | 0 | **fails P** |
+| TitleGate (diagnostic) | 40 | 17 | 22 | 0,436 | 1,000 | 0 | fails P |
+| Intermediate + quality gate (post-hoc) | 17 | 15 | 2 | **0,882** | **0,882** | 0 | promising, но post-hoc |
+
+Детали:
+
+- **Strict** проходит формальный порог `P >= 0.95`, `canonical_loss <= 0.05`,
+  но теряет 7 из 17 хороших строк (41 %). Это не «победа» по смыслу
+  recall-требования; это цена strict-view.
+- **Intermediate** не проходит `P >= 0.85`: пять strong-строк с читаемым
+  контекстом всё ещё misleading (`Лао`, `Гисгут`) плюс три OCR-strong.
+- **TitleGate** почти бесполезен: weak-алиасы действительно уходят, но
+  strong/ambiguous/OCR-мусор остаётся; P 0,436.
+- **Intermediate + quality gate** — не pre-registered baseline. Если
+  дополнительно отправить в review все строки с `context_quality=unusable`,
+  остаются 17 строк, 15 good, 2 misleading. P/R = 0,882/0,882. Это
+  **post-hoc** результат: он интересен, но требует второго 50-строчного
+  sample до любого решения. P при этом в пределах ±0,05 от порога 0,85, что
+  по pre-registration уже требует подтверждения.
+
+## 5. Решение по pre-registered правилам
+
+### 5.1. 4 карточки
+
+- Все misleading: **25/32 = 78,1 %** приходятся на `Книга Эйбона`,
+  `Наг и Йеб`, `Плато Ленг`, `Йог-Сотот` → **>70 %**, срабатывает правило
+  «сначала аудит 4 карточек, не match-time policy».
+- Если убрать OCR-строки: **15/22 = 68,2 %**; если считать только
+  usable-context misleading: **13/20 = 65,0 %**.
+- То есть каталожная проблема — крупнейшая, но **не единственная**: OCR
+  добавляет ещё 12 unusable-строк, и почти весь OCR сконцентрирован в top-4.
+
+### 5.2. OCR — систематический или единичный?
+
+- В probe: 10 OCR-строк из **10 разных файлов**; 9 из 10 действительно
+  нечитаемы, одна (P49) — ложный OCR-кандидат, читаемая generic-книга.
+- По эвристике на всём выводе: **302 файла** имеют ≥10 % OCR-кандидатов
+  (при ≥5 строках), это **10 055 / 37 406 строк (26,9 %)**. 164 файла имеют
+  ≥25 % кандидатов. 92,1 % OCR-кандидатов — top-4 (`Плато Ленг` 4 505,
+  `Наг и Йеб` 3 996).
+- Это выше pre-registered порога «≥10 файлов / ≥10 % строк» → **систематическая
+  проблема источников**, а не 1–2 файла. Но эвристика требует ручной проверки
+  top-файлов; она не является классификатором.
+
+### 5.3. Итог
+
+- **Intermediate в текущем виде не оправдан** (P 0,75).
+- **Strict** формально проходит только по P/canonical loss, но теряет 41 %
+  хороших строк; как default — слишком дорого без явного продуктового
+  согласия.
+- **TitleGate** не оправдан.
+- **Intermediate+Q** — единственный promising вариант, но он post-hoc и
+  требует подтверждения. Он также не решает каталожные ошибки `Лао`/`Гисгут`;
+  после их исправления его P может вырасти, но это уже отдельный scope.
+- Приоритет по pre-registered правилу: **read-only аудит 4 карточек +
+  OCR/source track**, не реализация фильтра.
+
+## 6. Конкретные дефекты
+
+### 6.1. Canonical
+
+10/10 good. Канонические имена в читаемых контекстах работают; проблема не в
+базовом exact-поиске.
+
+### 6.2. Strong alias
+
+Половина good, половина misleading. Это ломает предположение «strong alias
+можно доверять по определению»:
+
+- `Лао` → Ляо: Laozi, не Liao (P11);
+- `Гисгут` → Наг и Йеб: в строке описан Gisgut, не Nug/Yeb (P12);
+- `Zhar`, `Leng`, `Nug` в OCR-контекстах (P15/P16/P20) — сильный алиас не
+  спасает от нечитаемого источника.
+
+### 6.3. Weak/composite
+
+**10/10 misleading.** Это не пограничный шум, а системный класс:
+
+- literal `The Gate` / `The Key`;
+- `Latin` → язык, а не Книга Эйбона;
+- `Книгу/Книге/Книгах` → обычная/другая книга;
+- `Туманов` → обычный туман;
+- `Садов` → «сады Эдема»;
+- `The Gate and the Way` → название рассказа.
+
+Такие алиасы нельзя показывать как полноценные упоминания без маркера и без
+trust-пометки.
+
+### 6.4. Ambiguous alias
+
+2 good, 1 ambiguous, **7 misleading**. Основная проблема — **не тот владелец**:
+
+- `Cxaxukluth` → Наг и Йеб, хотя есть карточка `Ксаксаклут`;
+- `Shaurash-Ho` → Боги Нежити, хотя есть `Шаураш-Хо`;
+- `Ghizghuth` → Наг и Йеб, хотя есть `Гизгут`;
+- `God of the Dead` → Мордиггиан/Сокар, а в строке Осирис;
+- `Last Elder One` → Монахи Ленга/Тчо-Тчо, без подтверждения;
+- `Верховный жрец` → Монахи Ленга/Тчо-Тчо, а в строке обычный жрец.
+
+Два good — `Not-to-be-Named One` с прямым `Yog-Sothoth` и `Лама Ленга` в
+контексте; они показывают, что ambiguous-алиас может работать **только при
+явном маркере**.
+
+### 6.5. OCR
+
+9/10 нечитаемы; одна строка (P49) — читаемая generic-книга, ошибочно
+попавшая в quality-страту. OCR-строки нельзя лечить удалением алиаса `Leng`:
+`Leng` — нормальное имя, проблема в источнике/скане. Нужен отдельный
+quality/review track.
+
+## 7. Что делать дальше
+
+1. **Read-only аудит 4 карточек** (без мутации каталога):
+   - `Книга Эйбона`: generic-формы `Книга*`, `Latin`, titles;
+   - `Наг и Йеб`: `Zhar`, `Гисгут`, shared `Ghizghuth/Cxaxukluth/Shaurash-Ho`,
+     OCR-коллизии `Nug/Yeb`;
+   - `Йог-Сотот`: `The Gate`, `The Key`, `The Lurker at the Threshold`;
+   - `Плато Ленг`: не удалять `Leng`; отдельно — OCR-источники.
+   - Плюс `Лао` → Ляо как отдельный омоним вне top-4.
+2. **OCR/source track:** проверить top-файлы, подтвердить 302/10 055 цифру
+   вручную, решить про `needs_review`/исключение источников. Не смешивать с
+   alias cleanup.
+3. **Только после этого** — второй 50-строчный probe для Intermediate+Q или
+   другой политики trust-уровней. Текущий A+Q не является gate.
+4. **Trust levels** (`strong` / `weak` / `needs_review`) остаются полезными,
+   но их нельзя ставить вместо каталожного/OCR-аудита: они лишь объясняют
+   пользователю, почему строка попала в review.
+
+## 8. Ограничения
+
+- 50 строк, author-side, стратифицированно; не population precision.
+- OCR-эвристика предварительная; 302 файла — кандидаты, не доказанный OCR.
+- `R` — retention good-строк из current output, не end-to-end recall;
+  current уже мог пропустить истинные упоминания.
+- `canonical_loss = 0` by construction для strict/intermediate; это не
+  доказывает сохранение canonical в полном pipeline.
+- P31 (`Last Elder One`) оставлен ambiguous, не misleading; P37/P39 — good,
+  но ambiguous-страта исключена из Intermediate, поэтому strict/intermediate
+  теряют две хорошие строки.
+- Blind-проход не делался; перед shipping-решением нужен независимый второй
+  проход или второй sample.
+
+## 9. Freeze / artifacts
+
+- Pre-registration: `34c5fa7` (docs-only, до labels).
+- Manifest: `F37EC1F5…` (local ignored).
+- Labels: `EF3114E9…` (local ignored).
+- На момент probe/аудита: никаких изменений в `codex.json`,
+  `entities_table.csv`, Phase C, frozen manifests и production-коде.
+  2026-10-27 после решения применены 12 approved catalog corrections; labels
+  и метрики этого probe не менялись. Post-catalog output снят отдельно
+  (33 430 строк); этот probe использовал pre-change снимок. См.
+  [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §10.5–§10.6.
+
+## 10. Пост-аудит поправка (2026-10-26)
+
+Метрики и labels этого probe не меняются. Аудит каталога/источников уточнил
+интерпретацию, а не результат.
+
+- **302 / 10 055 подтверждены арифметически, но это не валидированный
+  OCR-список.** 10 055 — flagged-строки внутри 302 файлов; всех строк в них
+  18 243 (48,8%). Top-15 — source-level лексическая порча: 5 899/5 899
+  top-4 контекстов дословно есть в источнике. 35/35 файлов batch проверены
+  author-side; file-level детектор по шести маркерам выбирает ровно 35 из
+  302 и 0 из 267. Оставшиеся 267 вручную не читались; 10 из 11 ранее
+  выборочных файлов читаемы (ложные срабатывания эвристики). См.
+  [`OUTPUT_SOURCE_AUDIT.md`](OUTPUT_SOURCE_AUDIT.md).
+- **Страта OCR остаётся валидной для своих строк:** 9/10 high-score строк
+  действительно unusable. Но файловый список 302 нельзя использовать как
+  source exclusion; для batch 35 нужен file-level source decision A/B/C.
+- **Top-4 misleading = 13 catalog + 12 source**, а не 25 catalog. В
+  strong-страте (включая `Лао` вне top-4) 2 из 5 misleading — catalog
+  (`Лао`, `Гисгут`), 3 — source (`Zhar`, `Leng`, `Nug`). Это усиливает
+  вывод «оба трека», а не отменяет каталожный аудит.
+- **`Книгу` и падежи** — и catalog, и variant generation: `Книгу` есть в
+  алиасах, но все пять bare-форм (`Книгу`/`Книге`/`Книгах`/`Книгой`/
+  `Книгами`) генерируются из составного имени. Удаление одного алиаса не
+  уберёт формы; нужны catalog correction и generator policy. См.
+  [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §9.
+- **Cheap non-ML baseline** теперь зафиксирован как методическое правило:
+  strict canonical-only, marker/title-gate и/или file-level детектор
+  подстановок до labels; 302-эвристика не является gate. См.
+  [`OUTPUT_QUALITY_AUDIT.md`](OUTPUT_QUALITY_AUDIT.md) §8.
+- `needs_review` остаётся видимой metadata, не silent filter:
+  [`OUTPUT_TRUST_LEVELS.md`](OUTPUT_TRUST_LEVELS.md).
+
+Этот пост-аудит не вносит изменений в источники, CSV-контракт, Phase C,
+frozen labels/manifests или production-код. Отдельно, уже после него,
+применены 12 approved catalog corrections; метрики/labels не затронуты.
+
+## 11. Решения после аудита (2026-10-27)
+
+Метрики и labels этого probe не меняются.
+
+- Source policy: выбран **B** — sidecar, batch 35 вне trusted/default,
+  267 — `unknown`, не clean; дизайн — [`OUTPUT_SOURCE_POLICY.md`](OUTPUT_SOURCE_POLICY.md).
+- Catalog: **12 операций одобрены и применены** (13 alias strings), 3 HOLD
+  (`Opener`, `Ghisguth`, `God of the Dead`), `Leng` no-op; решения и новый
+  hash — [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §10.5.
+- Generator: **opt-in implementation**, 14 composite names; `full phrase
+  only` и approved exceptions (`Ленгом`, `Цанга`, `Цанге`) —
+  [`OUTPUT_GENERATOR_POLICY.md`](OUTPUT_GENERATOR_POLICY.md).
+- Probe 2 **выполнен 2026-10-28**: 50 primary + 12 source-cell, manifest
+  hash `becb1a83…`; результаты — §12. Primary source-usable, поэтому source B
+  измерялся отдельной source cell; generator-only строк в primary нет.
+
+## 12. Probe 2 results (2026-10-28)
+
+Labels: primary **23 good / 4 ambiguous / 23 misleading** (weak 5/4/16,
+strong 18/0/7); source cell 3/3/6. Labels SHA-256:
+`049d28ad1ea64b06e92276d2e9efae576ed6029d0d6ccf068633ff9c776a786c`.
+Blind: 20 primary, 19/20 совпадений; `P2-16` adjudicated ambiguous до счёта.
+
+| Config | Visible | Good | Ambiguous | P | R |
+|---|---:|---:|---:|---:|---:|
+| C0 current/pre-change | 47 | 17 | 4 | 0,362 | 0,739 |
+| C1 + source B primary | 47 | 17 | 4 | 0,362 | 0,739 |
+| C2 + catalog | 44 | 23 | 4 | **0,523** | **1,000** |
+| C3 + generator | — | — | — | n/e | n/e |
+| C4 strict canonical | 3 | 3 | 0 | 1,000 | 0,130 |
+| C5 all sample rows | 50 | 23 | 4 | 0,460 | 1,000 |
+
+- Source cell raw: 3 good / 3 ambiguous / 6 misleading, P=0,250; B hides
+  6 batch35 (all misleading), keeps 6 unknown (3 good/3 ambiguous), P=0,500,
+  R=1,000. ΔP=+0,250; small n, separate from primary gate.
+- Catalog incremental: ΔP=**+0,161**, ΔR=**+0,261**, threshold passes.
+- Generator: **not evaluable**; primary has 0 generator-only rows (38 alias,
+  9 catalog_target, 3 canonical_postonly). C3=C2 is not a generator result.
+  Generator policy is implemented opt-in; future generator cell must use
+  output-owned forms, not alias/catalog owner-unique filtering.
+- Strict: P=1,000, R=0,130; canonical loss 87% >5%, not a candidate.
+- Combined C2 P=**0,523 <0,85**. This triggers the pre-registered decision:
+  **trust-level design**, not more catalog/generator fixes. Source B/generator
+  defaults are not enabled; catalog corrections remain applied, default view
+  unchanged.
+
+### 12.1. Per-bucket precision (same frozen labels)
+
+| Bucket | n | good | P | Wilson 95% CI |
+|---|---:|---:|---:|---|
+| canonical | 3 | 3 | 1,000 | 0,439–1,000 |
+| strong alias + marker | 11 | 11 | **1,000** | 0,741–1,000 |
+| strong alias без marker | 11 | 4 | 0,364 | 0,152–0,646 |
+| weak + marker | 13 | 5 | 0,385 | 0,177–0,645 |
+| weak без marker | 12 | 0 | 0,000 | 0,000–0,242 |
+| trusted = canonical + strong alias marker | 14 | 14 | **1,000** | 0,785–1,000 |
+
+Aggregates: strong total 18/25 = 0,720; weak total 5/25 = 0,200. Strong+marker
+(including canonical) = 13/13, strong without marker = 5/12; the marker, not
+the alias label alone, is the discriminator.
+
+Design decision: **trusted view = canonical OR strong alias + marker**, source
+usable, owner unique. Weak + marker is **not** trusted (5/13 good); strong
+without marker is `needs_review`. Trusted view is an **additive** filter/tab,
+not metadata and not a default replacement: 14/50 rows, P=1,000,
+**R=14/23=0,609**; raw/review keeps every row. R≥0,80 is the criterion for a
+replacement filter, not for an additive view, so R is reported here and is
+not a gate. Strict canonical-only remains an explicit conservative view (3/3,
+R=0,130). The 14/14 CI lower bound is 0,785: release as **exploratory**, not as
+a production SLO. Marker validation does not need probe 3; generator is handled
+by a separate qualitative inspection, not a 50-row probe.
