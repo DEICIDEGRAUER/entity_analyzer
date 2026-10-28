@@ -697,6 +697,7 @@ public sealed class AnalysisEngine
         var resolved = MatchResolver.ResolveOverlaps(filtered);
         quality.CountOverlapsResolved(filtered.Count - resolved.Count);
         var totalFound = resolved.Count;
+        var sourceQuality = SourceQuality.Classify(normalized);
 
         // R1-11: семантические паттерны — фаза ProcessFile конвейера модулей.
         _pipeline.ProcessFile(moduleCtx);
@@ -705,7 +706,11 @@ public sealed class AnalysisEngine
         if (totalFound == 0)
         {
             var empty = new FileResult(fileName, path, [], 0, 0, charCount, 0,
-                SemanticMatches: semanticMatches);
+                SemanticMatches: semanticMatches)
+            {
+                SourceQuality = sourceQuality.Quality,
+                SourceReason = sourceQuality.Reason,
+            };
             cache?.Set(cacheKey!, empty);
             return (empty, foundEntities, semanticMatches, 0, charCount);
         }
@@ -798,7 +803,11 @@ public sealed class AnalysisEngine
         var density = charCount > 0 ? Math.Round(totalFound * 10000.0 / charCount, 2) : 0;
 
         var result = new FileResult(fileName, path, mentions, totalFound, ctxSize, charCount, density,
-            SemanticMatches: semanticMatches);
+            SemanticMatches: semanticMatches)
+        {
+            SourceQuality = sourceQuality.Quality,
+            SourceReason = sourceQuality.Reason,
+        };
         cache?.Set(cacheKey!, result);
         return (result, foundEntities, semanticMatches, totalFound, charCount);
     }

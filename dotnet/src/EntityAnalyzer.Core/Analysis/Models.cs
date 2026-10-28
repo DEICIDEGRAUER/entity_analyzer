@@ -104,6 +104,15 @@ public sealed record FileResult(
 {
     /// <summary>Находки семантических паттернов в этом файле (кэшируются вместе с файлом).</summary>
     public IReadOnlyList<SemanticMatch> SemanticMatches { get; init; } = SemanticMatches ?? [];
+
+    /// <summary>
+    /// File-level source quality from the reproducible detector. Old cache
+    /// entries have no value and therefore remain unknown; trusted view must
+    /// never treat unknown as "clean".
+    /// </summary>
+    public string SourceQuality { get; init; } = EntityAnalyzer.Core.Analysis.SourceQuality.Unknown;
+
+    public string SourceReason { get; init; } = "";
 }
 
 public sealed record AnalysisSummary(
