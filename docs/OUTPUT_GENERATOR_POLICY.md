@@ -431,3 +431,23 @@ incremental C0→C2 нужны оба хэша и один label set; post-catal
   требуют owner/lore review.
 - Production-код не менялся; каталог изменён только 12 approved операциями.
   Документ не является разрешением на реализацию generator policy.
+
+## 9. Probe 2: generator не удалось измерить (2026-10-28)
+
+Frozen probe 2 не содержит **ни одной** generator-only строки: все 50
+primary-строк — alias (38), catalog_target (9) или canonical_postonly (3).
+Причина: generator-only формы не имеют alias-владельца, поэтому
+owner-unique фильтр их исключает. C3 в отчёте равна C2, но это **не**
+результат generator policy; C3 помечена `n/e`.
+
+Следствия:
+
+- `FullPhraseOnly` остаётся design-only; реализация за флагом и default не
+  включаются.
+- Для будущего generator probe нужна отдельная generator cell с owner,
+  взятым из output-строки, и labels на expected owner; нельзя повторно
+  использовать primary 50.
+- 5 255 post-catalog generator-only строк — population, не sample; их нельзя
+  смешивать с primary precision.
+- Решение probe 2: combined C2 P=0,523<0,85 → trust-level design; generator
+  не является следующим фиксом.

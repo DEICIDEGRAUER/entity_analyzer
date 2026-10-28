@@ -558,3 +558,19 @@ Post-catalog вывод подтверждает, что approved операци
   алиасов `Наг и Йеб` не делался.
 - `needs_review` в этом документе — предложение metadata, а не фильтр и не
   удаление. Дизайн: [`OUTPUT_TRUST_LEVELS.md`](OUTPUT_TRUST_LEVELS.md).
+
+## 13. Probe 2 catalog result (2026-10-28)
+
+Frozen probe 2: 50 primary, 12 source-cell; 12/12 approved catalog operations
+покрыты (включая post-only `Ptmak`). Labels primary: 23 good / 4 ambiguous /
+23 misleading. На одном label set:
+
+- C0/pre-change: visible 47, good 17, P=0,362, R=0,739;
+- C1 + source B (primary source-usable): same as C0;
+- C2 + catalog: visible 44, good 23, P=**0,523**, R=**1,000**;
+- catalog incremental: ΔP=+0,161, ΔR=+0,261 — passes threshold;
+- combined C2 P=0,523<0,85 → trust-level design, не новые catalog fixes.
+
+Catalog corrections сработали на sample, но 12/50 строк недостаточны, чтобы
+довести precision до 0,85. Default view не менялся; никакого auto-delete нет.
+Подробности — [`OUTPUT_QUALITY_PROBE_RESULTS.md`](OUTPUT_QUALITY_PROBE_RESULTS.md) §12.

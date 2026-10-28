@@ -268,10 +268,18 @@ row-level readability.
 4. Targeted probe 2 **заморожен 2026-10-28**: manifest
    `becb1a83…`, 25+25 primary, 13/12 markers в каждой страте, 12 source-cell,
    12/12 catalog operations; дизайн — [`OUTPUT_QUALITY_PROBE2.md`](OUTPUT_QUALITY_PROBE2.md) §9.
-5. Разметить author-side, затем blind-подмножество; только после этого —
-   решение о trusted-view/sidecar. Labels ещё не начаты.
+5. **Probe 2 завершён 2026-10-28.** Primary: 23 good / 4 ambiguous / 23
+   misleading; blind 20 строк, 19/20 совпадений. C0 P=0,362/R=0,739;
+   C2 P=0,523/R=1,000; catalog ΔP=+0,161. Source cell: B повышает P с 0,250
+   до 0,500 при R=1,000 (n=12). Generator C3 **не evaluable** (0
+   generator-only строк в primary). Combined P=0,523 <0,85 → по
+   pre-registered rule нужен **trust-level design**, а не новые
+   catalog/generator fixes. Результаты —
+   [`OUTPUT_QUALITY_PROBE_RESULTS.md`](OUTPUT_QUALITY_PROBE_RESULTS.md) §12.
 
-До шага 5 production-код и source-файлы не меняются; каталог изменён только
-12 approved операциями. Primary sample source-usable не измеряет source B;
-нужен отдельный source cell, иначе B нельзя объявлять полезным. Manifest
-включает pre-change C0 и post-catalog C2; после labels он не меняется.
+По итогам шага 5 production-код и source-файлы не меняются; каталог изменён
+только 12 approved операциями. Primary sample source-usable не измеряет source
+B; source cell измеряет отдельно. Manifest включает pre-change C0 и
+post-catalog C2; после labels он не меняется. Source B/generator defaults не
+включены; catalog corrections применены, default view не менялся. Push не
+делается.

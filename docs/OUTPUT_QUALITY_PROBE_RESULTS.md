@@ -268,14 +268,36 @@ frozen labels/manifests или production-код. Отдельно, уже по�
   hash — [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §10.5.
 - Generator: **design only**, 14 composite names; `full phrase only` и
   exception list — [`OUTPUT_GENERATOR_POLICY.md`](OUTPUT_GENERATOR_POLICY.md).
-- Probe 2 **заморожен 2026-10-28**: 50 primary + 12 source-cell, manifest
-  hash `becb1a83…`, 25/25, 13/12 markers, 12/12 catalog operations; labels
-  ещё не начаты. Дизайн — [`OUTPUT_QUALITY_PROBE2.md`](OUTPUT_QUALITY_PROBE2.md) §9.
-  Primary sample source-usable не измеряет source B; source cell измеряет
-  отдельно.
+- Probe 2 **выполнен 2026-10-28**: 50 primary + 12 source-cell, manifest
+  hash `becb1a83…`; результаты — §12. Primary source-usable, поэтому source B
+  измерялся отдельной source cell; generator-only строк в primary нет.
 
-До probe 2 production, source-файлы и frozen CSV не меняются; каталог
-изменён только 12 approved операциями. Post-catalog output снят (33 430
-строк; hash — [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §10.6), но
-он является C2, не C0; C0 берётся из pre-change snapshot. Локальные
-docs-коммиты допустимы, push — после probe 2.
+## 12. Probe 2 results (2026-10-28)
+
+Labels: primary **23 good / 4 ambiguous / 23 misleading** (weak 5/4/16,
+strong 18/0/7); source cell 3/3/6. Labels SHA-256:
+`049d28ad1ea64b06e92276d2e9efae576ed6029d0d6ccf068633ff9c776a786c`.
+Blind: 20 primary, 19/20 совпадений; `P2-16` adjudicated ambiguous до счёта.
+
+| Config | Visible | Good | Ambiguous | P | R |
+|---|---:|---:|---:|---:|---:|
+| C0 current/pre-change | 47 | 17 | 4 | 0,362 | 0,739 |
+| C1 + source B primary | 47 | 17 | 4 | 0,362 | 0,739 |
+| C2 + catalog | 44 | 23 | 4 | **0,523** | **1,000** |
+| C3 + generator | — | — | — | n/e | n/e |
+| C4 strict canonical | 3 | 3 | 0 | 1,000 | 0,130 |
+| C5 all sample rows | 50 | 23 | 4 | 0,460 | 1,000 |
+
+- Source cell raw: 3 good / 3 ambiguous / 6 misleading, P=0,250; B hides
+  6 batch35 (all misleading), keeps 6 unknown (3 good/3 ambiguous), P=0,500,
+  R=1,000. ΔP=+0,250; small n, separate from primary gate.
+- Catalog incremental: ΔP=**+0,161**, ΔR=**+0,261**, threshold passes.
+- Generator: **not evaluable**; primary has 0 generator-only rows (38 alias,
+  9 catalog_target, 3 canonical_postonly). C3=C2 is not a generator result.
+  Generator remains design-only; future generator cell must use output-owned
+  forms, not alias/catalog owner-unique filtering.
+- Strict: P=1,000, R=0,130; canonical loss 87% >5%, not a candidate.
+- Combined C2 P=**0,523 <0,85**. This triggers the pre-registered decision:
+  **trust-level design**, not more catalog/generator fixes. Source B/generator
+  defaults are not enabled; catalog corrections remain applied, default view
+  unchanged. No push.

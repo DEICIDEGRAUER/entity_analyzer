@@ -291,8 +291,8 @@ reportится как ограничение, а не как «B не работ
    он не является C0.
 3. ~~Утвердить generator design/exception list.~~ **Сделано 2026-10-27:**
    exception set пуст; C3 остаётся симуляцией до реализации.
-4. ~~Сгенерировать manifest 50 строк + source cell.~~ **Сделано 2026-10-28:**
-   manifest `becb1a83…`; см. §9. Labels ещё не сделаны.
+4. ~~Сгенерировать manifest 50 строк + source cell и разметить.~~ **Сделано
+   2026-10-28:** manifest `becb1a83…`, labels `049d28ad…`; см. §9–§10.
 5. После отчёта решить default view; не пушить до probe 2, локальные
    коммиты допустимы.
 
@@ -322,9 +322,56 @@ Manifest заморожен до labels. Локальный ignored-файл:
   не входит в primary и не меняет 25/25.
 - Исключены **70** строк: 20 pilot + 50 probe-1; пересечение пустое.
 - Sample IDs: `P2-01…P2-50` (primary), `S2-01…S2-12` (source cell).
-- Labels: **не начаты**. После начала разметки manifest не меняется; любая
-  правка sample требует нового manifest hash и нового probe.
+- Labels: **завершены 2026-10-28**, SHA-256
+  `049d28ad…`; blind 20 строк, 19/20 совпадений. Результаты — §10. Manifest
+  после labels не меняется; любая правка sample требует нового hash/probe.
 
 Manifest — targeted sample, не population estimate. Он не меняет
 `entities_table.csv`, production-код, source-файлы, frozen CSV, Phase C или
 default view.
+
+## 10. Результаты (2026-10-28)
+
+Labels: **23 good / 4 ambiguous / 23 misleading** в primary; weak —
+5/4/16, strong — 18/0/7. Source cell — 3/3/6. Labels SHA-256:
+`049d28ad1ea64b06e92276d2e9efae576ed6029d0d6ccf068633ff9c776a786c`.
+Blind-подмножество: 20 primary, **19/20** совпадений; единственное
+расхождение `P2-16` (blind misleading / author ambiguous) adjudicated как
+**ambiguous** до счёта метрик.
+
+| Config | Visible | Good | Ambiguous | P | R |
+|---|---:|---:|---:|---:|---:|
+| C0 current/pre-change | 47 | 17 | 4 | 0,362 | 0,739 |
+| C1 + source B (primary) | 47 | 17 | 4 | 0,362 | 0,739 |
+| C2 + catalog | 44 | 23 | 4 | **0,523** | **1,000** |
+| C3 + generator | — | — | — | **n/e** | **n/e** |
+| C4 strict canonical | 3 | 3 | 0 | 1,000 | 0,130 |
+| C5 all sample rows | 50 | 23 | 4 | 0,460 | 1,000 |
+
+C0 содержит ещё 3 good-labeled строки, показанные под неправильным owner
+(owner_reassign): они видны, но good для C0 не считаются; поэтому
+17+4+23+3=47. C2 их исправляет; P растёт с 0,362 до 0,523, R — с 0,739 до
+1,000. Catalog incremental **проходит** порог ΔP≥0,05 без потери R.
+
+Source cell (n=12): raw 3 good / 3 ambiguous / 6 misleading, P=0,250;
+source B скрывает 6 batch35 (все misleading), оставляет 6 unknown
+(3 good / 3 ambiguous), P=**0,500**, R=1,000. ΔP=+0,250 при R≥0,95,
+но это отдельная малая ячейка, не primary gate; `unknown` остаётся видимым.
+
+**C3 не оценивается.** В primary нет generator-only строк: все 50 имеют
+`variant_source` alias (38), catalog_target (9) или canonical_postonly (3);
+generator-only usable rows имеют owner 0 и не проходят owner-unique. Поэтому
+C3=C2 — это не результат generator policy. Generator остаётся design-only;
+для следующего генераторного probe нужна отдельная generator cell с owner,
+взятым из output, а не из alias-каталога.
+
+**C4** — strict baseline: P=1,000, но R=0,130; canonical loss 87% >5%,
+поэтому Strict не является кандидатом на замену. **C5** — reference всех
+50 строк: P=0,460, R=1,000.
+
+Итог порогов: source B проходит в source cell (n=12); catalog проходит в
+primary; generator **не evaluable**; combined C2 P=0,523 **<0,85**. По
+зафиксированному правилу это означает переход к **trust-level design**, а не
+новые catalog/generator fixes. Source B и generator production-default не
+включаются по этому probe; catalog corrections уже применены, но default view
+не менялся. Push не делается.

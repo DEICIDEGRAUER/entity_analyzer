@@ -206,3 +206,17 @@ Post-catalog source pool: batch 35 — **7 601** строка, 267 tail — **6 
 - Не смешивает source exclusion с catalog correction/generator policy.
 - Не выбирает Strict-view по умолчанию и не отменяет raw/review.
 - Не открывает Phase C, entity graph, owner-таблицы или ONNX.
+
+## 8. Probe 2 source cell (2026-10-28)
+
+Source cell: 12 строк (6 batch 35 + 6 unknown). Raw: 3 good / 3 ambiguous /
+6 misleading, P=0,250. Source B скрывает 6 batch35 (все misleading),
+оставляет 6 unknown (3 good / 3 ambiguous), P=**0,500**, R=**1,000**;
+ΔP=+0,250 при R≥0,95. Это отдельная малая ячейка, не primary gate, и она
+подтверждает направление B, но не является population estimate.
+
+Primary 50 source-usable, поэтому C1 на нём равен C0 по построению; source B
+нельзя приписывать primary-улучшение. `unknown` не скрывается и не получает
+`clean`; batch35 остаётся в raw/review. Sidecar и production default не
+включены: combined C2 P=0,523<0,85 → trust-level design
+([`OUTPUT_QUALITY_PROBE_RESULTS.md`](OUTPUT_QUALITY_PROBE_RESULTS.md) §12).
