@@ -181,8 +181,9 @@ columns: trust;trust_reason;alias_class;source_quality;owner_status;match
 **Обновление 2026-10-27:** source B и 12 catalog corrections решены; generator
 policy — design only. Актуальный дизайн одного sample с incremental-
 конфигурациями и порогами — [`OUTPUT_QUALITY_PROBE2.md`](OUTPUT_QUALITY_PROBE2.md).
-Важно: primary sample source-usable не измеряет source B; для B нужен
-отдельный source cell/full source check. Это ограничение нельзя обходить
+Для source B выбран **отдельный source cell**; primary остаётся source-usable.
+Для catalog incremental выбран **pre-change C0 + post-catalog C2**.
+Generator exception set пуст: все кандидаты HOLD. Эти решения нельзя обходить
 постфактум.
 
 ### 6.1. Состав
@@ -261,18 +262,16 @@ row-level readability.
    3 HOLD и `Leng` no-op; новый hash и residual surfaces —
    [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §10.5. Post-catalog
    output снят (**33 430 строк**, hash §10.6); для probe 2 он является C2,
-   не C0, поэтому sample нельзя заморозить без выбора pre-change baseline (§1.1
-   probe 2).
+   а C0 — pre-change snapshot.
 3. Generator policy — design only: 14 composite names, full phrase only,
-   exception list; [`OUTPUT_GENERATOR_POLICY.md`](OUTPUT_GENERATOR_POLICY.md).
-4. Зафиксировать targeted probe 2: seed, manifest, catalog/source hashes,
-   25+25, 13/12 marker cells, incremental C0–C5, baselines и пороги; дизайн —
-   [`OUTPUT_QUALITY_PROBE2.md`](OUTPUT_QUALITY_PROBE2.md).
+   approved exception set пуст; [`OUTPUT_GENERATOR_POLICY.md`](OUTPUT_GENERATOR_POLICY.md).
+4. Targeted probe 2 **заморожен 2026-10-28**: manifest
+   `becb1a83…`, 25+25 primary, 13/12 markers в каждой страте, 12 source-cell,
+   12/12 catalog operations; дизайн — [`OUTPUT_QUALITY_PROBE2.md`](OUTPUT_QUALITY_PROBE2.md) §9.
 5. Разметить author-side, затем blind-подмножество; только после этого —
-   решение о trusted-view/sidecar.
+   решение о trusted-view/sidecar. Labels ещё не начаты.
 
 До шага 5 production-код и source-файлы не меняются; каталог изменён только
 12 approved операциями. Primary sample source-usable не измеряет source B;
-нужен отдельный source cell/full source check, иначе B нельзя объявлять
-полезным. Post-catalog output уже снят, но incremental catalog требует
-pre-change C0/control run; без этого sample не фиксируется.
+нужен отдельный source cell, иначе B нельзя объявлять полезным. Manifest
+включает pre-change C0 и post-catalog C2; после labels он не меняется.

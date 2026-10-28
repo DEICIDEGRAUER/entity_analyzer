@@ -318,6 +318,11 @@ Aliases остаются отдельным слоем: policy не удаляе
   `Йогаш` самостоятельным именем. В текущем выводе standalone-строк нет;
   не менять до отдельного решения.
 
+**Решение 2026-10-27:** approved exception set — **пустой**. Все перечисленные
+кандидаты остаются HOLD/owner-review; design baseline — `FullPhraseOnly` без
+исключений. HOLD не означает удаление alias: `Leng`, `Nug`/`Yeb`, `Tsang`,
+`Йиг`, `Эйбон` остаются в каталоге и выводе как есть.
+
 ## 6. Дизайн реализации (без кода)
 
 ### 6.1. API
@@ -366,15 +371,17 @@ CompositeVariantMode:
 - `Наг и Йеб` сохраняет `и`, а не эмитит `Нага`/`Йеба` отдельно;
 - `Книга Эйбона` не эмитит `Книге`/`Книгу`/`Книгах`/`Книгой`/`Книгами`,
   но `Книгу` остаётся, если он всё ещё alias;
-- `Leng`, `Nug`, `Yeb`, `Tsang` (если exception одобрен) остаются
-  aliases и не считаются сгенерированными;
+- `Leng`, `Nug`, `Yeb`, `Tsang` остаются aliases и не считаются
+  сгенерированными; approved exception set пуст, поэтому standalone-форм у
+  composite быть не должно (HOLD-формы не удаляются);
 - `Legacy` воспроизводит текущий baseline для сравнения;
 - счётчик generator-only строк на post-catalog CSV равен **5 255** (pre-change
   5 254); тест должен фиксировать снимок, а не магическое число.
 
 ### 6.4. Rollout
 
-1. Зафиксировать design review и exception list.
+1. Design review зафиксирован 2026-10-27; approved exception list пуст,
+   остальные кандидаты — HOLD.
 2. Реализовать `FullPhraseOnly` за флагом; default не менять до probe 2.
 3. Снять current/legacy и full-phrase варианты на одном 50-строчном sample;
    generator contribution считать как **incremental** к source B + catalog.
@@ -405,10 +412,10 @@ source B не может изменить ни одну строку, и его 
 source-cell или на полном выводе; нельзя приписывать ему эффект, которого
 не было в sample. Это ограничение вынесено в probe 2 design.
 
-Вторая оговорка: post-catalog output уже включает C2. Для incremental
-C0→C2 нужен pre-change baseline (или control run с backup-каталогом), а не
-post-catalog output, иначе catalog contribution по построению равен нулю.
-Это открытый пункт probe 2 design; sample до его решения не фиксируется.
+Вторая оговорка: post-catalog output уже включает C2. Решение 2026-10-27:
+C0 — pre-change snapshot, C2 — post-catalog; control run не делается. Для
+incremental C0→C2 нужны оба хэша и один label set; post-catalog output сам по
+себе C0 не является, иначе catalog contribution равен нулю по построению.
 
 ## 8. Ограничения
 

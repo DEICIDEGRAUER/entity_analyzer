@@ -268,13 +268,14 @@ frozen labels/manifests или production-код. Отдельно, уже по�
   hash — [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §10.5.
 - Generator: **design only**, 14 composite names; `full phrase only` и
   exception list — [`OUTPUT_GENERATOR_POLICY.md`](OUTPUT_GENERATOR_POLICY.md).
-- Probe 2: один 50-строчный sample, одна разметка, incremental C0–C5;
-  пороги до labels — [`OUTPUT_QUALITY_PROBE2.md`](OUTPUT_QUALITY_PROBE2.md).
-  Primary sample source-usable не измеряет source B; нужен source cell/full
-  source check.
+- Probe 2 **заморожен 2026-10-28**: 50 primary + 12 source-cell, manifest
+  hash `becb1a83…`, 25/25, 13/12 markers, 12/12 catalog operations; labels
+  ещё не начаты. Дизайн — [`OUTPUT_QUALITY_PROBE2.md`](OUTPUT_QUALITY_PROBE2.md) §9.
+  Primary sample source-usable не измеряет source B; source cell измеряет
+  отдельно.
 
 До probe 2 production, source-файлы и frozen CSV не меняются; каталог
 изменён только 12 approved операциями. Post-catalog output снят (33 430
 строк; hash — [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §10.6), но
-он является C2, не C0; для incremental catalog нужен pre-change baseline.
-Локальные docs-коммиты допустимы, push — после probe 2.
+он является C2, не C0; C0 берётся из pre-change snapshot. Локальные
+docs-коммиты допустимы, push — после probe 2.

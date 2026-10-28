@@ -43,9 +43,10 @@ manifest **до** разметки.
   читаемости/эффекта B. Либо B оценивается на полном выводе по counts и
   source-only labels; это должно быть решено до генерации sample.
 
-Это открытый пункт: если требуется измерить B **на тех же 50 строках**, нужно
-разрешить в primary sample долю degraded/unknown и изменить стратификацию.
-Молча оставить sample source-usable и потом объявить B полезным нельзя.
+**Решение 2026-10-27:** выбран отдельный source cell (вариант 1 ниже); primary
+50 остаётся source-usable. Source cell не входит в primary P/R gate, но его
+labels и counts reportятся отдельно. Молча оставить sample source-usable и
+потом объявить B полезным нельзя.
 
 ### 1.1. Catalog timing: C0 не может быть post-catalog
 
@@ -71,10 +72,11 @@ manifest **до** разметки.
    только source/generator, а catalog-эффект reportить отдельными counts
    (до/после). Тогда порог catalog нельзя объявлять пройденным по P/R.
 
-Вариант 3 меняет заявленный дизайн и должен быть утверждён явно. До решения
-sample не заморожен. Для owner_reassign labels должны включать expected owner:
-одна и та же строка в C0 показывается под неверным владельцем, в C2 — под
-верным; одного `good/misleading` без owner недостаточно.
+**Решение 2026-10-27:** выбран вариант 1 — pre-change C0 и post-catalog C2,
+один label set на source-row ключах. Контрольный прогон с backup-каталогом не
+делается; вариант 3 (только counts) отклонён. Для owner_reassign labels должны
+включать expected owner: одна и та же строка в C0 показывается под неверным
+владельцем, в C2 — под верным; одного `good/misleading` без owner недостаточно.
 
 ## 2. Primary sample
 
@@ -115,6 +117,10 @@ sample не заморожен. Для owner_reassign labels должны вкл
 Для owner_reassign строк label дополнительно фиксирует `expected_owner`;
 без этого нельзя отличить C0 (неверный владелец) от C2 (верный) при том же
 surface.
+
+**Решение 2026-10-27:** generator exception list не одобрен — approved
+exception set пустой. `Leng`, `Nug`/`Yeb`, `Tsang`, `Йиг`, `Эйбон` остаются
+HOLD/owner review; C3 design baseline — full phrase only без исключений.
 
 `needs_review` — видимая metadata; даже если строка не попала в sample, она не
 исчезает из raw/review. Sample — не population estimate.
@@ -211,9 +217,10 @@ reportится как ограничение, а не как «B не работ
 
 ## 6. Разметка
 
-1. Freeze manifest: seed, sample IDs, counts 25/25, 13/12, **pre-change и
-   post-catalog output hashes**, catalog/source-policy hashes, baseline choice
-   (§1.1), excluded probe-1/pilot rows, source cell definition.
+1. Manifest заморожен 2026-10-28 (см. §9): seed, sample IDs, counts 25/25,
+   13/12, **pre-change и post-catalog output hashes**, catalog/source-policy
+   hashes, baseline choice (§1.1), excluded probe-1/pilot rows, source cell
+   definition. После labels manifest не меняется.
 2. Author-side labels: `good` / `ambiguous` / `misleading` + reason
    (`source_lexical`, `source_ocr`, `catalog_owner`, `generic`, `partial`,
    `generator`, `other`) + `expected_owner` для owner_reassign. Один label на
@@ -236,13 +243,16 @@ reportится как ограничение, а не как «B не работ
   вывод о B будет ложным.
 - C3 — row-level симуляция до реализации generator policy; после реализации
   её нужно пересчитать.
-- Catalog corrections уже применены; поэтому sample нельзя заморозить, пока не
-  выбран C0 baseline (pre-change или control run). Post-catalog output —
-  C2, не C0; иначе catalog incremental равен нулю по построению.
+- Catalog corrections уже применены; manifest использует pre-change C0 и
+  post-catalog C2. Post-catalog output — C2, не C0; иначе catalog incremental
+  равен нулю по построению.
 - Один label set должен содержать expected owner; иначе owner_reassign
   нельзя честно измерить.
-- Sample должен покрыть 12 approved operations; иначе catalog incremental
-  не оценивается, даже если C3 выглядит лучше.
+- Manifest покрывает 12 approved operations; 12 строк coverage (по одной на
+  operation). `Ptmak` в pre-change выводе не встречается, поэтому его
+  coverage-строка — post-only и имеет `variant_source=canonical_postonly`;
+  это осознанное исключение из «non-canonical», иначе C2 recall для нового
+  владельца не измерить.
 - `needs_review` не является фильтром; если конфигурация просто удаляет
   review-строки, это отдельный продукт, а не precision-фикс.
 - Phase C, entity graph, owner-таблицы, ONNX и default-view не открываются
@@ -250,15 +260,49 @@ reportится как ограничение, а не как «B не работ
 
 ## 8. Следующий шаг
 
-1. Утвердить source cell или изменить source-usable стратификацию.
-2. Утвердить baseline для catalog incremental: pre-change output, control
-   run с backup-каталогом, или отказ от catalog P/R (§1.1). Post-catalog
-   output уже снят: **33 430 строк**, hash
+1. ~~Утвердить source cell или изменить source-usable стратификацию.~~
+   **Сделано 2026-10-27:** выбран отдельный source cell.
+2. ~~Утвердить baseline для catalog incremental.~~ **Сделано 2026-10-27:**
+   выбран pre-change C0 + post-catalog C2 (§1.1). Post-catalog output уже
+   снят: **33 430 строк**, hash
    `6553A62C7174FCA26B70D9BB45262EF74E5B51856340429975D036269578B27F`;
    он не является C0.
-3. Утвердить generator design/exception list; C3 считать как симуляцию до
-   реализации.
-4. Сгенерировать manifest 50 строк + source cell с обоими output hashes,
-   catalog coverage и expected-owner правилом, затем labels.
+3. ~~Утвердить generator design/exception list.~~ **Сделано 2026-10-27:**
+   exception set пуст; C3 остаётся симуляцией до реализации.
+4. ~~Сгенерировать manifest 50 строк + source cell.~~ **Сделано 2026-10-28:**
+   manifest `becb1a83…`; см. §9. Labels ещё не сделаны.
 5. После отчёта решить default view; не пушить до probe 2, локальные
    коммиты допустимы.
+
+## 9. Frozen manifest (2026-10-28)
+
+Manifest заморожен до labels. Локальный ignored-файл:
+`output/quality-probe2-2026-10-27/probe2-manifest.csv` (контексты не
+публикуются); metadata — `probe2-manifest.json`.
+
+- SHA-256 manifest: **`becb1a83f487e231c626ca5b83d0daffe6fe8720d7358d876caf735e172608d0`**.
+- Frame: union source-row ключей pre-change + post-catalog:
+  **37 983** ключа; **32 853** есть в обоих, **4 553** pre-only, **577**
+  post-only. Pre-hash `3954D596…`, post-hash `6553A62C…`, catalog hash
+  `95B54F6D…` (полные значения — §1.1/metadata).
+- Primary: **50** строк, **25 weak_composite + 25 strong**, в каждой страте
+  **13 marker / 12 без marker**; один файл — не более одной строки.
+- Pre/post состав primary: **41** строк есть в обоих, **6** pre-only,
+  **3** post-only. Шесть pre-only — approved removal/homonym targets; три
+  post-only — approved owner_reassign coverage, включая `Ptmak`, которого нет
+  в pre-change выводе.
+- Owners: **44** строки с ровно одним owner, **6** — approved removal/homonym
+  targets с нулём owners; shared (2–3 owners) в primary не входят.
+- Catalog coverage: **12/12 approved operations** по одной строке; `Ptmak`
+  покрыт post-only строкой с `variant_source=canonical_postonly`. Это
+  единственное исключение из «non-canonical»; оно не является canonical C0.
+- Source cell: **12** строк, **6 batch 35 + 6 unknown**, 12 разных файлов;
+  не входит в primary и не меняет 25/25.
+- Исключены **70** строк: 20 pilot + 50 probe-1; пересечение пустое.
+- Sample IDs: `P2-01…P2-50` (primary), `S2-01…S2-12` (source cell).
+- Labels: **не начаты**. После начала разметки manifest не меняется; любая
+  правка sample требует нового manifest hash и нового probe.
+
+Manifest — targeted sample, не population estimate. Он не меняет
+`entities_table.csv`, production-код, source-файлы, frozen CSV, Phase C или
+default view.

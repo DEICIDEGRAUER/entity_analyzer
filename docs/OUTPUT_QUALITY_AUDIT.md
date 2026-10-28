@@ -272,10 +272,11 @@ trust-level gate:
    §10.5; post-catalog output снят (33 430 строк; §10.6), но он C2, не C0.
 4. Generator policy — design only; 14 composite names, full phrase only,
    exception list. См. [`OUTPUT_GENERATOR_POLICY.md`](OUTPUT_GENERATOR_POLICY.md).
-5. Зафиксировать targeted probe 2: 50 строк, 25 weak/composite + 25 strong,
-   source-usable, owner-unique, marker 13/12; один sample, incremental-
-   конфигурации C0–C5, cheap baseline и пороги — до labels. Дизайн —
-   [`OUTPUT_QUALITY_PROBE2.md`](OUTPUT_QUALITY_PROBE2.md).
+5. Targeted probe 2 **заморожен 2026-10-28**: 50 primary (25 weak/composite
+   + 25 strong; marker 13/12 в каждой), 12 source-cell; manifest hash
+   `becb1a83…`; 12/12 catalog operations покрыты; labels ещё не начаты.
+   Инкрементальные конфигурации C0–C5, cheap baseline и пороги — до labels.
+   Дизайн — [`OUTPUT_QUALITY_PROBE2.md`](OUTPUT_QUALITY_PROBE2.md) §9.
 6. Только после probe 2 — sidecar `entities_trust.csv` и решение о
    default-view. Phase C, entity graph и owner-таблицы остаются закрытыми.
 
