@@ -411,7 +411,7 @@ docs-результатов — после per-bucket, не production.
   за полный source B.
 - `tests/.../TrustViewClassifierTests.cs` — проверки canonical, full-phrase,
   marker, weak+marker, homonym, pair-member и shared owner. `SourceQualityTests`
-  — batch-35 signature/detector-negative/empty. Все **897** Core tests проходят.
+  — batch-35 signature/detector-negative/empty. Все **898** Core tests проходят.
 - `TrustViewClassifier` строит reverse owner index: alias/name/canonical,
   принадлежащий более чем одной карточке, получает `weak` с причиной
   `shared alias/owner conflict`. Повторная проверка на frozen probe 2 после

@@ -502,15 +502,16 @@ standalone exceptions; они эмитятся **только** для свое�
   selfcheck baseline и frozen guards не переписаны. Activation — отдельный
   commit после перепрогона `verify.ps1`/selfcheck и сравнения output; это не
   скрытая смена default.
-- Tests: `FullPhraseMorphologyTests`, `CompositeVariantPolicyTests` (897
+- Tests: `FullPhraseMorphologyTests`, `CompositeVariantPolicyTests` (898
   Core tests проходят). Проверяется отсутствие bare head/tail, сохранение
   союза `и`, approved exceptions и Legacy-совместимость.
 - Layer check по `OUTPUT_QUALITY_AUDIT.md` §9(d): `EntityCatalog` передаёт
-  mode и exceptions в оба вызова (`Canon` и `Name`), `VariantFactory`
-  применяет их до итераций/дефисных форм; более поздний слой не добавляет
-  standalone-формы. Тесты проверяют итоговый `VariantsByEntity`, а не только
-  helper, поэтому fix не является dead code. При `Legacy` production output
-  остаётся прежним.
+  mode и exceptions в оба вызова (`Canon` и `Name`); `VariantFactory`
+  применяет full-phrase branch к composite-форме и не пропускает
+  standalone-формы в итоговый `VariantsByEntity`. Более поздний слой не
+  добавляет их обратно. Тесты проверяют итоговый `VariantsByEntity`, а не
+  только helper, поэтому fix не является dead code. При `Legacy` production
+  output остаётся прежним.
 - Следующий шаг: при отдельном решении включить
   `FullPhrasePlusExceptions` в `CodexSearchAdapter`/настройке, снять новый
   diagnostic output и сравнить 5 255 generator-only строк; до этого policy

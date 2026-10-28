@@ -114,6 +114,21 @@ public class ReportExporterTests : IDisposable
     }
 
     [Fact]
+    public void ExportAll_writes_trust_sidecar_and_keeps_main_csv_contract()
+    {
+        var doc = new CodexDocument();
+        doc.Cards.Add(Card.Create("deity", "Наг и Йеб"));
+
+        Directory.CreateDirectory(_dir);
+        ReportExporter.ExportAll(Session(), _dir, new HashSet<string> { "csv" }, codex: doc);
+
+        var main = File.ReadAllText(Path.Combine(_dir, "entities_table.csv"));
+        var trust = File.ReadAllText(Path.Combine(_dir, "entities_trust.csv"));
+        Assert.StartsWith("file;num;entity;variant;line;density_per_10k;theme;context", main);
+        Assert.StartsWith("file,num,entity,variant,line,trust,alias_class,marker,source_quality,source_reason,trust_reason,exploratory", trust);
+    }
+
+    [Fact]
     public void Variants_index_exported_from_catalog()
     {
         var catalog = new EntityCatalog([new EntityDefinition("Наг и Йеб", "Nug and Yeb", ["Йеб"], [])]);
