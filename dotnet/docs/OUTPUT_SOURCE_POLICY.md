@@ -226,9 +226,10 @@ activation, replacement/default и entity graph не двигаются.
 (33 430 строк; 2 596 уникальных basename с rows) + classifier:
 classifier-only trusted = **6 462**; после gate с полным sidecar
 (`usable` только вне 302 кандидатов) = **3 640**; blocked = **2 822**, из них
-**193** degraded и **2 629** unknown. Это показывает цену честного source B:
-trusted остаётся additive, но без sidecar 267-хвост нельзя считать clean.
-Raw/review по-прежнему содержит все 33 430 строк.
+**193** degraded и **2 629** unknown. То есть без sidecar текущий trusted
+включает **2 629 строк из 267 unknown** — это и есть незакрытый data gap;
+нельзя объявлять trusted clean. Raw/review по-прежнему содержит все
+33 430 строк.
 
 ## 6. Проверка пользы B
 
