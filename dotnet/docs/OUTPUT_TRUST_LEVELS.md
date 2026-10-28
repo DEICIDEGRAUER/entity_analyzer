@@ -256,10 +256,12 @@ R≥0,80 применяется только если trusted когда-ниб�
 
 Probe 2 завершён; freeze и результаты —
 [`OUTPUT_QUALITY_PROBE2.md`](OUTPUT_QUALITY_PROBE2.md) §9–§11. Source B и 12
-catalog corrections решены; generator policy — design only. Для source B
-выбран **отдельный source cell**; primary остаётся source-usable. Для catalog
-incremental выбран **pre-change C0 + post-catalog C2**. Generator exception
-set пуст: все кандидаты HOLD. Эти решения нельзя обходить постфактум.
+catalog corrections решены; generator policy реализована opt-in, default —
+`Legacy`. Для source B выбран **отдельный source cell**; primary остаётся
+source-usable. Для catalog incremental выбран **pre-change C0 + post-catalog
+C2**. Изначально exception set был пуст (все кандидаты HOLD); после отдельного
+qualitative inspection одобрены только `Ленгом`, `Цанга`, `Цанге`. Это не
+probe 3 и не меняет frozen labels; C3 остаётся n/e.
 
 Probe 3 **не нужен** для marker-gated strong: 14/14 уже достаточно для
 exploratory, а добор n ради CI lower≥0,85 не даёт продуктового решения.
