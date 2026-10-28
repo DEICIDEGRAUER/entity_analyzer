@@ -300,4 +300,32 @@ Blind: 20 primary, 19/20 совпадений; `P2-16` adjudicated ambiguous д�
 - Combined C2 P=**0,523 <0,85**. This triggers the pre-registered decision:
   **trust-level design**, not more catalog/generator fixes. Source B/generator
   defaults are not enabled; catalog corrections remain applied, default view
-  unchanged. No push.
+  unchanged.
+
+### 12.1. Per-bucket precision (same frozen labels)
+
+| Bucket | n | good | P | Wilson 95% CI |
+|---|---:|---:|---:|---|
+| canonical | 3 | 3 | 1,000 | 0,439–1,000 |
+| strong alias + marker | 11 | 11 | **1,000** | 0,741–1,000 |
+| strong alias без marker | 11 | 4 | 0,364 | 0,152–0,646 |
+| weak + marker | 13 | 5 | 0,385 | 0,177–0,645 |
+| weak без marker | 12 | 0 | 0,000 | 0,000–0,242 |
+| trusted = canonical + strong alias marker | 14 | 14 | **1,000** | 0,785–1,000 |
+
+Aggregates: strong total 18/25 = 0,720; weak total 5/25 = 0,200. Strong+marker
+(including canonical) = 13/13, strong without marker = 5/12; the marker, not
+the alias label alone, is the discriminator.
+
+Design decision: **trusted view = canonical OR strong alias + marker**, source
+usable, owner unique. Weak + marker is **not** trusted (5/13 good); strong
+without marker is `needs_review`. Trusted view is a filter/tab, not metadata:
+14/50 rows, P=1,000, **R=14/23=0,609**; raw/review keeps every row. Strict
+canonical-only remains an explicit conservative view (3/3, R=0,130). The old
+R≥0,80 target is **not met**; if it is mandatory, probe 3 is required, not a
+production default. The 14/14 CI lower bound is 0,785, so do not call
+production-trusted yet.
+
+Probe 3 proposal: marker-gated strong validation cell plus generator-only cell
+(for C3). No production code until then; docs-only commits are pushed after
+this per-bucket analysis.

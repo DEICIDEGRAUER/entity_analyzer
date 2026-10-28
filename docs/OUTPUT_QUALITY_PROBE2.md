@@ -374,4 +374,39 @@ primary; generator **не evaluable**; combined C2 P=0,523 **<0,85**. По
 зафиксированному правилу это означает переход к **trust-level design**, а не
 новые catalog/generator fixes. Source B и generator production-default не
 включаются по этому probe; catalog corrections уже применены, но default view
-не менялся. Push не делается.
+не менялся. Push docs-результатов — после per-bucket (§11), не production.
+
+## 11. Per-bucket P (frozen labels, 2026-10-28)
+
+Сгруппированы те же 50 primary-строк и 12 source-cell; labels не менялись.
+`canonical` здесь — три `canonical_postonly` строки; `strong_alias` — остальные
+strong-строки без canonical. Wilson 95% CI приведён для честной оценки малого n.
+
+| Bucket | n | good | ambiguous | misleading | P | Wilson 95% |
+|---|---:|---:|---:|---:|---:|---|
+| canonical | 3 | 3 | 0 | 0 | **1,000** | 0,439–1,000 |
+| strong alias + marker | 11 | 11 | 0 | 0 | **1,000** | 0,741–1,000 |
+| strong alias без marker | 11 | 4 | 0 | 7 | 0,364 | 0,152–0,646 |
+| weak + marker | 13 | 5 | 1 | 7 | 0,385 | 0,177–0,645 |
+| weak без marker | 12 | 0 | 3 | 9 | 0,000 | 0,000–0,242 |
+| **trusted: canonical или strong alias + marker** | **14** | **14** | **0** | **0** | **1,000** | **0,785–1,000** |
+
+Агрегаты: strong всего **18/25 = 0,720** (canonical 3/3 + strong alias
+15/22); weak всего **5/25 = 0,200**. Если считать strong без разделения на
+canonical/alias: strong + marker = **13/13**, strong без marker = **5/12**;
+именно marker отделяет 100% от 41,7%. Weak + marker остаётся 5/13, weak без
+marker — 0/12.
+
+C2-visible (post-catalog; 44 строки) даёт те же trusted/strong/weak-marker
+бакеты; weak без marker становится **0/6**, потому что шесть approved removal
+targets скрыты. Это не меняет вывод: marker gate нужен для strong, а weak
+нельзя повышать до trusted даже при marker.
+
+**Интерпретация:** сильный alias в clean source — не автоматический trusted:
+18/25 = 72% good, 7 misleading. Но marker-гейт даёт 13/13 (или 14/14 с
+canonical) при цене recall: trusted view — 14/23 good (60,9%), strong recall
+14/18 (77,8%), weak good 0/5. Это **фильтр**, а не metadata; raw/review
+сохраняет все строки. 14/14 имеет CI lower 0,785, поэтому это кандидат в
+trusted, а не доказанный production-порог; для подтверждения нужен targeted
+probe 3 (marker-gated strong) и отдельная generator cell. Generator policy
+остаётся design-only.

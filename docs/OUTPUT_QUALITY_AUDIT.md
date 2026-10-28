@@ -277,8 +277,11 @@ trust-level gate:
    ambiguous / 23 misleading. C0 P=0,362/R=0,739 → C2 P=0,523/R=1,000;
    catalog passes, source cell passes (n=12), generator not evaluable (0
    generator-only rows), combined P<0,85 → **trust-level design**.
-   [`OUTPUT_QUALITY_PROBE2.md`](OUTPUT_QUALITY_PROBE2.md) §10; полные
-   результаты — [`OUTPUT_QUALITY_PROBE_RESULTS.md`](OUTPUT_QUALITY_PROBE_RESULTS.md) §12.
+   Per-bucket: canonical 3/3, strong alias+marker 11/11, strong alias без
+   marker 4/11, weak+marker 5/13, weak без marker 0/12. Trusted =
+   marker-gated strong; P=1,000, R=14/23=0,609, old R≥0,80 not met; probe 3
+   proposed. [`OUTPUT_QUALITY_PROBE2.md`](OUTPUT_QUALITY_PROBE2.md) §10–§11;
+   полные результаты — [`OUTPUT_QUALITY_PROBE_RESULTS.md`](OUTPUT_QUALITY_PROBE_RESULTS.md) §12.
 6. Только после probe 2 — sidecar `entities_trust.csv` и решение о
    default-view. Phase C, entity graph и owner-таблицы остаются закрытыми.
 
