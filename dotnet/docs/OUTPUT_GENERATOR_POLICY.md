@@ -459,7 +459,8 @@ owner-unique фильтр их исключает. C3 в отчёте равна
 ## 10. Qualitative inspection (2026-10-28)
 
 Inspection выполнен на post-catalog output (33 430 строк; baseline §3.5
-даёт **5 255** generator-only строк для composite-карточек): 30
+даёт **5 255** generator-only строк для composite-карточек; reconciliation с
+широким счётчиком 5 269 — §12): 30
 representative строк плюс все редкие формы `Куачиль Уттаус` (8), `Монахи
 Ленга` (6), `Плато Цанг` (5), `Плато Ленг` (13). Контексты читались
 author-side; это не precision-измерение. Повторный form-level пересчёт в
@@ -475,7 +476,7 @@ author-side; это не precision-измерение. Повторный form-l
 | `Сад Йига`: `Йиге` | 15 | Yig, не сад → **suppress** |
 | `Сад Йига`: `Саде`, `Сади` | 12 | персидский праздник / поэт → **suppress** |
 | `Монахи Ленга`: `Ленгу` | 6 | регион Leng, не монахи → **suppress** |
-| `Плато Цанг`: `Цангом` | 3 | человек Chogsum Tsang → **suppress** |
+| `Плато Цанг`: `Цангом` | 3 | 2/3 человек Chogsum Tsang, 1/3 «Горы за Цангом»; mixed → **suppress** |
 | `Плато Ленг`: `Ленгом` | 13 | регион Leng, 13/13 валидны → **exception approve** |
 | `Плато Цанг`: `Цанга`, `Цанге` | 2 | место Tsang, 2/2 валидны → **exception approve** |
 | `Куачиль Уттаус`: `Куачиля` | 1 | короткое имя, валидно, но редко → **candidate / HOLD** |
@@ -502,7 +503,7 @@ standalone exceptions; они эмитятся **только** для свое�
   selfcheck baseline и frozen guards не переписаны. Activation — отдельный
   commit после перепрогона `verify.ps1`/selfcheck и сравнения output; это не
   скрытая смена default.
-- Tests: `FullPhraseMorphologyTests`, `CompositeVariantPolicyTests` (898
+- Tests: `FullPhraseMorphologyTests`, `CompositeVariantPolicyTests` (900
   Core tests проходят). Проверяется отсутствие bare head/tail, сохранение
   союза `и`, approved exceptions и Legacy-совместимость.
 - Layer check по `OUTPUT_QUALITY_AUDIT.md` §9(d): `EntityCatalog` передаёт
@@ -516,3 +517,37 @@ standalone exceptions; они эмитятся **только** для свое�
   `FullPhrasePlusExceptions` в `CodexSearchAdapter`/настройке, снять новый
   diagnostic output и сравнить 5 255 generator-only строк; до этого policy
   не влияет на production output.
+
+## 12. Reconciliation 5 255 vs 5 269 (2026-10-29)
+
+Это разные счётчики, а не расхождение в данных. Оба воспроизведены на одном
+post-catalog CSV; параметры прогона: 14 composite-карточек, **33 430** строк,
+каталог `codex.json` SHA-256
+`95B54F6DBCB3A12CBAD34EAEA57101AAC40226052C3FAFFFB430A320A0AE7A85`,
+output SHA-256
+`6553A62C7174FCA26B70D9BB45262EF74E5B51856340429975D036269578B27F`.
+
+- **5 255** — `standalone_generated_rows`: variant не входит в alias set и не
+  является полной фразой (нет пробела и это не конкатенация имени). Именно это
+  число используется как generator-only baseline в §3 и §4.
+- **5 269** — все non-alias формы composite-карточек, включая полные фразы,
+  которые generator всё равно обязан сохранять. Это широкая проверка
+  «сколько строк не являются alias», а не population для удаления.
+- Разница **14** строк — ровно полные фразы:
+
+| Карточка | Полная форма | Строк |
+|---|---:|---:|
+| Куачиль Уттаус | Куачил Уттаус | 9 |
+| Плато Ленг | Плато Ленга | 4 |
+| Наг и Йеб | НагиЙеб | 1 |
+| **Итого** | | **14** |
+
+Проверка по карточкам для 5 255: Книга Эйбона 3 685, Сад Йига 736,
+Безымянный Туман 668, Наг и Йеб 134, Плато Ленг 13, Куачиль Уттаус 8,
+Монахи Ленга 6, Плато Цанг 5. Сумма — 5 255. Остальные composite-карточки
+не дают standalone generator-only строк в этом output.
+
+Правило на будущее: regression-сравнение generator behavior ведётся по
+**5 255** при `Legacy`; 5 269 можно использовать только как широкую
+диагностику, иначе полные фразы будут ошибочно засчитаны как standalone
+шум. В отчётах указывать оба числа нельзя без определения метрики.
