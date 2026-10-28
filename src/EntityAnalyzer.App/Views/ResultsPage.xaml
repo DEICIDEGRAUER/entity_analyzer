@@ -12,6 +12,7 @@
         <infra:CountToVisibilityConverter x:Key="CountToVisibilityConverter"/>
         <infra:FileTagsConverter x:Key="FileTagsConverter"/>
         <infra:ThemeMarksConverter x:Key="ThemeMarksConverter"/>
+        <infra:SourceQualityToVisibilityConverter x:Key="SourceQualityToVisibilityConverter"/>
     </UserControl.Resources>
 
     <!-- Экран «Результаты»: панель фильтра + два списка через волосяной
@@ -63,7 +64,7 @@
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <TextBlock Text="ПОКАЗ" Style="{DynamicResource SectionHeaderStyle}"
                                    VerticalAlignment="Center" Margin="16,0,8,0"
-                                   ToolTip="Все / без вердикта / подтверждённые / ложные / спорные; Точные и Fuzzy — по типу совпадения"/>
+                                   ToolTip="Все / без вердикта / подтверждённые / ложные / спорные; Точные и Fuzzy — по типу совпадения; Trusted и Canonical only — additive exploratory-вкладки"/>
                         <ComboBox ItemsSource="{Binding FilterModes}" SelectedItem="{Binding SelectedMode}"
                                   MinWidth="140" VerticalAlignment="Center"
                                   AutomationProperties.Name="Фильтр цитат"
@@ -201,6 +202,11 @@
                             <TextBlock Margin="0,4,0,0" Style="{DynamicResource MetaStyle}"
                                        TextTrimming="CharacterEllipsis"
                                        Text="{Binding FullPath, Converter={StaticResource FileTagsConverter}}"/>
+                            <TextBlock Margin="0,3,0,0" FontSize="11"
+                                       Foreground="{DynamicResource BrushStatusError}"
+                                       Text="{Binding SourceQuality, StringFormat='source: {0}'}"
+                                       Visibility="{Binding SourceQuality, Converter={StaticResource SourceQualityToVisibilityConverter}}"
+                                       ToolTip="unknown — файл не проверялся вручную и не считается clean; degraded_lexical — batch-35 сигнатура, строки исключены из trusted view и остаются в raw/review"/>
                             <!-- Группа 3 (item 24): паспорт файла — агрегация по одному файлу. -->
                             <Button Content="Паспорт" Style="{DynamicResource MiniGhostButtonStyle}"
                                     FontSize="11" HorizontalAlignment="Left" Margin="0,6,0,0"

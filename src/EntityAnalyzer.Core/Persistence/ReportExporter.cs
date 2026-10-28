@@ -47,6 +47,8 @@ public static partial class ReportExporter
         try { WriteVariantCloud(session, outputDir); } catch { /* некритично */ }
         try { WriteTextDuplicates(session, outputDir); } catch { /* некритично */ }
         try { WriteSemanticMatches(session, outputDir); } catch { /* некритично */ }
+        if (codex is not null)
+            try { WriteTrustCsv(session, outputDir, codex); } catch { /* некритично */ }
 
         // Максимально подробный сводный отчёт.
         try { WriteFullReport(session, outputDir, options); } catch { /* некритично */ }
@@ -112,6 +114,60 @@ public static partial class ReportExporter
             csv.AppendLine($"\"{name}\",\"{Path.GetFileName(m.FilePath)}\",{m.Line},\"{snippet}\"");
         }
         File.WriteAllText(Path.Combine(outputDir, "semantic_matches.csv"), csv.ToString(), new UTF8Encoding(false));
+    }
+
+    /// <summary>
+    /// Additive sidecar for the exploratory trusted view. The main
+    /// entities_table.csv contract stays eight columns; this file is joined by
+    /// file/line/num and never removes rows from the main output.
+    /// </summary>
+    public static void WriteTrustCsv(AnalysisSession session, string outputDir, CodexDocument codex)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(codex);
+
+        var classifier = TrustViewClassifier.FromCodex(codex);
+        var sb = new StringBuilder();
+        sb.AppendLine("file,num,entity,variant,line,trust,alias_class,marker,source_quality,source_reason,trust_reason,exploratory");
+        foreach (var file in session.Files)
+        {
+            var fileName = file.FileName;
+            var sourceQuality = CsvCell(file.SourceQuality);
+            var sourceReason = CsvCell(file.SourceReason);
+            var sourceUsable = SourceQuality.IsUsable(file.SourceQuality);
+            foreach (var m in file.Mentions)
+            {
+                var assessment = classifier.Assess(m);
+                var trusted = assessment.IsTrusted && sourceUsable;
+                var reason = !sourceUsable && assessment.IsTrusted
+                    ? string.Equals(file.SourceQuality, SourceQuality.DegradedLexical,
+                        StringComparison.Ordinal)
+                        ? "lexical trust blocked by degraded source"
+                        : $"trust blocked by non-usable source ({file.SourceQuality})"
+                    : assessment.Reason;
+                var aliasClass = assessment.Level switch
+                {
+                    TrustViewLevel.Canonical => "canonical",
+                    TrustViewLevel.StrongAlias => "strong",
+                    TrustViewLevel.Weak => "weak",
+                    _ => "unknown",
+                };
+                sb.Append(CsvCell(fileName)).Append(',')
+                    .Append(m.Num).Append(',')
+                    .Append(CsvCell(m.Entity)).Append(',')
+                    .Append(CsvCell(m.Variant)).Append(',')
+                    .Append(m.Line).Append(',')
+                    .Append(trusted ? "trusted" : "review").Append(',')
+                    .Append(aliasClass).Append(',')
+                    .Append(assessment.Marker ? '1' : '0').Append(',')
+                    .Append(sourceQuality).Append(',')
+                    .Append(sourceReason).Append(',')
+                    .Append(CsvCell(reason)).Append(',')
+                    .Append("yes")
+                    .AppendLine();
+            }
+        }
+        File.WriteAllText(Path.Combine(outputDir, "entities_trust.csv"), sb.ToString(), new UTF8Encoding(false));
     }
 
     private const string quote = "\"";

@@ -20,7 +20,14 @@ public sealed class ResultsViewModel : ObservableObject
     private readonly MainViewModel _main;
     private readonly Dictionary<string, string> _hashByPath = new(StringComparer.OrdinalIgnoreCase);
     private readonly VerdictStore _verdicts = VerdictStore.Default;
+    private TrustViewClassifier _trust = TrustViewClassifier.Empty;
     private ReviewSummary _corpusReview = new(0, 0, 0);
+
+    /// <summary>Explicit exploratory view; never the default and never a silent filter.</summary>
+    public const string TrustedMode = "Trusted (exploratory)";
+
+    /// <summary>Conservative additive view: exact canonical names only.</summary>
+    public const string StrictCanonicalMode = "Canonical only (exploratory)";
 
     // Отмена последних вердиктов: храним предыдущее состояние, а не только
     // тип — иначе после «подтверждено → ложное → отмена» терялся бы первый вердикт.
@@ -184,6 +191,8 @@ public sealed class ResultsViewModel : ObservableObject
         "Точные",
         "Fuzzy",
         "Тема…",
+        TrustedMode,
+        StrictCanonicalMode,
     ];
 
     private string _selectedMode = VerdictFilter.All;
@@ -382,6 +391,9 @@ public sealed class ResultsViewModel : ObservableObject
         // R3-1 (item 52): списки тем (словари) и сущностей (новая сессия).
         RefreshThemeAndEntityFilters(session);
 
+        // Exploratory trusted view: catalog-derived, rebuilt per session.
+        _trust = TrustViewClassifier.FromCodex(_main.Codex);
+
         Files.Clear();
         Mentions.Clear();
         _verdictUndo.Clear();
@@ -502,7 +514,7 @@ public sealed class ResultsViewModel : ObservableObject
         Mentions.Clear();
         var q = Search?.Trim() ?? "";
         foreach (var m in file?.Mentions ?? [])
-            if (MentionPasses(m, q))
+            if (MentionPasses(m, file, q))
                 Mentions.Add(m);
         NotifyReviewProgress();
     }
@@ -541,12 +553,19 @@ public sealed class ResultsViewModel : ObservableObject
     }
 
     /// <summary>Проходит ли упоминание сквозь фильтры поиска, режима, темы и сущности (R3-1).</summary>
-    private bool MentionPasses(Mention m, string q)
+    private bool MentionPasses(Mention m, FileResult? file, string q)
     {
         if (!VerdictFilter.Matches(m.Verdict, SelectedMode)) return false;
         if (SelectedMode == "Точные" && m.IsFuzzy) return false;
         if (SelectedMode == "Fuzzy" && !m.IsFuzzy) return false;
         if (SelectedMode == "Тема…" && string.IsNullOrEmpty(m.Theme)) return false;
+        if (SelectedMode is TrustedMode or StrictCanonicalMode)
+        {
+            if (!SourceQuality.IsUsable(file?.SourceQuality)) return false;
+            var assessment = _trust.Assess(m);
+            if (SelectedMode == TrustedMode && !assessment.IsTrusted) return false;
+            if (SelectedMode == StrictCanonicalMode && assessment.Level != TrustViewLevel.Canonical) return false;
+        }
         if (_entityFilter != AllEntitiesKey &&
             !string.Equals(m.Entity, _entityFilter, StringComparison.OrdinalIgnoreCase)) return false;
         if (_themeFilterWords.Count > 0 &&
