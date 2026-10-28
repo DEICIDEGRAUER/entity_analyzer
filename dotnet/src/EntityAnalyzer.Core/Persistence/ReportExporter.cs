@@ -134,14 +134,16 @@ public static partial class ReportExporter
             var fileName = file.FileName;
             var sourceQuality = CsvCell(file.SourceQuality);
             var sourceReason = CsvCell(file.SourceReason);
-            var degraded = string.Equals(file.SourceQuality, SourceQuality.DegradedLexical,
-                StringComparison.Ordinal);
+            var sourceUsable = SourceQuality.IsUsable(file.SourceQuality);
             foreach (var m in file.Mentions)
             {
                 var assessment = classifier.Assess(m);
-                var trusted = assessment.IsTrusted && !degraded;
-                var reason = degraded && assessment.IsTrusted
-                    ? "lexical trust blocked by degraded source"
+                var trusted = assessment.IsTrusted && sourceUsable;
+                var reason = !sourceUsable && assessment.IsTrusted
+                    ? string.Equals(file.SourceQuality, SourceQuality.DegradedLexical,
+                        StringComparison.Ordinal)
+                        ? "lexical trust blocked by degraded source"
+                        : $"trust blocked by non-usable source ({file.SourceQuality})"
                     : assessment.Reason;
                 var aliasClass = assessment.Level switch
                 {

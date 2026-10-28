@@ -1,15 +1,18 @@
 # Trust levels: `strong` / `weak` / `needs_review`
 
-**Статус (2026-10-28): EXPLORATORY IMPLEMENTATION; default view не меняется.**
+**Статус (2026-10-29): EXPLORATORY IMPLEMENTATION; default view не меняется.**
 Trusted и strict canonical-only добавлены как **явные additive-фильтры**;
 raw/review остаётся default. Sidecar `entities_trust.csv` пишется рядом с
 основным CSV, основной 8-колоночный контракт не изменён. Классификатор
 `TrustViewClassifier` детерминированно воспроизводит trusted-набор probe 2
 (14/14; P=1,000, Wilson lower 0,785), но это exploratory-эвристика, не
-production-SLO и не owner-таблица. Source-детектор реализован только для
-reproducible batch-35 сигнатуры; 267 `unknown` остаются видимыми, не
-объявляются clean. 12 approved catalog corrections применены отдельно
-(§10.5 catalog audit); source-файлы не менялись.
+production-SLO и не owner-таблица. Source-гейт теперь требует явный
+`source=usable`: `unknown` и `degraded_*` остаются в raw/review. Детектор
+реализован только для reproducible batch-35 сигнатуры; 267 хвостовых
+кандидатов до отдельного sidecar всё ещё получают detector-negative
+`usable`, поэтому считаются residual data gap, а не доказанно clean.
+12 approved catalog corrections применены отдельно (§10.5 catalog audit);
+source-файлы не менялись.
 `needs_review` — видимая metadata, не фильтр и не удаление. Probe 2 показал:
 strong alias без marker — **4/11 good**, с marker — **11/11 good**; поэтому
 старое правило «strong alias = trusted без marker» отменено (§2.1).
@@ -74,9 +77,11 @@ Trust level — это производная от этих измерений, 
 | `degraded_ocr` | OCR/PDF-порча без лексического словаря: склейки, пропуски |
 | `unknown` | не проверено |
 
-`degraded_*` — **не** automatically excluded; это причина `needs_review`.
-`unknown` (267 хвостовых кандидатов) — **не** `clean`: он виден в default view
-с badge/`needs_review`, но не считается degraded. Source-policy design:
+`source=usable` — **единственное** состояние, которое может войти в trusted
+или strict canonical-only. `degraded_*` и `unknown` не удаляются из
+raw/review и видны там с badge/`needs_review`, но в trusted/strict не
+проходят. `unknown` (267 хвостовых кандидатов) — **не** `clean`; отсутствие
+sidecar не повышает его до usable. Source-policy design:
 [`OUTPUT_SOURCE_POLICY.md`](OUTPUT_SOURCE_POLICY.md).
 
 ### 1.4. Owner
@@ -120,9 +125,10 @@ Probe 2, frozen labels (n=50; source-usable; owner unique; C2 view):
 `trusted`-вкладка = canonical **или** strong alias + marker; в probe 2
 дополнительно `source=usable` и `owner=unique`: 14/14 good, P 1,000 (Wilson
 lower 0,785), **R=14/23=0,609**. Runtime-классификатор проверяет owner
-uniqueness по каталогу и блокирует `degraded_lexical`; точный row-level
-`source=usable` gate ждёт отдельного source-sidecar для 267 `unknown`, поэтому
-`unknown` не объявляется clean и остаётся видимым в raw/review. Weak с marker
+uniqueness по каталогу, а view/export require `source=usable`: `degraded_*`
+и `unknown` дают `review`. Для 267 хвостовых кандидатов detector пока
+возвращает `usable`, поэтому sidecar остаётся незакрытым data gap; это не
+разрешение считать `unknown` clean. Weak с marker
 остаётся weak-бейджем, но **не** входит в trusted: 5/13 good — слишком мало.
 Это **additive view**, а не metadata и не удаление: raw/review всегда
 содержит все строки.
@@ -411,7 +417,7 @@ docs-результатов — после per-bucket, не production.
   за полный source B.
 - `tests/.../TrustViewClassifierTests.cs` — проверки canonical, full-phrase,
   marker, weak+marker, homonym, pair-member и shared owner. `SourceQualityTests`
-  — batch-35 signature/detector-negative/empty. Все **898** Core tests проходят.
+  — batch-35 signature/detector-negative/empty. Все **900** Core tests проходят.
 - `TrustViewClassifier` строит reverse owner index: alias/name/canonical,
   принадлежащий более чем одной карточке, получает `weak` с причиной
   `shared alias/owner conflict`. Повторная проверка на frozen probe 2 после
@@ -422,14 +428,14 @@ docs-результатов — после per-bucket, не production.
 - Это lexical heuristic, не owner-таблица. Owner uniqueness проверяется по
   каталогу, но alias ownership не является полной owner-моделью. На population
   результат не измерен и остаётся exploratory.
-- Source-гейт в UI исключает только `degraded_lexical`; `unknown` виден с
-  badge, как требует policy B. 267 хвостов не объявлены clean. Точный
-  `source=usable` gate нельзя включить до row-level source-sidecar; это
-  зафиксированное ограничение, а не скрытый clean.
+- Source-гейт в UI и `entities_trust.csv` требует `source=usable`;
+  `unknown`/`degraded_*` остаются в raw/review с badge. 267 хвостов пока
+  получают detector-negative `usable`, поэтому sidecar — зафиксированный
+  data gap, а не скрытый clean.
 - `entities_trust.csv` ставит `trust=trusted` только для classifier-trusted
-  строк с source не `degraded_lexical`; для degraded пишет `review` и
-  `trust_reason=lexical trust blocked by degraded source`. `unknown` не
-  блокируется лексическим классификатором, но остаётся явно помеченным.
+  строк с source `usable`; для `degraded_lexical` пишет `review` и
+  `trust_reason=lexical trust blocked by degraded source`, для `unknown` —
+  `review` и `trust_reason=trust blocked by non-usable source (unknown)`.
 - Strict canonical-only — отдельная exploratory-вкладка, не default и не
   замена trusted.
 - Selfcheck/frozen baselines не переписывались. Trusted-фильтр не меняет

@@ -561,8 +561,7 @@ public sealed class ResultsViewModel : ObservableObject
         if (SelectedMode == "Тема…" && string.IsNullOrEmpty(m.Theme)) return false;
         if (SelectedMode is TrustedMode or StrictCanonicalMode)
         {
-            if (string.Equals(file?.SourceQuality, SourceQuality.DegradedLexical,
-                    StringComparison.Ordinal)) return false;
+            if (!SourceQuality.IsUsable(file?.SourceQuality)) return false;
             var assessment = _trust.Assess(m);
             if (SelectedMode == TrustedMode && !assessment.IsTrusted) return false;
             if (SelectedMode == StrictCanonicalMode && assessment.Level != TrustViewLevel.Canonical) return false;

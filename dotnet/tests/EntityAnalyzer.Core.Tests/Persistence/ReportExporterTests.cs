@@ -114,6 +114,65 @@ public class ReportExporterTests : IDisposable
     }
 
     [Fact]
+    public void Trust_sidecar_blocks_unknown_source_even_for_canonical()
+    {
+        var file = new FileResult("a.txt", "corpus/a.txt",
+            [new Mention(1, "Наг и Йеб", "Наг и Йеб", 2, "Здесь Наг и Йеб пришли.")],
+            TotalFound: 1, ContextSize: 60, CharCount: 2000, DensityPer10k: 5.0)
+        {
+            SourceQuality = SourceQuality.Unknown,
+            SourceReason = "old_cache",
+        };
+        var session = new AnalysisSession(
+            [file],
+            new AnalysisSummary(1, 1, 1, 2000,
+                new Dictionary<string, int> { ["Наг и Йеб"] = 1 }),
+            new QualityReport(1, 1, 0, 0, 0, 0, 1, 0, 0, 0,
+                Array.Empty<(string, string)>(), "0.1s"),
+            "minimal");
+        var doc = new CodexDocument();
+        doc.Cards.Add(Card.Create("deity", "Наг и Йеб"));
+
+        var path = Path.Combine(_dir, "entities_trust.csv");
+        Directory.CreateDirectory(_dir);
+        ReportExporter.WriteTrustCsv(session, _dir, doc);
+
+        var csv = File.ReadAllText(path);
+        Assert.Contains("unknown", csv);
+        Assert.Contains("review", csv);
+        Assert.Contains("trust blocked by non-usable source (unknown)", csv);
+    }
+
+    [Fact]
+    public void Trust_sidecar_keeps_usable_canonical_trusted()
+    {
+        var file = new FileResult("a.txt", "corpus/a.txt",
+            [new Mention(1, "Наг и Йеб", "Наг и Йеб", 2, "Здесь Наг и Йеб пришли.")],
+            TotalFound: 1, ContextSize: 60, CharCount: 2000, DensityPer10k: 5.0)
+        {
+            SourceQuality = SourceQuality.Usable,
+            SourceReason = SourceQuality.ReasonDetectorNegative,
+        };
+        var session = new AnalysisSession(
+            [file],
+            new AnalysisSummary(1, 1, 1, 2000,
+                new Dictionary<string, int> { ["Наг и Йеб"] = 1 }),
+            new QualityReport(1, 1, 0, 0, 0, 0, 1, 0, 0, 0,
+                Array.Empty<(string, string)>(), "0.1s"),
+            "minimal");
+        var doc = new CodexDocument();
+        doc.Cards.Add(Card.Create("deity", "Наг и Йеб"));
+
+        var path = Path.Combine(_dir, "entities_trust.csv");
+        Directory.CreateDirectory(_dir);
+        ReportExporter.WriteTrustCsv(session, _dir, doc);
+
+        var csv = File.ReadAllText(path);
+        Assert.Contains(",trusted,", csv);
+        Assert.DoesNotContain("non-usable source", csv);
+    }
+
+    [Fact]
     public void ExportAll_writes_trust_sidecar_and_keeps_main_csv_contract()
     {
         var doc = new CodexDocument();

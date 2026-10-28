@@ -17,6 +17,14 @@ public static class SourceQuality
     public const string ReasonLexicalSubstitution = "lexical_substitution";
     public const string ReasonDetectorNegative = "detector_negative";
 
+    /// <summary>
+    /// The only source state that may enter trusted/strict views. `unknown`
+    /// (old cache or an unassessed tail) and every `degraded_*` state stay in
+    /// raw/review.
+    /// </summary>
+    public static bool IsUsable(string? quality) =>
+        string.Equals(quality, Usable, StringComparison.Ordinal);
+
     private static readonly string[] Markers = ["dee", "kent", "irem", "ohio", "mu", "thran"];
 
     private static readonly Regex TokenRegex = new(
