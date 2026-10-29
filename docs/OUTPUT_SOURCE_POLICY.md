@@ -248,8 +248,8 @@ candidate-файлов с rows (2 candidate-файла без mentions). Из 14
 trusted-строк **13** остаются `trusted`, одна (P2-29, canonical) становится
 `review`: её old-файл content-identical с 267-tail copy, поэтому group
 наследует `unknown`. Это ожидаемая цена duplicate-гейта; classifier-only
-probe-2 P=1,000 не меняется, но source-gated product view не идентичен
-старому 14/14.
+probe-2 P=1,000 и R=14/23 (60,9%) не меняются, а source-gated product view
+даёт 13/23 (56,5%) trusted-good. Raw/review сохраняет P2-29.
 
 **Почему не 3 640.** Early local diagnostic counted rows before deterministic
 duplicate reconciliation: old output attributed 454 rows of the duplicated

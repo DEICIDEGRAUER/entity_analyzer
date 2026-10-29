@@ -17,7 +17,8 @@ Duplicate identical content inherits worst source quality, поэтому ран
 diagnostic 3 640 заменён на 3 317 (см. source policy §5.1). Из 14 old probe-2
 trusted-строк 13 остаются trusted; P2-29 блокируется, потому что её content
 дублируется под 267-tail именем. Это source-gated product view, не
-classifier-only probe 2.
+classifier-only probe 2: product trusted-good recall 13/23 (56,5%), тогда как
+classifier-only остаётся 14/23 (60,9%); raw/review сохраняет P2-29.
 12 approved catalog corrections применены отдельно (§10.5 catalog audit);
 source-файлы не менялись.
 `needs_review` — видимая metadata, не фильтр и не удаление. Probe 2 показал:
