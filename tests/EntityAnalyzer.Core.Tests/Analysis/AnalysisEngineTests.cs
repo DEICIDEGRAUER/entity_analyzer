@@ -1,4 +1,5 @@
 using EntityAnalyzer.Core.Analysis;
+using EntityAnalyzer.Core.Codex;
 using EntityAnalyzer.Core.Configuration;
 using EntityAnalyzer.Core.Persistence;
 using EntityAnalyzer.Core.Variants;
@@ -175,6 +176,69 @@ public class AnalysisEngineTests : IDisposable
         Assert.Equal("renamed.txt", stamped.FileName);
         Assert.Equal(newPath, stamped.FullPath);
         Assert.All(stamped.SemanticMatches, s => Assert.Equal(newPath, s.FilePath));
+    }
+
+    [Fact]
+    public void Unknown_sidecar_keeps_raw_rows_and_blocks_trusted_on_cache_hit()
+    {
+        // First run populates the content cache with detector-only metadata.
+        var first = MakeEngine().Run(CancellationToken.None);
+        Assert.All(first.Files, f => Assert.Equal(SourceQuality.Usable, f.SourceQuality));
+
+        // Sidecar is added after the cache is warm: the override must still apply.
+        Directory.CreateDirectory(_out);
+        File.WriteAllText(Path.Combine(_out, SourceQualitySidecar.FileName),
+            "file,source_quality,source_reason,evidence_level,batch_id\n" +
+            "utf8.txt,unknown,candidate_tail,not_assessed,unknown-267\n" +
+            "cp1251.txt,usable,detector_negative,detector_only,none\n" +
+            "empty.txt,usable,detector_negative,detector_only,none\n",
+            new System.Text.UTF8Encoding(false));
+
+        var session = MakeEngine().Run(CancellationToken.None);
+        var utf8 = session.Files.Single(f => f.FileName == "utf8.txt");
+        Assert.Equal(SourceQuality.Unknown, utf8.SourceQuality);
+        Assert.Equal(SourceQuality.ReasonCandidateTail, utf8.SourceReason);
+        Assert.Equal(3, utf8.Mentions.Count);
+        Assert.True(session.Quality.CacheHits > 0, "test must exercise the cache-hit path");
+
+        var doc = new CodexDocument();
+        doc.Cards.Add(Card.Create("deity", "Наг и Йеб"));
+        ReportExporter.ExportAll(session, _out, new HashSet<string> { "csv" }, codex: doc);
+
+        var raw = File.ReadAllText(Path.Combine(_out, "entities_table.csv"));
+        Assert.Equal(3, raw.Split('\n').Count(line => line.StartsWith("\"utf8.txt\";")));
+
+        var trust = File.ReadAllText(Path.Combine(_out, "entities_trust.csv"));
+        var trustRows = trust.Split('\n').Where(line => line.StartsWith("\"utf8.txt\"")).ToList();
+        Assert.Equal(3, trustRows.Count);
+        Assert.All(trustRows, row => Assert.Contains(",review,", row));
+        Assert.Contains("trust blocked by non-usable source (unknown)", trust);
+    }
+
+    [Fact]
+    public void Duplicate_representative_is_stable_and_inherits_worst_sidecar_quality()
+    {
+        // Same bytes under two names. The old race kept whichever worker finished
+        // first; the representative must be stable and the worst copy must gate it.
+        File.Copy(Path.Combine(_corpus, "utf8.txt"), Path.Combine(_corpus, "z-copy.txt"));
+        Directory.CreateDirectory(_out);
+        File.WriteAllText(Path.Combine(_out, SourceQualitySidecar.FileName),
+            "file,source_quality,source_reason,evidence_level,batch_id\n" +
+            "utf8.txt,usable,detector_negative,detector_only,none\n" +
+            "z-copy.txt,unknown,candidate_tail,not_assessed,unknown-267\n" +
+            "cp1251.txt,usable,detector_negative,detector_only,none\n" +
+            "empty.txt,usable,detector_negative,detector_only,none\n",
+            new System.Text.UTF8Encoding(false));
+
+        var session = MakeEngine().Run(CancellationToken.None);
+
+        var group = Assert.Single(session.DuplicateGroups);
+        Assert.Equal("utf8.txt", Path.GetFileName(group.Files[0]));
+        var kept = Assert.Single(session.Files, f => f.FileName == "utf8.txt");
+        Assert.Equal(3, kept.Mentions.Count);
+        Assert.Equal(SourceQuality.Unknown, kept.SourceQuality);
+        Assert.Equal(SourceQuality.ReasonCandidateTail, kept.SourceReason);
+        Assert.DoesNotContain(session.Files, f => f.FileName == "z-copy.txt");
     }
 
     private sealed class SynchronousProgress(Action<AnalysisProgress> sink) : IProgress<AnalysisProgress>

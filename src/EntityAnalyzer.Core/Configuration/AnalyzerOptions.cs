@@ -6,6 +6,7 @@ public sealed class AnalyzerOptions
     public OutputOptions Output { get; set; } = new();
     public CacheOptions Cache { get; set; } = new();
     public ProcessingOptions Processing { get; set; } = new();
+    public SourceQualityOptions SourceQuality { get; set; } = new();
 
     /// <summary>Theme name → description, imported from legacy config or edited in UI.</summary>
     public Dictionary<string, string> Themes { get; set; } = new(StringComparer.Ordinal);
@@ -49,6 +50,20 @@ public sealed class OutputOptions
     public HashSet<string> Formats { get; set; } = new(StringComparer.OrdinalIgnoreCase) { "txt", "json" };
     public bool SaveQualityReport { get; set; } = true;
     public bool PerEntityFolders { get; set; }
+}
+
+/// <summary>
+/// File-level source-quality overrides. When no explicit path is given, the
+/// engine looks for <c>entities_source_quality.csv</c> in Output.Dir; an absent
+/// optional file preserves detector-only behaviour.
+/// </summary>
+public sealed class SourceQualityOptions
+{
+    /// <summary>Explicit sidecar path. Empty = auto-discover in Output.Dir.</summary>
+    public string SidecarPath { get; set; } = "";
+
+    /// <summary>Fail instead of silently falling back to detector-only mode.</summary>
+    public bool RequireSidecar { get; set; }
 }
 
 public sealed class CacheOptions

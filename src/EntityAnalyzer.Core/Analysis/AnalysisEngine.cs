@@ -23,6 +23,7 @@ public sealed class AnalysisEngine
     private readonly AnalyzerOptions _options;
     private readonly EntityCatalog _catalog;
     private readonly string _presetName;
+    private readonly SourceQualitySidecar _sourceQualitySidecar;
 
     static AnalysisEngine()
     {
@@ -36,6 +37,10 @@ public sealed class AnalysisEngine
         _catalog = catalog;
         _presetName = presetName;
         _definitions = new Dictionary<string, EntityDefinition>(catalog.Definitions, StringComparer.Ordinal);
+        _sourceQualitySidecar = LoadSourceQualitySidecar(options);
+        if (_sourceQualitySidecar.IsEnabled)
+            Logging.Log.Info("source", "Sidecar качества источников: {0} ({1} файлов, sha256 {2})",
+                _sourceQualitySidecar.Path ?? "", _sourceQualitySidecar.Count, _sourceQualitySidecar.Sha256 ?? "");
         _cacheDir = SanitizeCacheDir(options.Cache.Dir, options.Output.Dir);
         // R1-13: препроцессоры текста (до нормализации). Неизвестное имя —
         // ошибка конфигурации, а не молчаливое игнорирование.
@@ -56,6 +61,46 @@ public sealed class AnalysisEngine
     private readonly string _cacheDir;
     private readonly Modules.ModulePipeline _pipeline;
     private readonly IReadOnlyList<Text.ITextPreprocessor> _preprocessors;
+
+    /// <summary>
+    /// Explicit sidecar path wins; otherwise auto-discover in the output folder.
+    /// A missing optional sidecar keeps legacy detector-only behaviour.
+    /// </summary>
+    private static SourceQualitySidecar LoadSourceQualitySidecar(AnalyzerOptions options)
+    {
+        var configured = options.SourceQuality.SidecarPath;
+        var explicitPath = !string.IsNullOrWhiteSpace(configured);
+        var path = explicitPath
+            ? Path.GetFullPath(configured)
+            : Path.Combine(options.Output.Dir, SourceQualitySidecar.FileName);
+
+        if (!File.Exists(path))
+        {
+            if (explicitPath || options.SourceQuality.RequireSidecar)
+                throw new FileNotFoundException(
+                    $"Source-quality sidecar not found: {path}", path);
+            return SourceQualitySidecar.Disabled;
+        }
+
+        return SourceQualitySidecar.Load(path);
+    }
+
+    /// <summary>
+    /// Apply the sidecar after cache lookup. Source metadata is file-level and
+    /// does not alter mentions, so a sidecar change must not invalidate the
+    /// expensive content cache. Unreadable files are never upgraded.
+    /// </summary>
+    private FileResult ApplySourceQuality(FileResult result, string path)
+    {
+        if (!_sourceQualitySidecar.IsEnabled || result.Error is not null)
+            return result;
+
+        var detector = new SourceQualityResult(result.SourceQuality, result.SourceReason);
+        var resolved = _sourceQualitySidecar.Resolve(Path.GetFileName(path), detector);
+        return resolved == detector
+            ? result
+            : result with { SourceQuality = resolved.Quality, SourceReason = resolved.Reason };
+    }
 
     /// <summary>Legacy Android paths («/storage/…») are redirected under the output folder.</summary>
     internal static string SanitizeCacheDir(string dir, string outputDir)
@@ -297,7 +342,7 @@ public sealed class AnalysisEngine
             }
 
             if (result is not null)
-                results.Add(result);
+                results.Add(ApplySourceQuality(result, path));
             return ValueTask.CompletedTask;
         }).GetAwaiter().GetResult(); // Run() is synchronous; propagate exceptions incl. OCE
 
@@ -312,7 +357,7 @@ public sealed class AnalysisEngine
                 allNames, quality, configSignature, cancellationToken)
                 .GetAwaiter().GetResult();
             if (result is not null)
-                results.Add(result);
+                results.Add(ApplySourceQuality(result, path));
         }
 
         incrementalIndex?.Flush();
@@ -341,6 +386,8 @@ public sealed class AnalysisEngine
 
         // Группы текстовых дубликатов: оригинал + копии с тем же SHA-256.
         var duplicateGroups = BuildDuplicateGroups(firstPathByHash, duplicateHits);
+        if (_options.Corpus.SkipDuplicates)
+            orderedResults = ReconcileDuplicateRepresentatives(orderedResults, duplicateGroups, firstPathByHash);
         if (duplicateGroups.Count > 0)
             Logging.Log.Info("duplicates",
                 $"Текстовых дубликатов: {duplicateGroups.Sum(g => g.RedundantCount)} файлов в {duplicateGroups.Count} группах");
@@ -385,6 +432,70 @@ public sealed class AnalysisEngine
             SemanticMatches: semanticMatches);
     }
 
+    /// <summary>
+    /// A skipped duplicate is represented by the lexicographically first path
+    /// in its content group, not by whichever worker won the race. Source
+    /// quality is the worst quality of all identical copies: otherwise the
+    /// same bytes could enter trusted under a different filename.
+    /// </summary>
+    private List<FileResult> ReconcileDuplicateRepresentatives(
+        List<FileResult> results,
+        IReadOnlyList<DuplicateGroup> groups,
+        IReadOnlyDictionary<string, string> firstPathByHash)
+    {
+        if (groups.Count == 0) return results;
+
+        var byPath = results.ToDictionary(r => r.FullPath, StringComparer.OrdinalIgnoreCase);
+        var replacements = new Dictionary<string, FileResult>(StringComparer.OrdinalIgnoreCase);
+        foreach (var group in groups)
+        {
+            if (!firstPathByHash.TryGetValue(group.Hash, out var keptPath) ||
+                !byPath.TryGetValue(keptPath, out var kept))
+                continue;
+
+            var representative = group.Files[0];
+            var adjusted = string.Equals(kept.FullPath, representative, StringComparison.OrdinalIgnoreCase)
+                ? kept
+                : StampFileIdentity(kept, representative);
+
+            var worst = WorstSidecarQuality(group.Files);
+            if (worst is { } source)
+                adjusted = adjusted with { SourceQuality = source.Quality, SourceReason = source.Reason };
+            replacements[keptPath] = adjusted;
+        }
+
+        return results
+            .Select(r => replacements.TryGetValue(r.FullPath, out var replacement) ? replacement : r)
+            .OrderBy(r => r.FileName, StringComparer.Ordinal)
+            .ThenBy(r => r.FullPath, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private SourceQualityResult? WorstSidecarQuality(IReadOnlyList<string> paths)
+    {
+        if (!_sourceQualitySidecar.IsEnabled) return null;
+
+        SourceQualityResult? worst = null;
+        var worstRank = -1;
+        foreach (var path in paths)
+        {
+            var resolved = _sourceQualitySidecar.Resolve(
+                Path.GetFileName(path),
+                new SourceQualityResult(SourceQuality.Usable, SourceQuality.ReasonDetectorNegative));
+            var rank = resolved.Quality switch
+            {
+                SourceQuality.DegradedLexical => 3,
+                SourceQuality.DegradedOcr => 2,
+                SourceQuality.Unknown => 1,
+                _ => 0,
+            };
+            if (rank <= worstRank) continue;
+            worstRank = rank;
+            worst = resolved;
+        }
+        return worstRank > 0 ? worst : null;
+    }
+
     /// <summary>Сборка групп дубликатов из карты первых путей и списка копий.</summary>
     internal static List<DuplicateGroup> BuildDuplicateGroups(
         IReadOnlyDictionary<string, string> firstPathByHash,
@@ -395,9 +506,15 @@ public sealed class AnalysisEngine
             .Select(g => new DuplicateGroup(
                 g.Key,
                 new[] { firstPathByHash[g.Key] }
-                    .Concat(g.Select(d => d.Path).OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
+                    .Concat(g.Select(d => d.Path))
+                    // The representative must not depend on the parallel
+                    // completion order: the same corpus must always name the
+                    // same original and attach the same rows to it.
+                    .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(p => p, StringComparer.Ordinal)
                     .ToList()))
             .OrderBy(g => g.Files[0], StringComparer.OrdinalIgnoreCase)
+            .ThenBy(g => g.Files[0], StringComparer.Ordinal)
             .ToList();
     }
 
