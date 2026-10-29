@@ -1,14 +1,16 @@
 # Generator policy для composite names: аудит, inspection и opt-in реализация
 
-**Статус (2026-10-28): QUALITATIVE INSPECTION + OPT-IN IMPLEMENTATION;
-production default не изменён.** Pre-change audit и post-catalog diagnostic
-(33 430 строк; §3.5) не переписаны. 12 approved catalog corrections
-применены отдельно; source-файлы, `entities_table.csv`, frozen-манифесты,
-Phase C и selfcheck baseline не менялись. Policy реализована как
-`CompositeVariantMode` / `FullPhraseMorphology` и проверена тестами, но
-`CompositeGeneratorPolicy.DefaultMode` остаётся `Legacy` до отдельного
-activation-прогона; это не скрытая смена default. Exception list прошёл
-qualitative inspection 20–30 affected rows (§10), а не probe 3.
+**Статус (2026-10-29): QUALITATIVE INSPECTION + OPT-IN IMPLEMENTATION;
+VERIFY/SELFCHECK GREEN; production default не изменён.** Pre-change audit и
+post-catalog diagnostic (33 430 строк; §3.5) не переписаны. 12 approved
+catalog corrections применены отдельно; source-файлы, `entities_table.csv`,
+frozen-манифесты, Phase C и selfcheck baseline не менялись. Policy
+реализована как `CompositeVariantMode` / `FullPhraseMorphology` и проверена
+тестами. `verify.ps1 -SkipPublish` (2026-10-29): build 0/0, 928 tests passed,
+smoke anchor and Phase C green; `--self-check` passed; 5 255 generator-only
+baseline unchanged. `CompositeGeneratorPolicy.DefaultMode` остаётся `Legacy`
+до отдельного activation-решения; это не скрытая смена default. Exception
+list прошёл qualitative inspection 20–30 affected rows (§10), а не probe 3.
 
 Связанные документы:
 [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §9 —
@@ -500,9 +502,10 @@ standalone exceptions; они эмитятся **только** для свое�
 - `VariantFactory.Generate/GenerateTwoPass` принимают mode/exceptions;
   `EntityDefinition` получает `CompositeMode` и `StandaloneExceptions`.
 - `Legacy` оставлен default в `CompositeGeneratorPolicy.DefaultMode`:
-  selfcheck baseline и frozen guards не переписаны. Activation — отдельный
-  commit после перепрогона `verify.ps1`/selfcheck и сравнения output; это не
-  скрытая смена default.
+  selfcheck baseline и frozen guards не переписаны. `verify.ps1 -SkipPublish`
+  и `--self-check` прошли 2026-10-29, 5 255 generator-only baseline не
+  изменился; activation всё равно остаётся отдельным решением/commit, а не
+  скрытой сменой default.
 - Tests: `FullPhraseMorphologyTests`, `CompositeVariantPolicyTests` (900
   Core tests проходят). Проверяется отсутствие bare head/tail, сохранение
   союза `и`, approved exceptions и Legacy-совместимость.
@@ -553,3 +556,18 @@ output SHA-256
 **5 255** при `Legacy`; 5 269 можно использовать только как широкую
 диагностику, иначе полные фразы будут ошибочно засчитаны как standalone
 шум. В отчётах указывать оба числа нельзя без определения метрики.
+
+## 13. Verification 2026-10-29 (activation not performed)
+
+- `verify.ps1 -SkipPublish`: build 0 warnings / 0 errors; **928/928** tests;
+  CLI isolated-corpus, smoke-corpus anchor `E50A1559…`, Phase C guard and
+  bench-gate green; real profile untouched.
+- `EntityAnalyzer.Cli --self-check` passed in 804 ms.
+- Product output with deterministic duplicate representative (SHA-256
+  `9444106C4E41B36F8872B6EAEBAA0F949A84485212555AC81C9D6209F50D8BA3`)
+  has the same per-entity counts as the frozen `6553A62C…` snapshot, so
+  generator-only baseline remains **5 255** / broad **5 269** (14 full
+  phrases).
+- `CompositeGeneratorPolicy.DefaultMode` remains `Legacy`;
+  `FullPhrasePlusExceptions` remains explicit opt-in. No generator activation
+  or replacement/default view was shipped.

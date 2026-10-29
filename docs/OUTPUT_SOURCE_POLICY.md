@@ -1,15 +1,17 @@
 # Source policy B: sidecar, degraded и unknown
 
-**Статус (2026-10-29): FILE-LEVEL DETECTOR + SOURCE=USABLE GATE IMPLEMENTED;
-ROW-LEVEL SIDECAR PARTIAL.** Source files, frozen `entities_table.csv`,
-frozen-манифесты и Phase C не менялись. Решение B остаётся sidecar-only, без
-silent exclusion. 12 approved catalog corrections применены отдельно;
-post-catalog diagnostic run снят (33 430 строк), counts §4 обновлены по нему.
-`SourceQuality` реализует ровно batch-35 сигнатуру (35/35, 0/267); trusted и
-strict теперь требуют `source=usable`, поэтому `unknown`/`degraded_*` не
-проходят в них, но остаются в raw/review. 267-tail row-level `unknown` пока
-не построен как отдельный sidecar: detector возвращает им `usable`, значит
-исходный список ещё не применяется и data gap честно не закрыт.
+**Статус (2026-10-29): FILE-LEVEL DETECTOR + COMPLETE SIDECAR + SOURCE=USABLE
+GATE VERIFIED.** Source files, frozen `entities_table.csv`, frozen-манифесты и
+Phase C не менялись. Решение B остаётся sidecar-only, без silent exclusion.
+12 approved catalog corrections применены отдельно; post-catalog diagnostic
+run снят (33 430 строк), counts §4 обновлены по нему. `SourceQuality`
+реализует ровно batch-35 сигнатуру (35/35, 0/267); trusted и strict требуют
+`source=usable`, поэтому `unknown`/`degraded_*` не проходят в них, но
+остаются в raw/review. Полный 267-tail sidecar загружен в product run:
+classifier-only trusted **6 462** → **3 317**; blocked **3 145** (193 degraded
++ 2 952 unknown); raw/review сохраняет все **33 430** строк. Число 3 640 из
+раннего diagnostic заменено: duplicate-content копии наследуют худший source
+(см. §5.1), поэтому 323 trusted-строки старого diagnostic больше не проходят.
 
 Связанные документы:
 [`OUTPUT_SOURCE_AUDIT.md`](OUTPUT_SOURCE_AUDIT.md) — detector, batch 35,
@@ -26,12 +28,13 @@ strict теперь требуют `source=usable`, поэтому `unknown`/`de
    35/35. Строки batch 35 не попадают в trusted/strict view, но остаются в
    raw/review и в явном sidecar. Это не удаление файлов и не удаление строк
    из основного CSV.
-2. **267 хвостовых кандидатов** — design-target `unknown`, **не** `clean`:
-   file-level detector их не выбрал, но они не проверялись вручную; среди 11
-   ранее проверенных файлов вне batch был один с настоящей missing-space
-   OCR-порчей. В текущем runtime row-level `unknown` ещё не построен (см.
-   статус выше), поэтому 267 не получают `usable` по ручной проверке; они
-   видны в default view и не исключаются молча.
+2. **267 хвостовых кандидатов** — `unknown`, **не** `clean`: file-level
+   detector их не выбрал, но они не проверялись вручную; среди 11 ранее
+   проверенных файлов вне batch был один с настоящей missing-space OCR-порчей.
+   Sidecar применяет `unknown` к этим именам; 265 из них имеют строки в
+   post-catalog выводе, 2 — нет. Они видны в default view и не исключаются
+   молча. Если identical content встречается под другим именем, все копии
+   получают худший source-статус группы (см. §5.1).
 3. **Остальные файлы** — `usable` только в смысле «детектор не нашёл
    сигнатуру batch 35 и нет известной OCR-порчи». Это не гарантия
    читаемости; `usable` не равно «проверено вручную».
@@ -92,6 +95,16 @@ columns: source_quality;source_reason;evidence_level
 `entities_trust.csv`, он получает `source_quality` через тот же join, а не
 дублирует file-level логику.
 
+Runtime:
+
+- default lookup: `<Output.Dir>/entities_source_quality.csv`;
+- explicit override: `--source-quality-sidecar <file.csv>`;
+- precedence: `sidecar > detector`; when a sidecar is present, a missing file
+  entry is `unknown` / `sidecar_missing`, never `usable`;
+- sidecar is applied after the content-cache lookup, so source metadata changes
+  do not invalidate the analysis cache; old cache entries remain usable;
+- without a sidecar the legacy detector-only behaviour is unchanged.
+
 Требования:
 
 - sidecar детерминирован и воспроизводим из detector version + source list;
@@ -145,6 +158,13 @@ Post-catalog full-output (2026-10-27; SHA-256
 - 11 проверенных файлов вне batch: **10/11** читаемы, **1/11** настоящая
   missing-space OCR-порча; file-level detector её не ловит.
 
+Product run 2026-10-29 (same corpus/command + complete sidecar; SHA-256
+`9444106C4E41B36F8872B6EAEBAA0F949A84485212555AC81C9D6209F50D8BA3`):
+**33 430** raw rows, **2 597** files with rows, source split **19 012 usable /
+7 601 degraded_lexical / 6 817 unknown**; trusted **3 317**, blocked
+**3 145** (193 + 2 952). The 456-row row-attribution change is explained in
+§5.1.
+
 Pre-change snapshot (для сравнения): **37 406 строк**, batch 35 — **11 189**
 строк (29,9%), **8 381** flagged; 267 tail — **7 054** строки, **1 674**
 flagged; 302 — **18 243** строки, **10 055** flagged. 302/267 — тот же
@@ -164,10 +184,11 @@ file-level список, построенный на pre-change выводе; po
 
 1. **Freeze detector**: шесть маркеров + density ≥1%; batch 35 list hash
    `C3F5E7FBD7DE653756E817E79CA9F6F1F9AAF869E1F696B457B5B1598F868516`.
-2. **Partial source sidecar**: `SourceQuality` проходит по тексту и выставляет
-   `degraded_lexical` ровно для batch-35 сигнатуры, иначе `usable`; 267-tail
-   row-level `unknown` пока **не** построен. `degraded_ocr` не добавлялся:
-   известный OCR-случай вне batch не является проверенным file-level списком.
+2. **Source sidecar**: `SourceQuality` проходит по тексту и выставляет
+   `degraded_lexical` ровно для batch-35 сигнатуры, иначе `usable`; полный
+   `entities_source_quality.csv` переопределяет detector для 35 degraded и
+   267 unknown. `degraded_ocr` не добавлялся: известный OCR-случай вне batch
+   не является проверенным file-level списком.
 3. **Join rows**: `source_quality`/`source_reason` добавлены в additive
    `entities_trust.csv`; `entities_from_degraded_sources.csv` (7 601 строка
    post-catalog) остаётся отдельным pending-артефактом. Основной CSV не
@@ -175,18 +196,23 @@ file-level список, построенный на pre-change выводе; po
 4. **View layer**: raw/review показывает всё; trusted/strict проходят только
    при `SourceQuality.IsUsable`; `unknown`/`degraded_*` остаются в
    raw/review с badge.
-5. **Tests**:
+5. **Duplicate content**: representative выбирается детерминированно (min
+   path, не race), а source quality берётся как худший по всем identical
+   copies. Иначе те же байты могли бы войти в trusted под другим именем.
+6. **Tests**:
    - file-level detector synthetic тест: шесть маркеров + density;
    - detector-negative → `usable`, empty → `unknown`;
    - batch 35 не удаляется из raw/review;
    - canonical + `unknown` не получает `trust=trusted`;
    - canonical + `usable` остаётся trusted;
-   - `entities_from_degraded_sources.csv` не реализован;
+   - sidecar precedence, missing→unknown, duplicate-conflict rejection;
+   - cache-hit override сохраняет raw rows;
+   - duplicate representative deterministic + worst-source gate;
    - отсутствие sidecar не меняет старый CSV.
-6. **Report**: команда, scope, detector version, фильтры, counts, сколько
+7. **Report**: команда, scope, detector version, фильтры, counts, сколько
    строк/файлов в каждом классе; никаких «очищено» без evidence.
 
-### 5.1. `source=usable` gate: scope + design (2026-10-29)
+### 5.1. `source=usable` gate: implementation + product verification (2026-10-29)
 
 **Scope.** Гейт применяется только к additive trusted/strict и к
 `trust=trusted` в `entities_trust.csv`. Raw/default/export все строки
@@ -199,37 +225,36 @@ file-level список, построенный на pre-change выводе; po
 `trust blocked by non-usable source (unknown)`, для degraded — сохранённый
 `lexical trust blocked by degraded source`.
 
-**Текущее состояние.** Проверка реализована в `ResultsViewModel` и
-`ReportExporter.WriteTrustCsv`; старые cache-записи без source-поля имеют
-`unknown` и поэтому больше не считаются clean. Остаётся data gap: detector
-даёт `usable` 267 хвостовым кандидатам. Пока отдельный sidecar не загружен,
-гейт не может отличить их от detector-negative файлов; это видимое
-ограничение, не разрешение считать их clean.
+**Sidecar.** `SourceQualitySidecar` читает `file` + `source_quality` и
+применяет 267 `unknown` / 35 `degraded_lexical`; missing entry → `unknown` /
+`sidecar_missing`. Auto path — `<Output.Dir>/entities_source_quality.csv`;
+explicit path — `--source-quality-sidecar`. Приоритет `sidecar > detector`;
+без sidecar detector-only поведение сохраняется. Sidecar применяется после
+cache lookup, поэтому старые cache-записи без source-поля не инвалидируются
+и не получают `usable`. Приватные имена файлов и source hash остаются вне
+публичного Git; публичные тесты используют синтетические имена.
 
-**Sidecar (следующий слой, ещё не реализован).** Входной file-level
-`entities_source_quality.csv` с ключом `file` и полями из §2; для 267
-`source_quality=unknown`, `source_reason=candidate_tail`,
-`evidence_level=not_assessed`, `batch_id=unknown-267`. Sidecar должен
-покрывать все файлы с упоминаниями; отсутствующая запись = `unknown`, не
-`usable`. Приоритет: sidecar > detector; batch-35 detector сохраняется как
-fallback для запусков без sidecar. Hash/версия sidecar входят в cache
-signature. Приватные имена файлов и source hash остаются вне публичного
-Git; публичный тест использует синтетические имена.
+**Duplicate content.** Representative группы identical content выбирается
+детерминированно (min path, не parallel race), а source quality — худший по
+всем копиям. Это закрывает обход гейта через duplicate copy под другим
+именем. В текущем корпусе 16 duplicate groups; одна группа содержит
+267-tail content (456 строк), поэтому её representative получает `unknown`.
 
-**Acceptance.** (1) 14/14 trusted probe-2 не меняются при полном `usable`
-sidecar; (2) 267 unknown и 35 degraded дают `review`; (3) raw/review row
-count не меняется; (4) основной CSV остаётся 8-колоночным; (5) badge
-`unknown` виден в default/raw. До выполнения этих пунктов generator
-activation, replacement/default и entity graph не двигаются.
+**Acceptance (product run).** (1) classifier-only trusted 6 462 → **3 317**;
+(2) blocked **3 145** = **193** degraded + **2 952** unknown; (3) raw/review
+**33 430** строк, 2 597 файлов с rows — не изменился; (4) основной CSV
+остаётся 8-колоночным; (5) badge `unknown` виден в default/raw для 265
+candidate-файлов с rows (2 candidate-файла без mentions). 14/14 probe-2
+trusted-строки остаются `trusted` (они все `usable`).
 
-**Local diagnostic (2026-10-29, not a product run).** Post-catalog CSV
-(33 430 строк; 2 596 уникальных basename с rows) + classifier:
-classifier-only trusted = **6 462**; после gate с полным sidecar
-(`usable` только вне 302 кандидатов) = **3 640**; blocked = **2 822**, из них
-**193** degraded и **2 629** unknown. То есть без sidecar текущий trusted
-включает **2 629 строк из 267 unknown** — это и есть незакрытый data gap;
-нельзя объявлять trusted clean. Raw/review по-прежнему содержит все
-33 430 строк.
+**Почему не 3 640.** Early local diagnostic counted rows before deterministic
+duplicate reconciliation: old output attributed 454 rows of the duplicated
+bestiary content to a non-candidate basename, while the candidate copy had 0.
+Product run attributes the identical content to the stable representative and
+applies worst source, so **323** classifier-trusted rows moved to `review`.
+This is stricter, not a regression; 3 640 is superseded by 3 317. The local
+diagnostic's **2 822** blocked (193 + 2 629) is likewise superseded by
+**3 145** (193 + 2 952). Raw/review still contains all 33 430 rows.
 
 ## 6. Проверка пользы B
 
@@ -247,10 +272,12 @@ classifier-only trusted = **6 462**; после gate с полным sidecar
 приписывать B улучшение, которого не было в sample. Это открытый пункт
 probe 2 design, а не разрешение считать B доказанным.
 
-Post-catalog source pool: batch 35 — **7 601** строка, 267 tail — **6 363**
-строки; file-level 35/267 не изменился. Source cell должен быть набран из
-этого post-catalog pool, иначе counts не совпадут с output, на котором
-считаются конфигурации.
+Post-catalog source pool: batch 35 — **7 601** строка; 267 tail в старом
+diagnostic — **6 363** строки, в product run после deterministic duplicate
+reconciliation — **6 817** строк (265 файлов с rows; +456 duplicate-content
+rows, −2 row-attribution differences). File-level 35/267 не изменился.
+Source cell должен явно указывать, какой из двух snapshots использован; иначе
+counts не совпадут с output, на котором считаются конфигурации.
 
 ## 7. Чего этот документ не делает
 
@@ -274,6 +301,6 @@ Primary 50 source-usable, поэтому C1 на нём равен C0 по по�
 нельзя приписывать primary-улучшение. `unknown` не скрывается и не получает
 `clean`; batch35 остаётся в raw/review. Additive `entities_trust.csv`
 реализован 2026-10-28 и содержит source columns; production default не
-изменён, 267-tail row-level sidecar pending. Combined C2 P=0,523<0,85 →
+изменён, 267-tail sidecar реализован 2026-10-29. Combined C2 P=0,523<0,85 →
 trust-level exploratory view, не replacement
 ([`OUTPUT_QUALITY_PROBE_RESULTS.md`](OUTPUT_QUALITY_PROBE_RESULTS.md) §12).

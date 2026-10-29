@@ -1,16 +1,20 @@
 # Trust levels: `strong` / `weak` / `needs_review`
 
-**Статус (2026-10-29): EXPLORATORY IMPLEMENTATION; default view не меняется.**
-Trusted и strict canonical-only добавлены как **явные additive-фильтры**;
-raw/review остаётся default. Sidecar `entities_trust.csv` пишется рядом с
-основным CSV, основной 8-колоночный контракт не изменён. Классификатор
-`TrustViewClassifier` детерминированно воспроизводит trusted-набор probe 2
-(14/14; P=1,000, Wilson lower 0,785), но это exploratory-эвристика, не
-production-SLO и не owner-таблица. Source-гейт теперь требует явный
-`source=usable`: `unknown` и `degraded_*` остаются в raw/review. Детектор
-реализован только для reproducible batch-35 сигнатуры; 267 хвостовых
-кандидатов до отдельного sidecar всё ещё получают detector-negative
-`usable`, поэтому считаются residual data gap, а не доказанно clean.
+**Статус (2026-10-29): EXPLORATORY IMPLEMENTATION; SOURCE GATE VERIFIED;
+default view не меняется.** Trusted и strict canonical-only добавлены как
+**явные additive-фильтры**; raw/review остаётся default. Sidecar
+`entities_trust.csv` пишется рядом с основным CSV, основной 8-колоночный
+контракт не изменён. Классификатор `TrustViewClassifier` детерминированно
+воспроизводит trusted-набор probe 2 (14/14; P=1,000, Wilson lower 0,785), но
+это exploratory-эвристика, не production-SLO и не owner-таблица.
+Source-гейт требует явный `source=usable`: `unknown` и `degraded_*` остаются
+в raw/review. Полный 267-tail sidecar загружается из
+`entities_source_quality.csv` (auto в `<Output.Dir>`, explicit
+`--source-quality-sidecar`); 267 получают `unknown`, 35 — `degraded_lexical`.
+Product run: classifier-only trusted **6 462** → **3 317**; blocked **3 145**
+(193 degraded + 2 952 unknown); raw/review сохраняет **33 430** строк.
+Duplicate identical content inherits worst source quality, поэтому ранний
+diagnostic 3 640 заменён на 3 317 (см. source policy §5.1).
 12 approved catalog corrections применены отдельно (§10.5 catalog audit);
 source-файлы не менялись.
 `needs_review` — видимая metadata, не фильтр и не удаление. Probe 2 показал:
@@ -126,9 +130,9 @@ Probe 2, frozen labels (n=50; source-usable; owner unique; C2 view):
 дополнительно `source=usable` и `owner=unique`: 14/14 good, P 1,000 (Wilson
 lower 0,785), **R=14/23=0,609**. Runtime-классификатор проверяет owner
 uniqueness по каталогу, а view/export require `source=usable`: `degraded_*`
-и `unknown` дают `review`. Для 267 хвостовых кандидатов detector пока
-возвращает `usable`, поэтому sidecar остаётся незакрытым data gap; это не
-разрешение считать `unknown` clean. Weak с marker
+и `unknown` дают `review`. Полный 267-tail sidecar загружен в product run,
+поэтому detector-negative `usable` больше не обходит гейт; `unknown` не
+считается clean. Weak с marker
 остаётся weak-бейджем, но **не** входит в trusted: 5/13 good — слишком мало.
 Это **additive view**, а не metadata и не удаление: raw/review всегда
 содержит все строки.
@@ -192,7 +196,7 @@ canonical-only (3/3, R=0,130) остаётся отдельным conservative v
 ## 4. Куда выводить metadata
 
 Не менять текущий `entities_table.csv` (8 колонок, frozen contract).
-Предлагается sidecar:
+Пишется additive sidecar:
 
 ```
 entities_trust.csv
@@ -351,7 +355,8 @@ row-level readability.
 ## 8. Следующий шаг
 
 1. Source batch 35 проверен 35/35; file-level детектор даёт ровно 35 файлов
-   и 0 из 267. Выбран **B**: sidecar, 267 — `unknown`, не clean; дизайн —
+   и 0 из 267. Решение **B** реализовано: полный sidecar, 267 — `unknown`,
+   не clean; product run подтвердил trusted 3 317 / raw 33 430. Контракт —
    [`OUTPUT_SOURCE_POLICY.md`](OUTPUT_SOURCE_POLICY.md). 302 не использовать
    как список exclusion.
 2. Catalog correction: **12 операций одобрены и применены** (13 alias
@@ -412,12 +417,16 @@ docs-результатов — после per-bucket, не production.
   `entities_table.csv` остаётся 8-колоночным.
 - `src/EntityAnalyzer.Core/Analysis/SourceQuality.cs` — file-level detector
   только для воспроизводимой batch-35 сигнатуры (шесть маркеров + density
-  ≥1%); `unknown` не повышается до clean. 267 row-level хвостов всё ещё
-  требуют отдельного sidecar, поэтому detector-only результат не выдаётся
-  за полный source B.
+  ≥1%); `unknown` не повышается до clean.
+- `src/EntityAnalyzer.Core/Analysis/SourceQualitySidecar.cs` — полный
+  file-level sidecar: 35 degraded + 267 unknown, missing→unknown,
+  sidecar>detector. `AnalysisEngine` применяет его после cache lookup и
+  наследует худший source для identical duplicate content.
 - `tests/.../TrustViewClassifierTests.cs` — проверки canonical, full-phrase,
   marker, weak+marker, homonym, pair-member и shared owner. `SourceQualityTests`
-  — batch-35 signature/detector-negative/empty. Все **900** Core tests проходят.
+  и `SourceQualitySidecarTests` — batch-35 signature, precedence,
+  missing→unknown, duplicate conflict. `AnalysisEngineTests` — cache-hit
+  override и duplicate worst-source. Все **900+** Core tests проходят.
 - `TrustViewClassifier` строит reverse owner index: alias/name/canonical,
   принадлежащий более чем одной карточке, получает `weak` с причиной
   `shared alias/owner conflict`. Повторная проверка на frozen probe 2 после
@@ -429,9 +438,9 @@ docs-результатов — после per-bucket, не production.
   каталогу, но alias ownership не является полной owner-моделью. На population
   результат не измерен и остаётся exploratory.
 - Source-гейт в UI и `entities_trust.csv` требует `source=usable`;
-  `unknown`/`degraded_*` остаются в raw/review с badge. 267 хвостов пока
-  получают detector-negative `usable`, поэтому sidecar — зафиксированный
-  data gap, а не скрытый clean.
+  `unknown`/`degraded_*` остаются в raw/review с badge. Полный 267-tail
+  sidecar загружен; duplicate content наследует худший source, поэтому
+  detector-negative `usable` больше не обходит гейт.
 - `entities_trust.csv` ставит `trust=trusted` только для classifier-trusted
   строк с source `usable`; для `degraded_lexical` пишет `review` и
   `trust_reason=lexical trust blocked by degraded source`, для `unknown` —
