@@ -14,7 +14,10 @@ Source-гейт требует явный `source=usable`: `unknown` и `degrade
 Product run: classifier-only trusted **6 462** → **3 317**; blocked **3 145**
 (193 degraded + 2 952 unknown); raw/review сохраняет **33 430** строк.
 Duplicate identical content inherits worst source quality, поэтому ранний
-diagnostic 3 640 заменён на 3 317 (см. source policy §5.1).
+diagnostic 3 640 заменён на 3 317 (см. source policy §5.1). Из 14 old probe-2
+trusted-строк 13 остаются trusted; P2-29 блокируется, потому что её content
+дублируется под 267-tail именем. Это source-gated product view, не
+classifier-only probe 2.
 12 approved catalog corrections применены отдельно (§10.5 catalog audit);
 source-файлы не менялись.
 `needs_review` — видимая metadata, не фильтр и не удаление. Probe 2 показал:
