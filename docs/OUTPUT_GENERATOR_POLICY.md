@@ -598,3 +598,7 @@ Operational checks:
 6. Activation is a separate explicit commit changing the default; until then
    `Legacy` remains default and `FullPhrasePlusExceptions` stays opt-in. Any
    failed check means no activation.
+
+Release horizon: v18.2 exploratory; see
+[`RELEASE_HORIZON.md`](RELEASE_HORIZON.md). Generator activation does not
+change the v18.1 default.

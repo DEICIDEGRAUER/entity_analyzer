@@ -20,7 +20,8 @@ trusted-строк 13 остаются trusted; P2-29 блокируется, п
 classifier-only probe 2: product trusted-good recall 13/23 (56,5%), тогда как
 classifier-only остаётся 14/23 (60,9%); raw/review сохраняет P2-29.
 12 approved catalog corrections применены отдельно (§10.5 catalog audit);
-source-файлы не менялись.
+source-файлы не менялись. **Горизонт ветки:** v18.2 exploratory, не v18.1
+default; promotion-критерии и milestone — [`RELEASE_HORIZON.md`](RELEASE_HORIZON.md).
 `needs_review` — видимая metadata, не фильтр и не удаление. Probe 2 показал:
 strong alias без marker — **4/11 good**, с marker — **11/11 good**; поэтому
 старое правило «strong alias = trusted без marker» отменено (§2.1).
