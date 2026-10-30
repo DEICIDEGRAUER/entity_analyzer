@@ -1,16 +1,20 @@
 # Generator policy для composite names: аудит, inspection и opt-in реализация
 
-**Статус (2026-10-29): QUALITATIVE INSPECTION + OPT-IN IMPLEMENTATION;
-VERIFY/SELFCHECK GREEN; production default не изменён.** Pre-change audit и
-post-catalog diagnostic (33 430 строк; §3.5) не переписаны. 12 approved
-catalog corrections применены отдельно; source-файлы, `entities_table.csv`,
-frozen-манифесты, Phase C и selfcheck baseline не менялись. Policy
-реализована как `CompositeVariantMode` / `FullPhraseMorphology` и проверена
-тестами. `verify.ps1 -SkipPublish` (2026-10-29): build 0/0, 928 tests passed,
-smoke anchor and Phase C green; `--self-check` passed; 5 255 generator-only
-baseline unchanged. `CompositeGeneratorPolicy.DefaultMode` остаётся `Legacy`
-до отдельного activation-решения; это не скрытая смена default. Exception
-list прошёл qualitative inspection 20–30 affected rows (§10), а не probe 3.
+**Статус (2026-10-30): QUALITATIVE INSPECTION + OPT-IN IMPLEMENTATION;
+CLI `--self-check` GREEN; GENERATOR COMPARISON SELFCHECK DID NOT PASS;
+production default не изменён.** Pre-change audit и post-catalog diagnostic
+(33 430 строк; §3.5) не переписаны. 12 approved catalog corrections
+применены отдельно; source-файлы, `entities_table.csv`, frozen-манифесты,
+Phase C и selfcheck baseline не менялись. Policy реализована как
+`CompositeVariantMode` / `FullPhraseMorphology` и проверена тестами.
+`verify.ps1 -SkipPublish` (2026-10-30): build 0/0, 928 tests passed, smoke
+anchor and Phase C green; bench gate green under High performance (Balanced
+restored after the run); `--self-check` passed; 5 255 generator-only baseline
+unchanged. Отдельный generator comparison selfcheck (§15) не прошёл literal
+superset clause; activation заблокирован. `CompositeGeneratorPolicy.DefaultMode`
+остаётся `Legacy` до отдельного activation-решения; это не скрытая смена
+default. Exception list прошёл qualitative inspection 20–30 affected rows
+(§10), а не probe 3.
 
 Связанные документы:
 [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §9 —
@@ -599,6 +603,53 @@ Operational checks:
    `Legacy` remains default and `FullPhrasePlusExceptions` stays opt-in. Any
    failed check means no activation.
 
+**Selfcheck status (2026-10-30): not passed; see §15.** The literal
+`(entity, variant)` multiset-superset clause is incompatible with full-phrase
+suppression at output-row level. It remains the pre-registered gate and was
+not relaxed after the fact.
+
 Release horizon: v18.2 exploratory; see
 [`RELEASE_HORIZON.md`](RELEASE_HORIZON.md). Generator activation does not
 change the v18.1 default.
+
+## 15. Generator comparison selfcheck (2026-10-30; activation NOT performed)
+
+Run: same corpus (10 531 files), same codex SHA-256
+`95B54F6DBCB3A12CBAD34EAEA57101AAC40226052C3FAFFFB430A320A0AE7A85`,
+preset `minimal`, max mentions unlimited, cache disabled. Legacy and
+`FullPhrasePlusExceptions` were run on the identical catalog/corpus; Plus was
+run twice. Source sidecar was not applied because it does not change mention
+rows.
+
+**Baseline.** Legacy: **33 430** rows, identical multiset to the existing
+`entities_table.csv`; generator-only **5 255** and broad non-alias **5 269**
+reproduced exactly. Plus: **28 314** rows in both runs; deterministic.
+
+**Catalog-level.** Legacy 18 634 variants; Plus 18 580. Plus removes **100**
+variants, all standalone non-alias generated forms; adds **46** variants = 43
+full-phrase forms + 3 approved exceptions (`Ленгом`, `Цанга`, `Цанге`). Plus is
+a strict superset of `FullPhraseOnly`, and no catalog alias is removed.
+
+**Output-level.** 28 121 rows retained, 137 replaced by a longer full phrase;
+5 172 pure removals = 5 167 standalone + **5 alias**; 193 pure additions =
+164 full-phrase + **29 alias**. There are 0 standalone non-approved additions;
+full phrases and approved exceptions are preserved; approved exceptions are
+owner-only; `Наг и Йеб` keeps `и`; aliases are preserved in aggregate.
+
+**Why the pre-registered gate fails.** The literal `(entity, variant)` multiset
+superset is **not** achieved: full-phrase mode necessarily removes standalone
+generated rows and reattributes overlaps to longer full phrases. This is a
+criterion design conflict, not a successful activation. Separately, five alias
+mentions are pure removals — 4 `Плато Ленг/Ленга`, 1
+`Черное Солнце/Черное Солнце` — and are not covered by a longer full phrase;
+29 alias rows also appear at new positions (26 `Книгу`). These are existing
+aliases, not catalog alias deletions, but they violate the “only approved
+full-phrase additions” clause at output level.
+
+**Decision.** Do not activate. `Legacy` remains default. The failed criterion
+is not retroactively weakened. A next attempt needs a **new pre-registered**
+criterion before another run: catalog-level Plus ⊃ `FullPhraseOnly` with only
+standalone removals and exactly the approved exceptions, plus output-level
+“pure additions are full/approved; pure removals are standalone; no uncovered
+alias removals”; deterministic output; green verify/selfcheck. The five alias
+removals and 29 alias additions must be explained or eliminated first.

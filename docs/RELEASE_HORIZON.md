@@ -28,6 +28,11 @@ Promotion в v18.2/default допускается только при однов
 
 1. Независимый probe (не тот же sample) даёт для одного bucket
    **P≥0,85** и **R≥0,80** с заранее зафиксированными labels.
+   **Independent** здесь означает все три составляющие: новый sample (не 50
+   строк probe 2), новый annotator (если доступен; как минимум не автор
+   проверяемых labels) и другой срез корпуса (не phase-c-1000, если
+   практически возможно). Повторный запуск probe 2 через неделю не является
+   independent.
 2. Source safety properties сохранены: `sidecar > detector`,
    missing→`unknown`, duplicate worst-source, raw/review содержит все строки.
 3. В trusted попадают только `source=usable`; 0 violations.

@@ -250,6 +250,13 @@ laundering непроверенного контента: detector-negative — 
 эквивалентное evidence), а не один byte-hash. P2-29 и ~322 строки остаются в
 review до появления такого класса.
 
+**P2-29 premise (diagnostic).** Identical bytes, different classification
+because the `unknown` copy is **path/list-classified** (`candidate_tail`, from
+the 267 candidate list), while the `usable` copy is **content-detector-negative**
+(`detector_negative`, `evidence_level=detector_only`). This is not a
+content-detector disagreement; it is a path/list gate plus an unverified
+detector-negative. The `usable` copy is not `verified_clean`.
+
 **Acceptance (product run).** (1) classifier-only trusted 6 462 → **3 317**;
 (2) blocked **3 145** = **193** degraded + **2 952** unknown; (3) raw/review
 **33 430** строк, 2 597 файлов с rows — не изменился; (4) основной CSV
@@ -260,6 +267,13 @@ trusted-строк **13** остаются `trusted`, одна (P2-29, canonical
 наследует `unknown`. Это ожидаемая цена duplicate-гейта; classifier-only
 probe-2 P=1,000 и R=14/23 (60,9%) не меняются, а source-gated product view
 даёт 13/23 (56,5%) trusted-good. Raw/review сохраняет P2-29.
+
+**Accepted trade-off.** Source gate: R drops **60,9% → 56,5%** (−1/23 good
+string in probe 2) to remove **2 629** classifier-trusted unknown rows from
+trusted in the early diagnostic — ratio **1:2629**. After deterministic
+duplicate reconciliation the final product blocks **2 952** unknown rows; the
+extra 323 are the duplicate-content correction, not a different gate. This is
+the accepted cost, not an oversight.
 
 **Почему не 3 640.** Early local diagnostic counted rows before deterministic
 duplicate reconciliation: old output attributed 454 rows of the duplicated
