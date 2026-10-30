@@ -240,6 +240,16 @@ cache lookup, поэтому старые cache-записи без source-по�
 именем. В текущем корпусе 16 duplicate groups; одна группа содержит
 267-tail content (456 строк), поэтому её representative получает `unknown`.
 
+**Byte-identical ≠ verified clean.** Проверка P2-29 подтвердила, что копии
+действительно byte-identical, но `usable`-копия имеет
+`source_reason=detector_negative` и `evidence_level=detector_only`, то есть
+она **не проверена вручную**. Inherit-best по byte-hash здесь был бы
+laundering непроверенного контента: detector-negative — это не verified_clean.
+Поэтому текущее правило остаётся `worst`; чтобы разрешить inherit-best,
+нужен отдельный provenance-класс `verified_clean` (ручная проверка или
+эквивалентное evidence), а не один byte-hash. P2-29 и ~322 строки остаются в
+review до появления такого класса.
+
 **Acceptance (product run).** (1) classifier-only trusted 6 462 → **3 317**;
 (2) blocked **3 145** = **193** degraded + **2 952** unknown; (3) raw/review
 **33 430** строк, 2 597 файлов с rows — не изменился; (4) основной CSV

@@ -571,3 +571,30 @@ output SHA-256
 - `CompositeGeneratorPolicy.DefaultMode` remains `Legacy`;
   `FullPhrasePlusExceptions` remains explicit opt-in. No generator activation
   or replacement/default view was shipped.
+
+## 14. Pre-registered activation criterion (2026-10-30)
+
+**One-line gate:** Legacy must reproduce **5 255** on the same corpus/catalog/
+preset, and `FullPhrasePlusExceptions` must be a strict superset of Legacy's
+`(entity, variant)` multiset with only approved full-phrase additions, zero
+standalone/exception regressions, deterministic output, and green
+verify/selfcheck.
+
+Operational checks:
+
+1. Same corpus, catalog, preset and cache policy; Legacy first reproduces the
+   **5 255** generator-only baseline (5 269 is broad diagnostic only, not the
+   acceptance number).
+2. `FullPhrasePlusExceptions` preserves every Legacy `(entity, variant)` row;
+   additions are limited to approved full phrases. No generated standalone
+   head/tail form outside the approved exception set.
+3. **0** regressions on the 14 approved exceptions; `Наг и Йеб` keeps `и`;
+   HOLDs, `Leng` no-op and the 32 duplicate aliases stay unchanged.
+4. Two consecutive runs produce identical `(entity, variant)` multisets;
+   output hash may change because approved full phrases are added, so report
+   hash plus per-card/count delta rather than requiring the old hash.
+5. `verify.ps1 -SkipPublish` and `--self-check` green; no catalog, source,
+   frozen-manifest or Phase C changes.
+6. Activation is a separate explicit commit changing the default; until then
+   `Legacy` remains default and `FullPhrasePlusExceptions` stays opt-in. Any
+   failed check means no activation.
