@@ -475,6 +475,7 @@ public sealed class AnalysisEngine
     {
         if (!_sourceQualitySidecar.IsEnabled) return null;
 
+        var resolvedFiles = new List<(string File, SourceQualityResult Result)>(paths.Count);
         SourceQualityResult? worst = null;
         var worstRank = -1;
         foreach (var path in paths)
@@ -482,6 +483,7 @@ public sealed class AnalysisEngine
             var resolved = _sourceQualitySidecar.Resolve(
                 Path.GetFileName(path),
                 new SourceQualityResult(SourceQuality.Usable, SourceQuality.ReasonDetectorNegative));
+            resolvedFiles.Add((Path.GetFileName(path), resolved));
             var rank = resolved.Quality switch
             {
                 SourceQuality.DegradedLexical => 3,
@@ -493,8 +495,27 @@ public sealed class AnalysisEngine
             worstRank = rank;
             worst = resolved;
         }
+
+        if (resolvedFiles.Select(x => x.Result).Distinct().Count() > 1)
+        {
+            var detail = string.Join("; ", resolvedFiles.Select(x =>
+                $"{x.File}={x.Result.Quality}/{x.Result.Reason} [{SourceOrigin(x.Result)}]"));
+            Logging.Log.Info("source", "duplicate source mismatch: {0}", detail);
+        }
+
         return worstRank > 0 ? worst : null;
     }
+
+    private static string SourceOrigin(SourceQualityResult result) => result.Reason switch
+    {
+        SourceQuality.ReasonCandidateTail => "path/list",
+        SourceQuality.ReasonDetectorNegative => "content/detector-negative",
+        SourceQuality.ReasonLexicalSubstitution => "content/detector-positive",
+        SourceQuality.ReasonOcrMissingSpace => "content/detector-positive",
+        SourceQuality.ReasonSidecarMissing => "sidecar-missing",
+        "empty_source" or "no_tokens" => "content/skipped",
+        _ => "unknown",
+    };
 
     /// <summary>Сборка групп дубликатов из карты первых путей и списка копий.</summary>
     internal static List<DuplicateGroup> BuildDuplicateGroups(

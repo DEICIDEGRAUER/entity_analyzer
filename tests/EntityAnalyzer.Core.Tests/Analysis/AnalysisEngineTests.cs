@@ -1,6 +1,7 @@
 using EntityAnalyzer.Core.Analysis;
 using EntityAnalyzer.Core.Codex;
 using EntityAnalyzer.Core.Configuration;
+using EntityAnalyzer.Core.Logging;
 using EntityAnalyzer.Core.Persistence;
 using EntityAnalyzer.Core.Variants;
 using Xunit;
@@ -230,6 +231,7 @@ public class AnalysisEngineTests : IDisposable
             "empty.txt,usable,detector_negative,detector_only,none\n",
             new System.Text.UTF8Encoding(false));
 
+        Log.Init(_out, LogLevel.Info);
         var session = MakeEngine().Run(CancellationToken.None);
 
         var group = Assert.Single(session.DuplicateGroups);
@@ -239,6 +241,9 @@ public class AnalysisEngineTests : IDisposable
         Assert.Equal(SourceQuality.Unknown, kept.SourceQuality);
         Assert.Equal(SourceQuality.ReasonCandidateTail, kept.SourceReason);
         Assert.DoesNotContain(session.Files, f => f.FileName == "z-copy.txt");
+        Assert.Contains(Log.Recent, e =>
+            e.Category == "source" && e.Message.Contains("duplicate source mismatch"));
+        Log.Flush();
     }
 
     private sealed class SynchronousProgress(Action<AnalysisProgress> sink) : IProgress<AnalysisProgress>
