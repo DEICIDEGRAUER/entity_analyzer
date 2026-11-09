@@ -1,7 +1,13 @@
 # Entity Analyzer v18.2 RC — release notes
 
-Tag `v18.2-rc1` · commit `f1a3eb0` · CI 6/6 green (windows-latest / ubuntu-latest ×
-ru-RU / en-US / tr-TR) · 2026-11-09.
+Tags `v18.2-rc1` (commit `f1a3eb0`) and `v18.2-rc2` (the commit holding this
+file — docs-only delta vs rc1). CI 6/6 green (windows-latest / ubuntu-latest ×
+ru-RU / en-US / tr-TR) on the RC commits · 2026-11-09.
+
+**v18.2-rc2 delta vs rc1:** this document, the root-README reproducibility
+section and .NET banner, and the v18.3 backlog in RELEASE_HORIZON.md. No code
+changes vs rc1 — the full rc1..rc2 tree diff touches only `.md` files
+(verified before tagging).
 
 Full change list: [CHANGELOG.md](../../CHANGELOG.md) («Unreleased»). Activation
 record: [OUTPUT_GENERATOR_POLICY.md](OUTPUT_GENERATOR_POLICY.md) §17. Anchor

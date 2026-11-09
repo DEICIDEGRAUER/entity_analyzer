@@ -89,6 +89,7 @@ Backlog отражает известное состояние, а не толь
 
 | Пункт | Состояние / источник |
 |---|---|
+| Root README: полный rewrite — .NET entry point вместо Python-era документа | Баннер-редирект добавлен 2026-11-09 (README.md); полный rewrite в v18.3, когда будет решение, что говорит первый экран. |
 | Удалить `--generator legacy` | После одного цикла без якорных регрессий (OUTPUT_GENERATOR_POLICY §17.7). |
 | Кириллическое склонение canon-транслита («Нугу и Йебу», caps «НУГА и ЙЕБА») | OUTPUT_GENERATOR_POLICY §17.8: ~9 строк (~1%); корень — `FullPhraseMorphology.Decline` получает английский canon (`Nug and Yeb`) → `HasCyrillic=false` → нет canon-translit фразы. |
 | Provenance-класс `verified_clean` (P2-29) | OUTPUT_SOURCE_POLICY.md: байт-идентичность ≠ верифицированная чистота; класс пуст, P2-29 и ~322 строк остаются в `review`. |

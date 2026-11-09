@@ -1,5 +1,10 @@
 # Entity Analyzer v18.1
 
+> **⚠️ Active codebase is .NET — see [dotnet/README.md](dotnet/README.md).**
+> This root README describes the retired Python era (v18.1) and is kept as history.
+> For the current release, see
+> [`dotnet/docs/RELEASE_v18.2-rc1.md`](dotnet/docs/RELEASE_v18.2-rc1.md).
+
 A powerful text analysis tool for entity extraction, relationship mapping, and semantic analysis of text corpora. Designed for researchers, writers, and analysts working with large text collections.
 
 ## Features
