@@ -33,6 +33,22 @@ public class SemanticsAndDuplicatesTests
     }
 
     [Fact]
+    public void DuplicateGroups_Representative_Is_Lexicographic_Not_Completion_Order()
+    {
+        var firstByHash = new Dictionary<string, string> { ["h1"] = @"C:\z\winner-race.txt" };
+        var dups = new List<(string Hash, string Path)>
+        {
+            ("h1", @"C:\a\stable.txt"),
+            ("h1", @"C:\m\copy.txt"),
+        };
+
+        var group = Assert.Single(AnalysisEngine.BuildDuplicateGroups(firstByHash, dups));
+
+        Assert.Equal(@"C:\a\stable.txt", group.Files[0]);
+        Assert.Equal(2, group.RedundantCount);
+    }
+
+    [Fact]
     public void DuplicateGroups_EmptyWhenNoDuplicates()
     {
         var groups = AnalysisEngine.BuildDuplicateGroups(

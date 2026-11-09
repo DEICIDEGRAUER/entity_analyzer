@@ -1,0 +1,231 @@
+{
+  "version": 1,
+  "purpose": "Phase C preflight: existence check for cross-lingual same-referent pairs on the pinned 1000-file slice",
+  "manifest": {
+    "path": "test-fixtures/phase-c-corpus-1000/manifest.json",
+    "sha256": "EA2AC56494EDEB8193D9E1C464F19F5934B8CC226363F510B4EB13A148DA4E95",
+    "entries": 1000,
+    "language_counts": {
+      "ru": 35,
+      "mixed": 227,
+      "en": 738
+    }
+  },
+  "catalog": {
+    "path": "<private appdata>/EntityAnalyzer/codex.json",
+    "sha256": "B0FF04AE5A2679BA647475CCC40291BD95133BEAC4BF89CA41B64DC607146027",
+    "cards": 37
+  },
+  "minimal_run": {
+    "preset": "minimal",
+    "formats": "csv,txt",
+    "no_incremental": true,
+    "elapsed_seconds": 7.6677074,
+    "rows": 880,
+    "distinct_entities": 30,
+    "distinct_files_with_mentions": 387,
+    "entities_table_sha256": "1561C5949C32B3F49C32B49D66A4BCECCAE61118AB604C4EC4926F0E55337FB5",
+    "cli_sha256": "909813835CBE69BC916ACF1FBA3BEF4B67B58366B53A17CC10C4B884221DEF50"
+  },
+  "existence_rule": "Exact or clearly inflected Russian form and canonical English form, in different documents. Generic aliases and one-sided forms are excluded.",
+  "verified_pairs": [
+    {
+      "id": "pcxl-01",
+      "card_id": "c_6167639c2c80",
+      "entity": "Йог-Сотот",
+      "canonical": "Yog-Sothoth",
+      "ru_variant": "Йог-Сотота",
+      "ru_file": "flibusta_downloads/Derlet_Dom-v-doline.gZIS1Q.229561.txt",
+      "ru_file_language": "mixed",
+      "en_variant": "Yog-Sothoth",
+      "en_file": "Lovecraft_Wiki/At the Mountains of Madness.txt",
+      "en_file_language": "en",
+      "rationale": "same referent: Russian declined name in a Russian translation; canonical English name in an English source; distinct documents"
+    },
+    {
+      "id": "pcxl-02",
+      "card_id": "c_1de783bbfcd6",
+      "entity": "Наг и Йеб",
+      "canonical": "Nug and Yeb",
+      "ru_variant": "Наг и Йеб",
+      "ru_file": "Уилл_Мюррей_О_природе_Нага_и_Йеба.txt",
+      "ru_file_language": "mixed",
+      "en_variant": "Nug and Yeb",
+      "en_file": "scraped_texts/Cthulhu_Universalis_Section_N_81d68f626f [Cthulhu Universalis_ Section N.txt].txt",
+      "en_file_language": "en",
+      "rationale": "same referent: exact Russian and English names; distinct documents"
+    },
+    {
+      "id": "pcxl-03",
+      "card_id": "c_1b55915ecdd7",
+      "entity": "Тчо-Тчо",
+      "canonical": "Tcho-Tcho",
+      "ru_variant": "Тчо-Тчо",
+      "ru_file": "flibusta_downloads/Derlet_Sdelka-Sandvina.9FIEAg.229567.txt",
+      "ru_file_language": "ru",
+      "en_variant": "Tcho-Tcho",
+      "en_file": "Lovecraft_Wiki/Call of Cthulhu, End Time.txt",
+      "en_file_language": "en",
+      "rationale": "same referent: exact Russian and English names; distinct documents"
+    },
+    {
+      "id": "pcxl-04",
+      "card_id": "c_68277bce3260",
+      "entity": "Гуль",
+      "canonical": "Ghoul",
+      "ru_variant": "Гуль",
+      "ru_file": "Апокриф писания_a1-10.txt",
+      "ru_file_language": "mixed",
+      "en_variant": "Ghoul",
+      "en_file": "Lovecraft_Wiki/The Ghoul.txt",
+      "en_file_language": "en",
+      "rationale": "same referent: exact Russian singular and English singular; distinct documents"
+    },
+    {
+      "id": "pcxl-05",
+      "card_id": "c_ec7836eb27c7",
+      "entity": "Плато Ленг",
+      "canonical": "Plateau of Leng",
+      "ru_variant": "Плато Ленг",
+      "ru_file": "flibusta_downloads/Shvaycer_Ten-smerti.Se7VNw.384240.txt",
+      "ru_file_language": "mixed",
+      "en_variant": "Plateau of Leng",
+      "en_file": "Lovecraft_Wiki/At the Mountains of Madness.txt",
+      "en_file_language": "en",
+      "rationale": "same referent: exact Russian and English toponym; distinct documents"
+    },
+    {
+      "id": "pcxl-06",
+      "card_id": "c_71d00b31c728",
+      "entity": "Уббо-Сатла",
+      "canonical": "Ubbo-Sathla",
+      "ru_variant": "Уббо-Сатла",
+      "ru_file": "flibusta_downloads/Mayers_Bobok-Almanah-_4_Rozha-v-alkove.a6OS0w.383433.txt",
+      "ru_file_language": "mixed",
+      "en_variant": "Ubbo-Sathla",
+      "en_file": "Lovecraft_Wiki/Grinding Rock.txt",
+      "en_file_language": "en",
+      "rationale": "same referent: exact Russian and English names; distinct documents"
+    },
+    {
+      "id": "pcxl-07",
+      "card_id": "c_ee009e69719f",
+      "entity": "Баст",
+      "canonical": "Bast",
+      "ru_variant": "Баст",
+      "ru_file": "Блох, Роберт. Безликий бог - сборник.txt",
+      "ru_file_language": "mixed",
+      "en_variant": "Bast",
+      "en_file": "Lovecraft_Wiki/Bast.txt",
+      "en_file_language": "en",
+      "rationale": "same referent: exact Russian and English names; distinct documents"
+    },
+    {
+      "id": "pcxl-08",
+      "card_id": "c_3615566d6aac",
+      "entity": "Абхот",
+      "canonical": "Abhoth",
+      "ru_variant": "Абхот",
+      "ru_file": "flibusta_downloads/Mayers_Bobok-Almanah-_4_Rozha-v-alkove.a6OS0w.383433.txt",
+      "ru_file_language": "mixed",
+      "en_variant": "Abhoth",
+      "en_file": "CthulhuFiles/Cthulhu Universalis_ Section A [Cthulhu_Universalis_Section_A_133c395081.txt].txt",
+      "en_file_language": "en",
+      "rationale": "same referent: exact Russian and English names; distinct documents"
+    },
+    {
+      "id": "pcxl-09",
+      "card_id": "c_c15630411030",
+      "entity": "Гипнос",
+      "canonical": "Hypnos",
+      "ru_variant": "Гипнос",
+      "ru_file": "flibusta_downloads/Говард Лавкрафт - Сны Ктулху [сборник, litres с оптимизированной обложкой] [553175].txt",
+      "ru_file_language": "mixed",
+      "en_variant": "Hypnos",
+      "en_file": "scraped_texts/Stories_f5b8a5be94 [H. P. Lovecraft, Hypnos.txt].txt",
+      "en_file_language": "en",
+      "rationale": "same referent: exact Russian and English names; distinct documents"
+    },
+    {
+      "id": "pcxl-10",
+      "card_id": "c_e605f8642ebc",
+      "entity": "Мири Нигри",
+      "canonical": "Miri Nigri",
+      "ru_variant": "Мири Нигри",
+      "ru_file": "Ужас с Холмов (2).txt",
+      "ru_file_language": "mixed",
+      "en_variant": "Miri Nigri",
+      "en_file": "Lovecraft_Wiki/The Very Old Folk.txt",
+      "en_file_language": "en",
+      "rationale": "same referent: exact Russian transliteration and English name; distinct documents"
+    },
+    {
+      "id": "pcxl-11",
+      "card_id": "c_d10d6ff6d557",
+      "entity": "Книга Эйбона",
+      "canonical": "Book of Eibon",
+      "ru_variant": "Книга Эйбона",
+      "ru_file": "flibusta_downloads/Hembli_Plemyannica-antikvara.MfkkSw.384241.txt",
+      "ru_file_language": "mixed",
+      "en_variant": "Book of Eibon",
+      "en_file": "CthulhuFiles/H. P. Lovecraft and Hazel Heald, The Man of Stone [Оригинал.txt].txt",
+      "en_file_language": "en",
+      "rationale": "same referent: exact Russian and English title; distinct documents"
+    }
+  ],
+  "counts": {
+    "verified": 11,
+    "required_for_primary": 10
+  },
+  "decision": "cross_lingual_primary",
+  "near_misses": [
+    {
+      "entity": "Безымянный Туман",
+      "card_id": "c_d922e1598379",
+      "ru_observed": [
+        "Тумана",
+        "Тумане",
+        "Туманом"
+      ],
+      "en_observed": [
+        "Magnum Innominandum"
+      ],
+      "reason": "no full Russian name; generic forms only"
+    },
+    {
+      "entity": "Йкнаггнсизсс",
+      "card_id": "c_4fb122043697",
+      "ru_observed": [
+        "Зот",
+        "Мерзость"
+      ],
+      "en_observed": [
+        "Dark Star"
+      ],
+      "reason": "only alias/translation, not the same surface name; generic form excluded"
+    },
+    {
+      "entity": "Мордиггиан",
+      "card_id": "c_00a06e8813b9",
+      "ru_observed": [
+        "Крысиный Король"
+      ],
+      "en_observed": [
+        "Mordiggian",
+        "The Rat King"
+      ],
+      "reason": "translated alias, not exact; identity needs source confirmation"
+    },
+    {
+      "entity": "Ляо",
+      "card_id": "c_e13cbc355dc4",
+      "ru_observed": [
+        "Чёрный Лотос"
+      ],
+      "en_observed": [
+        "Black Lotus"
+      ],
+      "reason": "translated alias, not exact; identity needs source confirmation"
+    }
+  ]
+}

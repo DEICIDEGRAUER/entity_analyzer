@@ -150,7 +150,7 @@ public sealed class VariantFactory
         string canon,
         bool deepCorrupt = true,
         int iterations = 1,
-        CompositeVariantMode compositeMode = CompositeVariantMode.Legacy,
+        CompositeVariantMode compositeMode = CompositeGeneratorPolicy.DefaultMode,
         IReadOnlyCollection<string>? standaloneExceptions = null)
     {
         if (string.IsNullOrWhiteSpace(canon)) return [];
@@ -226,7 +226,7 @@ public sealed class VariantFactory
         IReadOnlyList<string> irregular,
         bool isCommonWord,
         int iterations = 2,
-        CompositeVariantMode compositeMode = CompositeVariantMode.Legacy,
+        CompositeVariantMode compositeMode = CompositeGeneratorPolicy.DefaultMode,
         IReadOnlyCollection<string>? standaloneExceptions = null)
     {
         var basic = Transliterator.Basic(canon);

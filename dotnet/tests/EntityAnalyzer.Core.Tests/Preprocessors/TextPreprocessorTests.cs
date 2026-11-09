@@ -103,8 +103,10 @@ public class TextPreprocessorTests
         var corpus = Path.Combine(Path.GetTempPath(), "ea_pp_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(corpus);
         // Колонтитул между абзацами ломает контекст цитаты; препроцессор его убирает.
+        // «Нага и Йеба» матчится в обоих режимах генератора (plus: фраза целиком,
+        // legacy: генераторное «Нага») — фикстура не зависит от default-режима.
         File.WriteAllText(Path.Combine(corpus, "t1.txt"),
-            "Жрец Нага шептал у алтаря Йеба.\n— 12 —\nИ тьма отвечала ему из глубины подземелья.\n",
+            "Жрец Нага и Йеба шептал у алтаря.\n— 12 —\nИ тьма отвечала ему из глубины подземелья.\n",
             new System.Text.UTF8Encoding(false));
 
         try

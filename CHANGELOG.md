@@ -173,6 +173,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the full context does not score.
 
 ### Changed
+- v18.2 RC activation: composite-name generator default changed from `Legacy`
+  to `FullPhrasePlusExceptions`. Composite names are declined as whole phrases
+  (`Нага и Йеба`, `Плато Ленгом`), and per-component standalone case-forms
+  (`Нагу`, `Йебам`, `Наги`) are no longer emitted for them; approved
+  standalone exceptions (`Ленгом`, `Цанга`, `Цанге`) stay. Expected content
+  delta on the 37-card diagnostic run (preset `minimal`): **33 430 → 28 314**
+  rows; **5 167** misleading standalone rows removed; **164** approved
+  full-phrase rows and **29** same-context alias re-attributions added; **5**
+  nested-span improvements; **137** rows replaced by a longer full phrase.
+  On the default one-card corpus anchor the full-corpus snapshot moves
+  915 → **852** mentions (265 → **243** files); the frozen 198-event trace,
+  the smoke anchor (`E50A1559…`), and the 8-column `entities_table.csv`
+  schema are unchanged. `Legacy` remains available as
+  `--generator legacy` for one release cycle (rollback path; removal in
+  v18.3); `full-phrase` and `full-phrase-plus` are explicit choices.
+  The selfcheck baseline was re-captured under the new default (4 files /
+  5 mentions). See `docs/OUTPUT_GENERATOR_POLICY.md §17` for the activation
+  record.
 - The homonym classifier now scores a local context window instead of using
   the first personal word anywhere in the sentence: inflected forms of the
   term (`Нага`, `Наге`, `Нагом`) are matched, place prepositions work through

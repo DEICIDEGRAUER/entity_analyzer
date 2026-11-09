@@ -1,14 +1,18 @@
 # Generator policy для composite names: аудит, inspection и opt-in реализация
 
-**Статус (2026-10-28): QUALITATIVE INSPECTION + OPT-IN IMPLEMENTATION;
-production default не изменён.** Pre-change audit и post-catalog diagnostic
-(33 430 строк; §3.5) не переписаны. 12 approved catalog corrections
-применены отдельно; source-файлы, `entities_table.csv`, frozen-манифесты,
-Phase C и selfcheck baseline не менялись. Policy реализована как
-`CompositeVariantMode` / `FullPhraseMorphology` и проверена тестами, но
-`CompositeGeneratorPolicy.DefaultMode` остаётся `Legacy` до отдельного
-activation-прогона; это не скрытая смена default. Exception list прошёл
-qualitative inspection 20–30 affected rows (§10), а не probe 3.
+**Статус (2026-11-09): ACTIVATED — v18.2 RC; GENERATOR COMPARISON SELFCHECK GREEN UNDER
+CRITERION v2 (2026-10-30); OWNER DECISION = v18.2 RC (записана
+до дедлайна
+2026-11-17), production default = `FullPhrasePlusExceptions`.**
+Pre-change audit и post-catalog diagnostic (33 430 строк; §3.5) не
+переписаны. 12 approved catalog corrections применены отдельно. Policy
+реализована как `CompositeVariantMode` / `FullPhraseMorphology` и
+проверена тестами; `Legacy` остаётся доступным как `--generator legacy`
+(opt-out на один цикл, удаление в v18.3). Запись активации: §17.
+Frozen trace не изменён: hash `1B72B940…`, smoke anchor — no-op
+(проверено двойным прогоном), полный corpus anchor переснят:
+`generator_v2_2026-11-09` (§17.4). Selfcheck baseline переснят под новый
+default (§17.5): 4 файла / 5 упоминаний.
 
 Связанные документы:
 [`OUTPUT_CATALOG_AUDIT.md`](OUTPUT_CATALOG_AUDIT.md) §9 —
@@ -500,9 +504,11 @@ standalone exceptions; они эмитятся **только** для свое�
 - `VariantFactory.Generate/GenerateTwoPass` принимают mode/exceptions;
   `EntityDefinition` получает `CompositeMode` и `StandaloneExceptions`.
 - `Legacy` оставлен default в `CompositeGeneratorPolicy.DefaultMode`:
-  selfcheck baseline и frozen guards не переписаны. Activation — отдельный
-  commit после перепрогона `verify.ps1`/selfcheck и сравнения output; это не
-  скрытая смена default.
+  selfcheck baseline и frozen guards не переписаны. `verify.ps1 -SkipPublish`
+  и `--self-check` прошли 2026-10-29, 5 255 generator-only baseline не
+  изменился; activation всё равно остаётся отдельным решением/commit, а не
+  скрытой сменой default. (Историческая запись; активация выполнена
+  отдельно 2026-11-09, §17.)
 - Tests: `FullPhraseMorphologyTests`, `CompositeVariantPolicyTests` (900
   Core tests проходят). Проверяется отсутствие bare head/tail, сохранение
   союза `и`, approved exceptions и Legacy-совместимость.
@@ -553,3 +559,260 @@ output SHA-256
 **5 255** при `Legacy`; 5 269 можно использовать только как широкую
 диагностику, иначе полные фразы будут ошибочно засчитаны как standalone
 шум. В отчётах указывать оба числа нельзя без определения метрики.
+
+## 13. Verification 2026-10-29 (activation not performed)
+
+- `verify.ps1 -SkipPublish`: build 0 warnings / 0 errors; **928/928** tests;
+  CLI isolated-corpus, smoke-corpus anchor `E50A1559…`, Phase C guard and
+  bench-gate green; real profile untouched.
+- `EntityAnalyzer.Cli --self-check` passed in 804 ms.
+- Product output with deterministic duplicate representative (SHA-256
+  `9444106C4E41B36F8872B6EAEBAA0F949A84485212555AC81C9D6209F50D8BA3`)
+  has the same per-entity counts as the frozen `6553A62C…` snapshot, so
+  generator-only baseline remains **5 255** / broad **5 269** (14 full
+  phrases).
+- `CompositeGeneratorPolicy.DefaultMode` remains `Legacy`;
+  `FullPhrasePlusExceptions` remains explicit opt-in. No generator activation
+  or replacement/default view was shipped.
+
+## 14. Pre-registered activation criterion (2026-10-30; v2)
+
+**One-line gate:** Legacy reproduces **5 255**; `FullPhrasePlusExceptions`
+must pass the **7 assertions** below and be green on `verify.ps1
+-SkipPublish` and `--self-check`. The earlier literal
+`(entity, variant)` multiset-superset clause is retired; it was ill-formed
+and could not pass by construction because it could not distinguish
+replacement from loss.
+
+Assertions:
+
+1. The 43 approved full-phrase forms are present in plus output.
+2. The 3 approved exceptions (`Ленгом`, `Цанга`, `Цанге`) are present.
+3. No standalone head/tail form outside the approved exception set is emitted.
+4. No orphan removals: every removed row is either standalone suppression or
+   nested span improvement.
+5. No orphan additions: every added row is either an approved full phrase or
+   same-context re-attribution.
+6. Determinism: two consecutive runs produce identical `(entity, variant)`
+   multisets.
+7. HOLDs, `Leng` and the 32 duplicate aliases stay unchanged.
+
+The row-level proof for assertions 4 and 5 is the
+[`OUTPUT_GENERATOR_TRACE.md`](OUTPUT_GENERATOR_TRACE.md) audit list: 5
+`nested_span_improvement`, 29 `same_context_re_attribution`, 164
+`approved_addition`; 0 `standalone_suppression` and 0 orphan events. The same
+trace is pinned by `scripts/verify-generator-policy.ps1` and enforced in
+`verify.ps1`; silent edits to the trace fail.
+
+Operational checks:
+
+1. Same corpus, catalog, preset and cache policy; Legacy first reproduces the
+   **5 255** generator-only baseline (5 269 is broad diagnostic only, not the
+   acceptance number).
+2. `FullPhrasePlusExceptions` preserves every approved full phrase / approved
+   exception and does not emit a standalone head/tail outside the exception
+   list.
+3. `Наг и Йеб` keeps `и`; HOLDs, `Leng` no-op and the 32 duplicate aliases
+   stay unchanged.
+4. Two consecutive runs produce identical `(entity, variant)` multisets;
+   output hash may change because approved full phrases are added, so report
+   hash plus per-card/count delta rather than requiring the old hash.
+5. `verify.ps1 -SkipPublish` and `--self-check` green; no catalog, source,
+   frozen-manifest or Phase C changes.
+6. Activation is a separate explicit commit changing the default; until then
+   `Legacy` remains default and `FullPhrasePlusExceptions` stays opt-in. Any
+   failed check means no activation.
+
+**Selfcheck status (2026-10-30): green under criterion v2; see §15.**
+Activation still remains a separate decision and commit.
+
+Release horizon: v18.2 exploratory; see
+[`RELEASE_HORIZON.md`](RELEASE_HORIZON.md). Generator activation does not
+change the v18.1 default.
+
+## 15. Generator comparison selfcheck (2026-10-30; historical pre-activation run)
+
+Run: same corpus (10 531 files), same codex SHA-256
+`95B54F6DBCB3A12CBAD34EAEA57101AAC40226052C3FAFFFB430A320A0AE7A85`,
+preset `minimal`, max mentions unlimited, cache disabled. Legacy and
+`FullPhrasePlusExceptions` were run on the identical catalog/corpus; Plus was
+run twice. Source sidecar was not applied because it does not change mention
+rows. Under criterion v2 the run is **green**; activation happened later
+(§17) and did not rerun or rewrite this selfcheck.
+
+**Baseline.** Legacy: **33 430** rows, identical multiset to the existing
+`entities_table.csv`; generator-only **5 255** and broad non-alias **5 269**
+reproduced exactly. Plus: **28 314** rows in both runs; deterministic.
+
+**Catalog-level.** Legacy 18 634 variants; Plus 18 580. Plus removes **100**
+variants, all standalone non-alias generated forms; adds **46** variants = 43
+full-phrase forms + 3 approved exceptions (`Ленгом`, `Цанга`, `Цанге`). Plus is
+a strict superset of `FullPhraseOnly`, and no catalog alias is removed.
+
+**Output-level.** 28 121 rows retained, 137 replaced by a longer full phrase;
+5 172 pure removals = 5 167 standalone + **5 alias**; 193 pure additions =
+164 full-phrase + **29 alias**. There are 0 standalone non-approved additions;
+full phrases and approved exceptions are preserved; approved exceptions are
+owner-only; `Наг и Йеб` keeps `и`; aliases are preserved in aggregate.
+
+**Why the earlier gate failed and why v2 passes.** The literal
+`(entity, variant)` multiset superset was ill-formed: it could not distinguish
+replacement from loss. Under criterion v2 the same run is **green**: 164
+full-phrase `approved_addition` rows, 29 `same_context_re_attribution` alias
+rows, and 5 `nested_span_improvement` alias removals are traceable in
+[`OUTPUT_GENERATOR_TRACE.md`](OUTPUT_GENERATOR_TRACE.md). There are 0
+standalone non-approved additions and 0 orphan events. The trace is
+complementary to the output-level counts, not a replacement for them.
+
+**Decision.** Do not activate in the same commit. `Legacy` remains default.
+Activation is now a **product decision**, not a technical blocker; see §16 for
+the explicit plan and the required activation artifact set. The five alias
+removals and the 29 alias additions are improvement-class events, not losses,
+and should not be recorded as residuals.
+(Recorded 2026-10-30; superseded 2026-11-09 — activated as a separate
+explicit commit, §17.)
+
+## 16. Activation plan (executed in the v18.2 RC activation commit)
+
+**Status: ACTIVATED 2026-11-09 (decision v18.2 RC, 8 days before the
+2026-11-17 deadline). The table below was the pre-activation plan and is
+kept as the record of what the activation commit had to touch; §17 records
+what was actually done and what the checks showed.**
+
+Criterion v2 is green: 7 assertions; frozen trace of **5** nested-span
+improvements, **29** same-context re-attributions, and **164** approved
+additions; **0** orphan removals/additions; two deterministic Plus runs; green
+`verify.ps1 -SkipPublish`, `--self-check`, and smoke/Phase C anchors as of
+2026-10-30. The plan below was written while the default was still `Legacy`.
+
+Activation must be a separate commit and release. It changes `entities_table.csv`
+content, so it must carry the release paperwork, not just the flag flip. The
+activation commit must update every file below; otherwise the guard/test suite
+is green today only because it still expects the pre-activation state.
+
+| # | File | Action on activation | Guard |
+|---|---|---|---|
+| 1 | `src/EntityAnalyzer.Core/Variants/CompositeVariantPolicy.cs` | Switch `CompositeGeneratorPolicy.DefaultMode` to `FullPhrasePlusExceptions`; keep the rollback switch and the existing smoke/Phase C anchors green. This commit alone does not rewrite the corpus snapshot. | `GeneratorPolicyTraceTests` and `verify-generator-policy.ps1` assert the *new* default in the same commit. They must not be patched separately. |
+| 2 | `tests/EntityAnalyzer.Core.Tests/Variants/GeneratorPolicyTraceTests.cs` | Update `Composite_generator_default_remains_legacy_until_explicit_activation` to the new default. The 5/29/164 trace assertions are invariant to that switch. | The test suite fails if someone flips the default without updating the guard. |
+| 3 | `scripts/verify-generator-policy.ps1` | Pre-activation guard asserts `Legacy`. After activation it asserts `FullPhrasePlusExceptions` and the same 198-event vocabulary and trace hash. | Activation without this script update leaves `verify.ps1` red. |
+| 4 | `docs/OUTPUT_GENERATOR_TRACE.csv` / `OUTPUT_GENERATOR_TRACE.md` | Keep the frozen trace exactly as is. The 198 events compare the same two modes before and after the switch, so the CSV is invariant to which of them is the default. | The hash-guard pins it; the doc and script cannot disagree. |
+| 5 | `smoke-corpus/manifest.json` / `README.md` | No smoke re-baseline expected. Grep on 2026-11-03 matched no `Legacy`-only / Plus-only variant of `Наг и Йеб` in the 16 smoke files. | The corpus output hash `E50A1559...` is expected to stay green after activation. |
+| 6 | `docs/corpus-manifest.json` / `CORPUS.md` | Regenerate the current full-corpus snapshot, record the new `entities_table.csv` SHA-256, and mark the prior snapshot `superseded_by` with the stated reason. | The corpus snapshot is a semantic anchor, not a source-preview artifact. |
+| 7 | `docs/RELEASE_HORIZON.md` | Record either the selected option (v18.2 RC / opt-in / v18.3) or the 2026-11-17 fallback so the branch is never closed as "still waiting". State whether the release is a default change in the consumer-facing release notes. | Product decision is explicit. |
+| 8 | `CHANGELOG.md` / release notes | Record the expected content delta, not vague "better": **5 167** misleading standalone rows removed, **164** full-phrase/approved rows added, **29** same-context alias re-attributions, **5** nested-span improvements; 137 rows replaced by a longer full phrase; raw/review output size **33 430 → 28 314**; trusted/review products stay count-neutral under the frozen source-gate policy unless the owner explicitly re-baselines them. | Reviewer must see the expected CSV change, not a vague improvement claim. |
+| 9 | Phase C artifacts / ONNX fixture pins | Phase C and the ONNX fixture are separate model-based gates; they may remain frozen. If the activated default changes their input snapshots, re-pin them in the same commit. | The Phase C/ONNX gate uses its own labels and pinned corpus slice; it must not silently change. |
+| 10 | Downstream consumers | `ReportExporter` (called from CLI, GUI/`ExportViewModel`, `HeadlessServer`) *writes* `entities_table.csv`; `PhaseC` tooling and the smoke-corpus re-baseline *read* it. Other in-repo consumers are none today. If another consumer is found, it must be added by name. | "What breaks on activation" becomes an owned list, not narrative prose. |
+
+### 16.1 Decision deadline and fallback (resolved 2026-11-09)
+
+**Decision deadline: 2026-11-17. Resolved: the owner selected v18.2 RC on
+2026-11-09, before the deadline; the fallback below is now moot.**
+
+- **By 2026-11-17** the release owner accepts one of:
+  - **v18.2 RC** — activation becomes a versioned release, **← selected
+    2026-11-09 and executed (§17)**,
+  - **v18.2 opt-in** — generator stays opt-in, `Legacy` remains default,
+  - **v18.3** — keep the activation plan but do not activate in this branch.
+- The 2026-11-17 fallback (branch reclassified as evidence for v18.3) no
+  longer applies: the decision was explicit and recorded in
+  `RELEASE_HORIZON.md` before the deadline.
+- No deadline extension is valid unless it is explicitly recorded in
+  `RELEASE_HORIZON.md` and acknowledged in the docs update commit.
+
+The deadline is a release-management line, not a trigger to activate. It turns
+"green but undecided" into "decided, and either way the tree is closed with an
+owner decision."
+
+## 17. Activation record (2026-11-09)
+
+**Decision.** The release owner selected **v18.2 RC** on 2026-11-09 — 8 days
+before the 2026-11-17 deadline, with the defined in-repo consumer set
+(`ReportExporter` writer; Phase C tooling and the smoke re-baseline as
+readers) and no known external consumer. The activation is one coordinated
+commit; this section is its record.
+
+### 17.1 Code switch
+
+- `CompositeGeneratorPolicy.DefaultMode` → `FullPhrasePlusExceptions`
+  (`CompositeVariantPolicy.cs`); the documented exception list stays
+  owner-scoped (`Ленгом`, `Цанга`, `Цанге`).
+- **Discovery during activation:** the switch alone was a silent no-op —
+  `CodexSearchAdapter.ToDefinitions` pinned `Legacy` in its own optional
+  parameter, and every caller used that default, so the production pipeline
+  never consulted `CompositeGeneratorPolicy.DefaultMode`. Fixed by pointing
+  the adapter default (and the `VariantFactory.Generate/GenerateTwoPass`
+  parameter defaults) at the policy default. A dedicated regression test
+  (`Codex_adapter_default_mode_follows_the_policy`) now asserts that the
+  adapter follows the policy and that the generated pool contains the
+  full-phrase form and no legacy per-component tail.
+- CLI rollout switch added: `--generator legacy | full-phrase |
+  full-phrase-plus`. `legacy` is the documented rollback for one release
+  cycle (removal in v18.3); an invalid value is warned and ignored.
+
+### 17.2 Frozen trace (untouched, as planned)
+
+`OUTPUT_GENERATOR_TRACE.csv` hash `1B72B940…` (CRLF pin) and the 198 events
+(5 / 29 / 164, 0 standalone suppression) are unchanged. The trace compares
+the same two modes in either direction, so the activation does not rewrite
+it; `verify-generator-policy.ps1` now asserts the new default and the same
+frozen hash. Guard: green after the switch.
+
+### 17.3 Smoke anchor (no-op, verified by runs)
+
+Predicted no-op (§16 row 5) and confirmed by execution under the new
+default: `update-smoke-baseline -Check` produced the pinned canonical hash
+`E50A1559695D13CED7708C640CDD4A73E5C42C3C1EEBF568B1933196AE71B34C` with
+13 mentions in 12 files across two deterministic runs. `manifest.json`
+and `README.md` of the smoke fixture were not touched.
+
+### 17.4 Full corpus anchor (`generator_v2_2026-11-09`)
+
+Fresh run with the activated publish-cli (default one-card codex, preset
+`extended`, isolated profile, `--no-incremental`):
+
+- Corpus composition is byte-identical to the prior snapshot: 10 549
+  scanned, 10 547 supported, 10 531 analyzed, 16 duplicate groups / 16
+  skipped, `total_bytes` 816 451 570, Merkle root
+  `A83328DB3E9500D874D0A3D32B2EA20C188ECB467C577DAD24AE17E0E0110245`
+  (recomputed 2026-11-09; the machine-checked proof that the change is the
+  pipeline, not corpus drift).
+- `entities_table.csv` raw SHA-256:
+  `5177494C82A6C01C5C3D4E2931D49EDAACFB6132ECFF0269671AE8B8F7F93C12`;
+  certifications: **852** mentions in **243** files (prior snapshot:
+  915 / 265). Two identical runs reproduced the same hash.
+- `corpus-manifest.json` records `generator_v2_2026-11-09` and marks
+  `dedup_fix_2026-10-24` `superseded_by` it with the pipeline-change
+  reason; `CORPUS.md` tables updated.
+- The prior hash `690644D6…` remains reproducible with the activated binary
+  via `--generator legacy`.
+
+### 17.5 Selfcheck baseline (re-baselined in this commit)
+
+The embedded R2-16 baseline (`Resources/selfcheck_baseline.json`) was
+captured under the Legacy generator. Under the new default the engine
+produced 5 files / 4 files-with-mentions / 5 mentions (`Наг и Йеб`: 5), so
+`--self-check` went red exactly as designed — the guard caught the default
+change. Re-captured in this commit via `--self-check --update-baseline`
+and committed as the new pin.
+
+### 17.6 Tests and mechanical fixtures
+
+- `GeneratorPolicyTraceTests`: default assertion updated to the new default;
+  the 198-event assertions are invariant and untouched; the new
+  adapter-follows-policy test added (17.1).
+- Two non-generator tests (`ContentAddressableCacheTests.
+  Mentions_carry_offsets_for_verdict_keys`,
+  `TextPreprocessorTests.Engine_applies_preprocessor_when_enabled`) relied on
+  Legacy generator-only standalone forms (`Нага`, `Йеба`, `Нагу`, `Йебе`) in
+  their fixture texts and found 0 mentions under the new default. Their
+  fixtures were rewritten to phrase forms that match under both modes
+  (`Нагу и Йебу`, `Наге и Йебе`, `Нага и Йеба`), so the tests are again
+  mode-neutral rather than pinned to the new default.
+
+### 17.7 Rollback and v18.3 removal
+
+`--generator legacy` is the user-visible rollback for one release cycle.
+Removal criteria for v18.3: no anchor regression (this record's checks are
+the reference), `verify.ps1 -SkipPublish` green with the new default after
+one cycle. A smaller mention count than the Legacy runtime is expected
+behavior, not a defect.

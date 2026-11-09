@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "created": "2026-10-25",
+  "purpose": "Phase C retrieval run manifest for the pinned phase-c-1000 slice",
+  "corpus_class": "phase-c-1000-slice",
+  "corpus_slice": {
+    "name": "phase-c-corpus-1000",
+    "file_count": 1000,
+    "languages": {
+      "ru": 35,
+      "mixed": 227,
+      "en": 738
+    },
+    "manifest_file": "test-fixtures/phase-c-corpus-1000/manifest.json",
+    "manifest_file_sha256": "77D348AB5CFB13E5031EB1DBAD809DA0B7067C778E2F12BAA44725CD76BEDF6B",
+    "manifest_canonical_sha256": "EA2AC56494EDEB8193D9E1C464F19F5934B8CC226363F510B4EB13A148DA4E95",
+    "manifest_hash_rule": "SHA-256 over sorted entries: path\\0sha256\\0size\\0language\\n"
+  },
+  "extraction": {
+    "preset": "minimal",
+    "extended_preset_used": false,
+    "catalog": "private EntityAnalyzer codex.json",
+    "catalog_card_count": 37,
+    "catalog_sha256": "B0FF04AE5A2679BA647475CCC40291BD95133BEAC4BF89CA41B64DC607146027",
+    "formats": [
+      "csv",
+      "txt"
+    ],
+    "incremental": false,
+    "command_template": "EntityAnalyzer.Cli --preset minimal --catalog <private-codex.json> --formats csv,txt --no-incremental",
+    "preflight_binary_sha256": "909813835CBE69BC916ACF1FBA3BEF4B67B58366B53A17CC10C4B884221DEF50",
+    "entities_table_scope": "phase-c-1000 extraction output, not the full corpus",
+    "entities_table_sha256": "1561C5949C32B3F49C32B49D66A4BCECCAE61118AB604C4EC4926F0E55337FB5",
+    "entities_table_rows": 880,
+    "matched_files": 387,
+    "matched_entities": 30,
+    "full_corpus_entities_table_anchor_sha256": "690644D690C8B4FDCB44D699B4BA7F904FEB8DD6D10473F4C9632D29EAAB8EEE",
+    "hash_note": "1561... is the phase-c-1000 slice anchor; 690644... is the separate full-corpus anchor. They must not be treated as the same input."
+  },
+  "labels": {
+    "frozen_before_first_retrieval_score": true,
+    "primary": {
+      "file": "test-fixtures/phase-c-corpus-1000/labels/labels-primary.jsonl",
+      "sha256": "E81CBC59C14BE84A6F65A2DB9B231E358FD6F829A474CA76C2A75BFD5ADE1280",
+      "query_count": 11,
+      "anchor_count": 22,
+      "positive_anchors": 11,
+      "hard_negative_anchors": 11,
+      "candidate_pool": 275
+    },
+    "track_a": {
+      "file": "test-fixtures/phase-c-corpus-1000/labels/labels-track-a.jsonl",
+      "sha256": "F820DE0915EE563F5E1801839E664C05E8470BC061FA5DB95DCFD6CD3D0A3E85",
+      "pair_count": 8,
+      "positive": 3,
+      "negative": 5,
+      "candidate_pool_entities": 30,
+      "candidate_contexts": 880
+    },
+    "metadata": {
+      "file": "test-fixtures/phase-c-corpus-1000/labels/labels.meta.json",
+      "sha256": "47ACF677715FA4BB05769029F20C09F9B5D18B0FC798B7DCDEAEC129B1132BFC"
+    },
+    "cross_lingual_pairs": {
+      "file": "test-fixtures/phase-c-corpus-1000/cross-lingual-pairs.json",
+      "sha256": "865D98328E071B760522E8F1B39264B484DFF953C9F9E883B27168E73380C289"
+    }
+  },
+  "criteria": {
+    "document": "docs/PHASE_C.md",
+    "label_criteria_commit": "b5ec14c",
+    "representation_criteria_commit": "3ca8f24",
+    "primary_representation": "extracted entity variant, not full context",
+    "diagnostic_representation": "full mention context; not the gate",
+    "thresholds": {
+      "precision_at_5_fail": 0.40,
+      "precision_at_5_acceptable_max": 0.65,
+      "ndcg_at_10_fail": 0.45,
+      "ndcg_at_10_acceptable_max": 0.70,
+      "relative_precision_at_5_gain": 0.10,
+      "relative_ndcg_at_10_gain": 0.05
+    }
+  },
+  "model": {
+    "name": "e5-small-int8",
+    "manifest_file": "models/manifest.json",
+    "model_file": "models/e5-small-int8/onnx/model_int8.onnx",
+    "model_sha256": "4D24E2BC01A447951524466EF533E52944BF48509E6552810BCEE1A2711CB02C",
+    "tokenizer_file": "models/e5-small-int8/sentencepiece.bpe.model",
+    "tokenizer_sha256": "CFC8146ABE2A0488E9E2A0C56DE7952F7C11AB059ECA145A0A727AFCE0DB2865"
+  },
+  "run": {
+    "evaluator": "tools/PhaseC",
+    "evaluator_commit": "48648fc",
+    "repeat_count": 2,
+    "semantic_neighbors_repeat_identical": true,
+    "semantic_neighbors_csv": "output/phase-c-1000/semantic_neighbors.csv",
+    "semantic_neighbors_sha256": "96C3F1BBFD9A1EB2C1898E13059A2BC83DCDFDC1E862A306D8E8BCE6A3AC2D59",
+    "semantic_neighbors_rows": 68,
+    "semantic_neighbors_status": "EXPLORATORY",
+    "reports": {
+      "name_json_sha256": "8FD607943C22D514725EC5A49986BA1D9CEC1DF408EBDE98A7A55D8E57E76B48",
+      "name_markdown_sha256": "A637E0A64519C4FA564D4B754D6816B5BB0046F10E8EB2C0429CC9112930D21E",
+      "context_json_sha256": "08B334F6F6513B0E2E6A31BB6DFB7FD201D7B2887F9F5B2E8692869F9AA32277",
+      "context_markdown_sha256": "EC0DE8B293A290661F96BE2542D4254F29DE7EA0EC262CA8501A693A831776B8"
+    }
+  },
+  "metrics": {
+    "primary_cross_lingual_extracted_name": {
+      "queries": 11,
+      "bow_precision_at_5": 0.09090909090909091,
+      "bow_ndcg_at_10": 0.08423964344551273,
+      "onnx_precision_at_5": 0.6545454545454545,
+      "onnx_ndcg_at_10": 0.746685380684492,
+      "delta_precision_at_5": 0.5636363636363636,
+      "delta_ndcg_at_10": 0.6624457372389793,
+      "bootstrap_95_ci_precision_at_5": [
+        0.45454545454545453,
+        0.8363636363636363
+      ],
+      "bootstrap_method": "20,000 resamples over the 11 query-level P@5 values; wide interval, not a production estimate",
+      "absolute_gate": "PASS",
+      "relative_gate": "PASS"
+    },
+    "supplemental_entity_graph": {
+      "positive_queries": 3,
+      "pair_count": 8,
+      "bow_precision_at_5": 0.06666666666666667,
+      "bow_ndcg_at_10": 0.2103099178571525,
+      "onnx_precision_at_5": 0.13333333333333333,
+      "onnx_ndcg_at_10": 0.47689218602446437,
+      "delta_precision_at_5": 0.06666666666666667,
+      "delta_ndcg_at_10": 0.2665822681673119,
+      "not_worse_than_bow_by_0_05": true
+    },
+    "stability": {
+      "metric": "top10_overlap_contexts_100",
+      "query_contexts": 100,
+      "max_per_entity": 4,
+      "scripts": {
+        "cyrillic": 49,
+        "latin": 51,
+        "other": 0
+      },
+      "average_top10_overlap": 0.374,
+      "identical_top10_queries": 0,
+      "zone": "onnx_complements_bow (30-70%)"
+    },
+    "diagnostic_full_context": {
+      "queries": 11,
+      "bow_precision_at_5": 0.05454545454545456,
+      "bow_ndcg_at_10": 0.07475952023187653,
+      "onnx_precision_at_5": 0.18181818181818182,
+      "onnx_ndcg_at_10": 0.2557818369120094,
+      "status": "NO-GO; confirms documented E5-small long-paragraph boundary; not the gate"
+    }
+  },
+  "decision": {
+    "cross_lingual_extracted_name": "GO (opt-in candidate; n=11; expand to n>=30 before treating P@5 as a production number)",
+    "entity_graph_track_a": "NO-GO on current corpus; n=3, P@5=0.133; expand to 15-20 pairs or close",
+    "full_context_retrieval": "NO-GO; documented E5-small limit; do not solve by increasing model size",
+    "semantic_neighbors_csv": "EXPLORATORY; not an anchor and not a production output; recompute on corpus changes",
+    "matrix_note": "PHASE_C.md §5.5 gives GO (full) because Track A is not worse than BoW and stability is <=70%; §5.6 fixes the operational scope: only cross-lingual extracted-name is GO, entity graph is NO-GO on this corpus, full context is NO-GO, CSV is EXPLORATORY."
+  },
+  "statistics_note": "n=11 primary queries; P@5 point estimate is 0.6545 and the bootstrap 95% interval is approximately [0.45, 0.84]. Do not present it as a precise production estimate; expand to 30-40 queries. Track A n=3 is statistically insufficient.",
+  "source_text": "Labels contain paths, variants and SHA-256 hashes only. Full source contexts and model weights stay outside public Git. The CSV contains extracted variants and scores only.",
+  "blindness": "No BoW or ONNX retrieval scores were computed before the labels were written and committed."
+}

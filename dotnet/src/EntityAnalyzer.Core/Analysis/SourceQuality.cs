@@ -12,10 +12,14 @@ public static class SourceQuality
 {
     public const string Usable = "usable";
     public const string DegradedLexical = "degraded_lexical";
+    public const string DegradedOcr = "degraded_ocr";
     public const string Unknown = "unknown";
 
     public const string ReasonLexicalSubstitution = "lexical_substitution";
+    public const string ReasonOcrMissingSpace = "ocr_missing_space";
+    public const string ReasonCandidateTail = "candidate_tail";
     public const string ReasonDetectorNegative = "detector_negative";
+    public const string ReasonSidecarMissing = "sidecar_missing";
 
     /// <summary>
     /// The only source state that may enter trusted/strict views. `unknown`

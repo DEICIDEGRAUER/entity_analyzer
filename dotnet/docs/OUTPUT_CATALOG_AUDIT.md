@@ -71,9 +71,14 @@ corrections. 2026-10-27 после явного решения применен�
   имена файлов и сырые контексты.
 - Pre-change `entities_table.csv` в этом аудите: SHA-256
   `3954D596EED2828859113F16C1EBB9EDED45FC1DFC8DAD0DF471FCC66B253685`.
-- Post-catalog `entities_table.csv`: SHA-256
+- Post-catalog `entities_table.csv` (frozen audit snapshot): SHA-256
   `6553A62C7174FCA26B70D9BB45262EF74E5B51856340429975D036269578B27F`;
-  exact scope и counts — §10.6.
+  exact scope и counts — §10.6. Product rerun 2026-10-29 with deterministic
+  duplicate representative has the same 33 430 rows / 2 597 files but a new
+  hash `9444106C4E41B36F8872B6EAEBAA0F949A84485212555AC81C9D6209F50D8BA3`:
+  456 rows are attributed to the stable duplicate representative instead of
+  whichever parallel worker won the race. This is a row-attribution fix, not
+  a count change; the frozen audit hash remains the reference for §10.6.
 
 ## 2. Агрегат по карточкам
 

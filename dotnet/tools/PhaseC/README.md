@@ -1,0 +1,58 @@
+# Phase C opt-in evaluator
+
+This tool is a one-off evaluation harness, not a production default. It references
+`EntityAnalyzer.Core` (BoW) and `EntityAnalyzer.Embedders.Onnx` explicitly; it is
+not referenced by Core, App, or Cli.
+
+**Status (2026-10-25): Phase C is closed for the current corpus** — the
+infrastructure is delivered, but semantic retrieval is not currently needed.
+The benchmark measured alias coverage, not semantic retrieval; do not add the
+planned 30–40 labels or make ONNX default. See `docs/PHASE_C.md` §5.6–§5.9.
+
+It reads the private `entities_table.csv` and catalog, the committed labels and
+manifest, and the pinned E5 model directory. It writes results outside Git:
+
+- `semantic_neighbors.csv` - exploratory entity-graph output;
+- `phase-c-report.md` / `phase-c-report.json` - metrics, hashes, and decision;
+- optional `alias-baseline.json` - cheap alias-normalized BoW sidecar.
+
+The input `entities_table.csv` is never modified. Run it only with the pinned
+Phase C corpus; the default expected hash rejects a different extraction.
+
+## Primary gate vs diagnostic
+
+- `--representation name` (default, primary): query/candidate text is the
+  extracted mention `variant`. This follows the E5 boundary in
+  `docs/EMBEDDINGS.md`: long descriptive paragraphs are a known failure mode;
+  extract the entity name instead of escalating the model.
+- `--representation context`: full mention context; diagnostic only, not the
+  gate. It is used to document the long-paragraph boundary.
+
+## Example
+
+```powershell
+dotnet run --project tools/PhaseC -- `
+  --corpus <pinned>/entities_table.csv `
+  --catalog "$env:APPDATA\EntityAnalyzer\codex.json" `
+  --model models/e5-small-int8 `
+  --manifest test-fixtures/phase-c-corpus-1000/manifest.json `
+  --out output/phase-c-1000 `
+  --representation name `
+  --stability-queries 100 `
+  --max-per-entity 4 `
+  --track-c-out output/phase-c-1000/track-c `
+  --alias-baseline-out output/phase-c-1000
+```
+
+Labels are loaded from `test-fixtures/phase-c-corpus-1000/labels` by default;
+pass `--labels` to override. `--track-c-out` is optional; it writes
+`track-c-analysis.json` with BoW/ONNX top-5 membership, script relation, and
+100-context aggregate differences. The hand classification stays in
+`docs/PHASE_C_TRACK_C.md`; the CSV contract is unchanged.
+
+`--alias-baseline-out` is optional and writes `alias-baseline.json`: a cheap
+exact known-alias-normalized BoW comparison on the same labels and candidate
+pools. It does not use `query_card_id`, does not change `semantic_neighbors.csv`,
+and is a diagnostic, not a new gate.
+
+No corpus text, model weights, or ONNX packages are committed.

@@ -273,6 +273,8 @@ public static class Program
         }
         string corpus = "", output = "output", presetName = "extended", formatsArg = "txt,json,csv,html,md";
         string? configPath = null, catalogPath = null, codexPack = null, redactDir = null, draftsDir = null, collocationsFor = null; // R1-26/R2-22/R2-24/R2-1
+        string? sourceQualityPath = null;
+        CompositeVariantMode? generatorOverride = null; // v18.2 RC: откат/оптин генератора составных форм
         bool showTimeline = false, showAnaphora = false; // R1-10 / R2-4
         int? themesK = null; // R2-3
         string? templatePath = null, indexPath = null, lookupPrefix = null, streamFile = null; // R2-29/R1-2/R1-5
@@ -302,6 +304,24 @@ public static class Program
                 case "--config" or "-g" when i + 1 < args.Length: configPath = args[++i]; break;
                 case "--catalog" or "-t" when i + 1 < args.Length: catalogPath = args[++i]; break;
                 case "--preset" or "-p" when i + 1 < args.Length: presetName = args[++i]; break;
+                case "--generator" when i + 1 < args.Length:
+                {
+                    // v18.2 RC: default — FullPhrasePlusExceptions (policy). Флаг
+                    // пинует режим явно: legacy — откат на один цикл, остальные —
+                    // явный выбор. Невалидное значение — предупреждение.
+                    var value = args[++i].Trim().ToLowerInvariant();
+                    generatorOverride = value switch
+                    {
+                        "legacy" => CompositeVariantMode.Legacy,
+                        "full-phrase" => CompositeVariantMode.FullPhraseOnly,
+                        "full-phrase-plus" => CompositeVariantMode.FullPhrasePlusExceptions,
+                        _ => null,
+                    };
+                    if (generatorOverride is null)
+                        Console.Error.WriteLine(
+                            $"⚠ Некорректный --generator «{value}»: ожидалось legacy | full-phrase | full-phrase-plus. Опция проигнорирована.");
+                    break;
+                }
                 case "--formats" or "-f" when i + 1 < args.Length: formatsArg = args[++i]; break;
                 case "--max-mentions" or "-m" when i + 1 < args.Length:
                     // QA-UX #10: нечисловое значение — предупреждение вместо молчаливого игнора.
@@ -328,6 +348,9 @@ public static class Program
                     break;
                 case "--collocations" when i + 1 < args.Length:
                     collocationsFor = args[++i]; // R2-1
+                    break;
+                case "--source-quality-sidecar" when i + 1 < args.Length:
+                    sourceQualityPath = args[++i];
                     break;
                 case "--timeline":
                     showTimeline = true; // R1-10
@@ -435,7 +458,7 @@ public static class Program
 
         var streamLarge = GetOption(args, "--stream-large") is not null; // R1-5
         return Run(corpus, output, configPath, catalogPath, presetName, formatsArg, maxMentions,
-            extraDirs, excludes, noIncremental, patternsOnly, reviewReport, scout, reproPath, preprocessors, codexPack, redactDir, draftsDir, collocationsFor, showTimeline, showAnaphora, themesK, templatePath, indexPath, lookupPrefix, streamLarge);
+            extraDirs, excludes, noIncremental, patternsOnly, reviewReport, scout, reproPath, preprocessors, codexPack, redactDir, draftsDir, collocationsFor, showTimeline, showAnaphora, themesK, templatePath, indexPath, lookupPrefix, streamLarge, sourceQualityPath, generatorOverride);
     }
 
     /// <summary>Значение опции <paramref name="name"/> или null.</summary>
@@ -457,6 +480,10 @@ public static class Program
           -t, --catalog <file>    каталог сущностей в JSON (по умолчанию — встроенный)
           -g, --config <file>     легаси config.yaml — импорт сущностей и настроек
           -p, --preset <name>     minimal | light | medium | extended | heavy | maximum | titanic
+          --generator <mode>      морфология составных имён (v18.2 RC):
+                                  legacy | full-phrase | full-phrase-plus;
+                                  по умолчанию full-phrase-plus (--generator=legacy —
+                                  откат на предыдущее поведение на один цикл)
           -f, --formats <list>    форматы отчётов через запятую: txt,json,csv,html
           -m, --max-mentions <n>  максимум цитат на файл (0 = без ограничений)
           -x, --extra-dir <dir>   дополнительная папка корпуса (можно несколько раз)
@@ -474,6 +501,10 @@ public static class Program
                                   markdown-черновики по сущностям с находками
           --collocations <имя>    шахтёр коллокаций (R2-1): топ-30 биграмм
                                   вокруг сущности → collocations.txt
+          --source-quality-sidecar <f.csv>
+                                  file-level source-quality overrides (trusted gate);
+                                  по умолчанию ищется entities_source_quality.csv
+                                  в папке отчётов
           --codex-protect <f>     зашифровать кодекс (R1-22) → .eacx
                                   (пароль в env EA_CODEX_PASSWORD)
           --codex-unprotect <f>   расшифровать .eacx → .json
@@ -604,7 +635,9 @@ public static class Program
         string? templatePath = null,
         string? indexPath = null,
         string? lookupPrefix = null,
-        bool streamLarge = false)
+        bool streamLarge = false,
+        string? sourceQualityPath = null,
+        CompositeVariantMode? generatorOverride = null)
     {
         Console.WriteLine("=== Entity Analyzer CLI ===");
 
@@ -637,7 +670,8 @@ public static class Program
                 try
                 {
                     var codex = Core.Codex.CodexDocument.FromJson(raw);
-                    definitions = CodexSearchAdapter.ToDefinitions(codex).ToList();
+                    definitions = CodexSearchAdapter.ToDefinitions(
+                        codex, generatorOverride ?? CompositeGeneratorPolicy.DefaultMode).ToList();
                     articleCodex = codex;
                     Console.WriteLine($"Кодекс JSON v2: {catalogPath} ({codex.Cards.Count} карточек)");
                 }
@@ -698,7 +732,8 @@ public static class Program
                     Console.Error.WriteLine(ex.Message);
                     return 2;
                 }
-                definitions = CodexSearchAdapter.ToDefinitions(packDoc).ToList();
+                definitions = CodexSearchAdapter.ToDefinitions(
+                    packDoc, generatorOverride ?? CompositeGeneratorPolicy.DefaultMode).ToList();
                 articleCodex = packDoc;
                 Console.WriteLine($"Библиотека паков: «{codexPack}» " +
                                   $"({packDoc.Cards.Count} карточек → {definitions.Count} сущн.).");
@@ -706,18 +741,33 @@ public static class Program
             else
             {
                 var codex = DefaultCodex.Load();
-                definitions = CodexSearchAdapter.ToDefinitions(codex).ToList();
+                definitions = CodexSearchAdapter.ToDefinitions(
+                    codex, generatorOverride ?? CompositeGeneratorPolicy.DefaultMode).ToList();
                 articleCodex = codex;
                 Console.WriteLine($"Каталог не задан — работаю со встроенным кодексом " +
                                   $"({codex.Cards.Count} карточек → {definitions.Count} сущн.).");
             }
         }
 
+        // v18.2 RC: provenance — пинует ли пользователь режим генератора явно.
+        if (generatorOverride is { } pinnedMode)
+            Console.WriteLine($"Режим генератора составных форм (--generator): {pinnedMode}");
+
         options.Corpus.Dir = Path.GetFullPath(corpusDir);
         options.Output.Dir = Path.GetFullPath(outputDir);
         // Кэш CLI не должен зависеть от текущего каталога запуска и не должен
         // смешивать прогоны разных корпусов. Держим его рядом с отчётами.
         options.Cache.Dir = Path.Combine(options.Output.Dir, ".cache");
+        if (!string.IsNullOrWhiteSpace(sourceQualityPath))
+        {
+            var sidecar = Path.GetFullPath(sourceQualityPath);
+            if (!File.Exists(sidecar))
+            {
+                Console.Error.WriteLine($"Source-quality sidecar не найден: {sidecar}");
+                return 2;
+            }
+            options.SourceQuality.SidecarPath = sidecar;
+        }
 
         // QA BUG-004: неизвестное имя пресета молча давало extended.
         var presetDef = Presets.Resolve(presetName, options);

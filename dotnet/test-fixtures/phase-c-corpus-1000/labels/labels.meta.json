@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "created": "2026-10-25",
+  "criteria_doc": "docs/PHASE_C.md",
+  "criteria_commit": "b5ec14c",
+  "manifest_sha256": "EA2AC56494EDEB8193D9E1C464F19F5934B8CC226363F510B4EB13A148DA4E95",
+  "catalog_sha256": "B0FF04AE5A2679BA647475CCC40291BD95133BEAC4BF89CA41B64DC607146027",
+  "primary": {
+    "query_count": 11,
+    "label_count": 22,
+    "positive_anchors": 11,
+    "hard_negative_anchors": 11,
+    "candidate_pool": 275,
+    "positive_rule": "all English-script mention rows whose card_id equals the query card_id are relevant; all other candidate rows are 0",
+    "label_file_sha256": "E81CBC59C14BE84A6F65A2DB9B231E358FD6F829A474CA76C2A75BFD5ADE1280"
+  },
+  "track_a": {
+    "entity_count": 30,
+    "pair_count": 8,
+    "positive": 3,
+    "negative": 5,
+    "candidate_pool": 30,
+    "label_file_sha256": "F820DE0915EE563F5E1801839E664C05E8470BC061FA5DB95DCFD6CD3D0A3E85"
+  },
+  "blindness": "No BoW or ONNX retrieval scores were computed before these labels were written.",
+  "source_text": "Labels contain paths, variants and SHA-256 hashes only; full contexts stay outside Git."
+}

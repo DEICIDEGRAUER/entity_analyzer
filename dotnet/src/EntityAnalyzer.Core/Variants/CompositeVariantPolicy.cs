@@ -20,11 +20,11 @@ public enum CompositeVariantMode
 public static class CompositeGeneratorPolicy
 {
     /// <summary>
-    /// Deliberately Legacy until the generator change is activated after a
-    /// fresh selfcheck/output comparison. The policy is implemented and tested
-    /// opt-in; switching the production default is a separate decision.
+    /// Deliberately `FullPhrasePlusExceptions` from the v18.2 RC activation
+    /// commit. `Legacy` remains available as an opt-in rollback mode for one
+    /// release cycle; switching the production default is a separate decision.
     /// </summary>
-    public const CompositeVariantMode DefaultMode = CompositeVariantMode.Legacy;
+    public const CompositeVariantMode DefaultMode = CompositeVariantMode.FullPhrasePlusExceptions;
 
     private static readonly IReadOnlyDictionary<string, IReadOnlySet<string>> Approved =
         new Dictionary<string, IReadOnlySet<string>>(StringComparer.Ordinal)

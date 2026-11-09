@@ -244,17 +244,19 @@ unflagged-строк тоже будут скрыты, хотя они тоже 
 файлы автоматически и не смешивать source exclusion с catalog correction.
 `needs_review` должен быть видимым, а не тихим фильтром.
 
-### D. Решение 2026-10-27: B (design only)
+### D. Решение 2026-10-27: B (implemented 2026-10-29)
 
-Выбран **B**: batch 35 (`degraded_lexical`) не попадает в trusted/strict
-view, но остаётся в raw/default/review и в явном sidecar; 267 хвостовых
-кандидатов — design-target `source_quality=unknown`, **не clean**, видны в
-raw/default с badge/`needs_review` после подключения sidecar; сейчас detector
-ещё даёт им `usable`. `degraded_ocr` — не file-level exclusion, а row-level
-review. Основной
+Выбран и реализован **B**: batch 35 (`degraded_lexical`) не попадает в
+trusted/strict view, но остаётся в raw/default/review и в явном sidecar;
+267 хвостовых кандидатов — `source_quality=unknown`, **не clean**, видны в
+raw/default с badge/`needs_review`. Полный sidecar загружен в product run:
+classifier-only trusted 6 462 → **3 317**, blocked **3 145** (193 degraded +
+2 952 unknown), raw/review **33 430** строк. Duplicate identical content
+наследует худший source, поэтому ранний diagnostic 3 640 заменён на 3 317.
+`degraded_ocr` — не file-level exclusion, а row-level review. Основной
 8-колоночный CSV не меняется; sidecar не является `--include-degraded`-флагом.
 Полный контракт, counts и границы — [`OUTPUT_SOURCE_POLICY.md`](OUTPUT_SOURCE_POLICY.md).
-Source-файлы не менялись; реализация после design review.
+Source-файлы не менялись.
 
 ## 7. Дешёвый non-ML baseline и его границы
 

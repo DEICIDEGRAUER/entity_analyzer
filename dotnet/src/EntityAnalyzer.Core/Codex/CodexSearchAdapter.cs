@@ -12,7 +12,7 @@ public static class CodexSearchAdapter
     /// </summary>
     public static IEnumerable<EntityDefinition> ToDefinitions(
         CodexDocument doc,
-        CompositeVariantMode compositeMode = CompositeVariantMode.Legacy)
+        CompositeVariantMode compositeMode = CompositeGeneratorPolicy.DefaultMode)
     {
         foreach (var c in doc.Cards)
         {

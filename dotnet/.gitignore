@@ -34,6 +34,10 @@ publish-cli/runtimes/osx-*/
 # Local test artifacts and generated user reports (never publish)
 TestResults/
 *.trx
+# Phase C exploratory outputs: explicit coverage in addition to output/
+output/phase-c-1000/
+output/**/semantic_neighbors.csv
+output/**/phase-c-report.*
 output/
 publish/output/
 cli_pid.txt

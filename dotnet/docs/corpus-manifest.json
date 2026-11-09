@@ -95,6 +95,27 @@
       "supersedes": [
         "baseline_2026-10-21",
         "current_2026-10-23"
+      ],
+      "superseded_by": "generator_v2_2026-11-09",
+      "superseded_reason": "Hash changed due to the pipeline change (v18.2 RC activation: CompositeGeneratorPolicy.DefaultMode = FullPhrasePlusExceptions declined composite names as whole phrases and stopped emitting per-component standalone case-forms), not due to corpus drift. The corpus Merkle root, file inventory, total bytes, and the 16 duplicate groups are byte-identical between this snapshot and generator_v2_2026-11-09. Mentions moved 915 -> 852 in 265 -> 243 files. This historical hash is reproducible with the activated CLI via the --generator legacy rollback flag; it is not reproducible by the activated default."
+    },
+    "generator_v2_2026-11-09": {
+      "date": "2026-11-09",
+      "scanned_files": 10549,
+      "supported_files": 10547,
+      "analyzed_files": 10531,
+      "total_bytes": 816451570,
+      "merkle_root": "A83328DB3E9500D874D0A3D32B2EA20C188ECB467C577DAD24AE17E0E0110245",
+      "duplicate_groups": 16,
+      "duplicate_files_skipped": 16,
+      "entities_table_sha256": "5177494C82A6C01C5C3D4E2931D49EDAACFB6132ECFF0269671AE8B8F7F93C12",
+      "mentions": 852,
+      "files_with_mentions": 243,
+      "pipeline": "Current source with CompositeGeneratorPolicy.DefaultMode = FullPhrasePlusExceptions (v18.2 RC activation commit; composite names declined as whole phrases, approved standalone exceptions kept); default one-card codex; preset extended; isolated ENTITYANALYZER_DATA_DIR / EA_SEMANTIC_USER_DIR; --no-incremental.",
+      "cli_kind": "publish-cli",
+      "cli_note": "Produced by the freshly rebuilt publish-cli from the activation working tree (the commit carrying this manifest). Two identical runs reproduced the same CSV hash 5177494C82A6C01C5C3D4E2931D49EDAACFB6132ECFF0269671AE8B8F7F93C12; the second run logged 160.0 s. The prior hash 690644D6... is reachable with the same binary via --generator legacy.",
+      "supersedes": [
+        "dedup_fix_2026-10-24"
       ]
     }
   },

@@ -16,7 +16,9 @@ public sealed record EntityDefinition(
 {
     /// <summary>
     /// Composite-only generator policy. Single names are unaffected. The
-    /// default is <see cref="CompositeVariantMode.Legacy"/> until activation;
+    /// default follows <see cref="CompositeGeneratorPolicy.DefaultMode"/>
+    /// (v18.2 RC activation: <see cref="CompositeVariantMode.FullPhrasePlusExceptions"/>;
+    /// `Legacy` returns via the CLI `--generator legacy` opt-in for one cycle);
     /// full-phrase modes only emit approved standalone exceptions.
     /// </summary>
     public CompositeVariantMode CompositeMode { get; init; } =
