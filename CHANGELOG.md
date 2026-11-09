@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Full release notes for the v18.2 RC:
+[`dotnet/docs/RELEASE_v18.2-rc1.md`](dotnet/docs/RELEASE_v18.2-rc1.md).
+
 ### Added
 - Exploratory trust view for the results page: two new filter modes
   «Trusted (exploratory)» and «Canonical only (exploratory)» next to the
@@ -223,7 +226,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   declined and caps forms of the canonical pair (`Нугу и Йебу`, caps
   `НУГА и ЙЕБА`) are not matched, because phrase morphology declines only
   the Cyrillic composite while the English canon declines to nothing
-  (~1% of rows; v18.3 backlog, left unfrozen-safe in the RC). Snapshot and
+  (~1% of rows; v18.3 backlog; deliberately left unfixed in the RC so the
+  recorded anchors stay byte-frozen). Snapshot and
   anchor hashes must be reproduced with `DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1`:
   without the pin the same pipeline yields a different byte hash
   (culture-sensitive normalization and tie ordering).

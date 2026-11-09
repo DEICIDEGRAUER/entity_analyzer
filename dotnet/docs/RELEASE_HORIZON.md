@@ -80,3 +80,20 @@ That clause is now superseded by the recorded decision.
 Source gate можно cherry-pick в v18.1 как safety-only изменение, если
 release owner решит, что safety-фикс нужен раньше v18.2. Это отдельное
 решение и отдельный CI-прогон; trusted view при этом не становится default.
+
+## v18.3 backlog — известное состояние (2026-11-09)
+
+Backlog отражает известное состояние, а не только принятые действия; источник
+каждого пункта указан, статус HOLD значит «не решено», а не «сделано». Не все
+пункты обязательно попадут в v18.3.
+
+| Пункт | Состояние / источник |
+|---|---|
+| Удалить `--generator legacy` | После одного цикла без якорных регрессий (OUTPUT_GENERATOR_POLICY §17.7). |
+| Кириллическое склонение canon-транслита («Нугу и Йебу», caps «НУГА и ЙЕБА») | OUTPUT_GENERATOR_POLICY §17.8: ~9 строк (~1%); корень — `FullPhraseMorphology.Decline` получает английский canon (`Nug and Yeb`) → `HasCyrillic=false` → нет canon-translit фразы. |
+| Provenance-класс `verified_clean` (P2-29) | OUTPUT_SOURCE_POLICY.md: байт-идентичность ≠ верифицированная чистота; класс пуст, P2-29 и ~322 строк остаются в `review`. |
+| Финальный provenance 267-tail | OUTPUT_SOURCE_AUDIT.md / OUTPUT_SOURCE_POLICY.md: 267 файлов, 6 363 строки, 1 488 flagged; `unknown`, не `clean`; не переводить в `usable` без owner-review. |
+| 32 дубликата aliases | HOLD (OUTPUT_GENERATOR_POLICY.md: HOLDs, Leng no-op и 32 дубликата aliases остаются как есть). |
+| HOLD'ы каталога: `The Opener of the Way`, `Ghisguth`/`Гисгут`, `God of the Dead` | OUTPUT_CATALOG_AUDIT.md: misattribution_removal (45 строк, титул Anubis, не Yog); shared_unresolved (alias shared с `Сокар`, карточки не совпадают); owner-review (для `Ghisguth`/`Гизгут` нет подтверждённого reassign). |
+| `bench-gate` и power plan | bench gate локальный (CI его не гоняет) и требует Windows High performance; для CI нужен runner с фиксированной частотой или альтернативная методика измерения. |
+| env-pin требование в рецептах | Review-export/verify рецепты требуют `DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1` для байт-сравнений (CHANGELOG/§17.8); при желании консолидировать в readme рецепта смок-цикла. |

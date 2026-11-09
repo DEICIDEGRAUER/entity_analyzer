@@ -118,6 +118,25 @@ All 45 identified defects resolved:
 - Required: `PyYAML>=6.0`, `pyahocorasick>=2.0`, `rapidfuzz>=3.0`
 - Optional: `sentence-transformers>=2.0` (for semantic filtering)
 
+## Reproducibility
+
+Byte-identical reproduction of exported reports and corpus anchors requires a
+pinned globalization environment (applies to the .NET engine in `dotnet/`):
+
+1. **Set `DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1`** before any analysis run
+   whose output you compare byte-for-byte (corpus anchors, smoke baselines).
+2. **Without the pin**, the same binary on the same corpus produces
+   byte-different CSV output: 27 of 915 rows differ (context normalization
+   `…` vs `...` and one adjacent-row tie permutation). Mention and file
+   counts are identical either way.
+3. **What does not break:** all counters, and the built-in release self-check —
+   it compares counts only, so it is environment-invariant (the CI matrix
+   runs ru-RU / en-US / tr-TR without the pin as a standing check).
+
+Current anchor hashes and the byte-parity rules for legacy-mode output:
+[`dotnet/docs/corpus-manifest.json`](dotnet/docs/corpus-manifest.json) and
+[`dotnet/docs/OUTPUT_GENERATOR_POLICY.md`](dotnet/docs/OUTPUT_GENERATOR_POLICY.md) §17.
+
 ## License
 
 MIT License - see LICENSE file for details.
