@@ -97,7 +97,7 @@
         "current_2026-10-23"
       ],
       "superseded_by": "generator_v2_2026-11-09",
-      "superseded_reason": "Hash changed due to the pipeline change (v18.2 RC activation: CompositeGeneratorPolicy.DefaultMode = FullPhrasePlusExceptions declined composite names as whole phrases and stopped emitting per-component standalone case-forms), not due to corpus drift. The corpus Merkle root, file inventory, total bytes, and the 16 duplicate groups are byte-identical between this snapshot and generator_v2_2026-11-09. Mentions moved 915 -> 852 in 265 -> 243 files. This historical hash is reproducible with the activated CLI via the --generator legacy rollback flag; it is not reproducible by the activated default."
+      "superseded_reason": "Hash changed due to the pipeline change (v18.2 RC activation: CompositeGeneratorPolicy.DefaultMode = FullPhrasePlusExceptions declined composite names as whole phrases and stopped emitting per-component standalone case-forms), not due to corpus drift. The corpus Merkle root, file inventory, total bytes, and the 16 duplicate groups are byte-identical between this snapshot and generator_v2_2026-11-09. Mentions moved 915 -> 852 in 265 -> 243 files. Post-activation Legacy-mode rechecks (--generator legacy, same recipe) reproduced the prior counters exactly (915 / 265; three runs) but produce the current-source Legacy hash BEB7C0E5..., so this snapshot's hash stays reproducible only with the 2026-10-24-era CLI (2e130ff lineage), like the other historical hashes; it is not reproducible by the activated default. Counting parity is the release criterion; byte parity with historical snapshots is era-specific."
     },
     "generator_v2_2026-11-09": {
       "date": "2026-11-09",
@@ -113,7 +113,20 @@
       "files_with_mentions": 243,
       "pipeline": "Current source with CompositeGeneratorPolicy.DefaultMode = FullPhrasePlusExceptions (v18.2 RC activation commit; composite names declined as whole phrases, approved standalone exceptions kept); default one-card codex; preset extended; isolated ENTITYANALYZER_DATA_DIR / EA_SEMANTIC_USER_DIR; --no-incremental.",
       "cli_kind": "publish-cli",
-      "cli_note": "Produced by the freshly rebuilt publish-cli from the activation working tree (the commit carrying this manifest). Two identical runs reproduced the same CSV hash 5177494C82A6C01C5C3D4E2931D49EDAACFB6132ECFF0269671AE8B8F7F93C12; the second run logged 160.0 s. The prior hash 690644D6... is reachable with the same binary via --generator legacy.",
+      "cli_note": "Produced by the freshly rebuilt publish-cli from the activation working tree (the commit carrying this manifest). Two identical runs reproduced the same CSV hash 5177494C82A6C01C5C3D4E2931D49EDAACFB6132ECFF0269671AE8B8F7F93C12; the second run logged 160.0 s. A Legacy-mode recheck (--generator legacy, same recipe) reproduced the prior counters 915 / 265 exactly; see legacy_mode_recheck. Every CSV hash requires DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1; see env_sensitivity.",
+      "legacy_mode_recheck": {
+        "flag": "--generator legacy",
+        "recipe": "Same recipe as this snapshot: isolated ENTITYANALYZER_DATA_DIR / EA_SEMANTIC_USER_DIR, --no-incremental, DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1, rebuilt publish-cli.",
+        "mentions": 915,
+        "files_with_mentions": 265,
+        "entities_table_sha256": "BEB7C0E55EA7257F4C0E226F7A8B2972BB521A4F7A57A6C25B989F2E0DAF6EA9",
+        "note": "Counting parity with dedup_fix_2026-10-24 is exact; the raw bytes differ from 690644D6... because the 2026-10-24 snapshot predates later source commits on the context/tie paths. Byte parity with historical snapshots is era-specific, not a release criterion. The spot_check field documents the row-level diff against this snapshot.",
+        "spot_check_2026-11-09": "Row-level diff vs this snapshot: 118 rows dropped / 54 rows added (net -63); 22 files lost all mentions (37 rows), 81 rows came from reduced files. Of the 118 dropped rows: ~80 are standalone false positives (Russian 'наг' = naked, Belarusian 'на нагах', Indian nagas 'наги', toponym 'Нага' in Sudan) - the intended win; 10 re-matched in-file as whole-phrase forms; ~5 are enumeration/disjunction contexts ('Йига, Тулу, Нага, Йеба и Неназываемого', 'Нугу или Йебу') suppressed by the approved policy; ~8 are (entity, context) dedup reshuffles across repeated litany fragments with evidence retained on a sibling row. The one real limitation (~9 rows, ~1%): declined and caps forms of the canonical pair are not matched ('Нугу и Йебу' in the twin files Чёрная река / Hapeksamendeus, Aa. Черная река, 'Нуга и Йеба' in ЦИКЛ ТСАТХОГГУА and Хармс, caps 'НУГА и ЙЕБА' in Пулвер) because FullPhraseMorphology.Decline receives the English canon ('Nug and Yeb') and declines nothing; backlog v18.3, deliberately unfixed in the RC to keep the recorded anchors frozen. The 54 added rows are genuine matches: name-phrase forms ('Нага и Йеба', 'Наге и Йебе', 'Нагом и Йебом'), canonical nominative ('Нуг и Йеб'), and canonical standalones ('Нуг') that the Legacy pool had truncated at the variant cap. The flagship file Уилл_Мюррей_О_природе_Нага_и_Йеба kept its pair coverage (11 rows -> 10 rows, 9 gained phrase rows). Audit method note: the line column is a segmentation index, not the physical file line; matching was by context probes."
+      },
+      "env_sensitivity": {
+        "requirement": "Every CSV hash in this manifest is defined under DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1; the recipe already pinned it - the pin is load-bearing.",
+        "observation": "Re-running the legacy_mode_recheck without the pin produced 06A3DE3BC9E84881F58CD8D567F736DE1888F5EC48F8D60AB8CDE3CC532C95D0 with identical 915 / 265 counters: 27 rows differ (U+2026 ellipsis vs '...' in contexts and a swap of two adjacent rows), i.e. culture-sensitive text normalization and tie ordering inside the pipeline. Do not reproduce hashes without the pin."
+      },
       "supersedes": [
         "dedup_fix_2026-10-24"
       ]

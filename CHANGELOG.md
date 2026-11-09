@@ -8,6 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Exploratory trust view for the results page: two new filter modes
+  «Trusted (exploratory)» and «Canonical only (exploratory)» next to the
+  existing raw/review default. The trusted class is derived from the codex
+  (canonical exact name/canonical, strong aliases — full phrase or
+  marker-backed context), is high-precision exploratory (14/14 trusted-good
+  in the pre-registered probe), and is not the new default view.
+- File-level source-quality gate plus the `entities_trust.csv` sidecar.
+  Every exported run writes the sidecar next to `entities_table.csv`
+  (joined by file/num; never removes rows from the main CSV; the 8-column
+  main contract is unchanged). The per-row `trust` value is
+  `trusted`/`review`; a trust assessment only enters `trusted` when the
+  file-level source quality is `usable` (`unknown`, `degraded_lexical`,
+  `degraded_ocr`, and duplicate-content worst-source inheritance stay in
+  `review`). The source quality
+  itself is combined as `sidecar > detector`: headless runs can supply
+  file-level overrides via `--source-quality-sidecar <file.csv>` (or drop
+  `entities_source_quality.csv` next to the reports), a missing entry is
+  `unknown`, and byte-identical duplicate content inherits the worst source
+  in the group. The trusted tab consumes the same rules, so
+  `source=usable` is the only way into `trusted`.
 - Review results are now exported. When a session has at least one verdict,
   `ExportAll` additionally writes `review_report.md` (summary: total/reviewed/
   confirmed/rejected/uncertain, files with unreviewed mentions, plus a decisions
@@ -173,6 +193,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the full context does not score.
 
 ### Changed
+- Version markers unified with the release line: `Core.About.Version`,
+  the App csproj `<Version>`, and the app manifest identity are bumped to
+  **18.2.0** (previously the runtime constant stayed at 1.0.0 through the
+  whole 18.x line). Effect by design (R2-16): existing users get a one-time
+  release self-check on the first launch of v18.2.0 — desired for this
+  release, since it changes the default engine output.
 - v18.2 RC activation: composite-name generator default changed from `Legacy`
   to `FullPhrasePlusExceptions`. Composite names are declined as whole phrases
   (`Нага и Йеба`, `Плато Ленгом`), and per-component standalone case-forms
@@ -190,7 +216,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   v18.3); `full-phrase` and `full-phrase-plus` are explicit choices.
   The selfcheck baseline was re-captured under the new default (4 files /
   5 mentions). See `docs/OUTPUT_GENERATOR_POLICY.md §17` for the activation
-  record.
+  record. Post-activation corpus audit of the one-card anchor (§17.8):
+  the 915 → 852 delta decomposes as 118 dropped / 54 added rows; ~80
+  dropped rows are standalone false positives (the intended win), 10
+  re-matched as whole phrases, and the audit found one real limitation —
+  declined and caps forms of the canonical pair (`Нугу и Йебу`, caps
+  `НУГА и ЙЕБА`) are not matched, because phrase morphology declines only
+  the Cyrillic composite while the English canon declines to nothing
+  (~1% of rows; v18.3 backlog, left unfrozen-safe in the RC). Snapshot and
+  anchor hashes must be reproduced with `DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1`:
+  without the pin the same pipeline yields a different byte hash
+  (culture-sensitive normalization and tie ordering).
 - The homonym classifier now scores a local context window instead of using
   the first personal word anywhere in the sentence: inflected forms of the
   term (`Нага`, `Наге`, `Нагом`) are matched, place prepositions work through

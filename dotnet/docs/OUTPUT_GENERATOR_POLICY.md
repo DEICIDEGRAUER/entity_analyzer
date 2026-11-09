@@ -783,8 +783,17 @@ Fresh run with the activated publish-cli (default one-card codex, preset
 - `corpus-manifest.json` records `generator_v2_2026-11-09` and marks
   `dedup_fix_2026-10-24` `superseded_by` it with the pipeline-change
   reason; `CORPUS.md` tables updated.
-- The prior hash `690644D6…` remains reproducible with the activated binary
-  via `--generator legacy`.
+- Counting parity verified in Legacy mode: `--generator legacy` with the same
+  recipe reproduces the prior counters exactly (915 mentions / 265 files;
+  three runs). Byte parity with the prior snapshot does not hold from the
+  current source — under the flag it yields `BEB7C0E5…`; hashes are
+  era-specific and are recorded in `corpus-manifest.json`
+  (`legacy_mode_recheck`).
+- Snapshot hashes are defined under `DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1`
+  (the recipe pin is load-bearing): without it the same binary produces
+  `06A3DE3B…` with 27 differing rows — culture-sensitive normalization
+  (`…` vs `...`) and tie reordering. Recorded as `env_sensitivity` in the
+  manifest.
 
 ### 17.5 Selfcheck baseline (re-baselined in this commit)
 
@@ -815,4 +824,64 @@ and committed as the new pin.
 Removal criteria for v18.3: no anchor regression (this record's checks are
 the reference), `verify.ps1 -SkipPublish` green with the new default after
 one cycle. A smaller mention count than the Legacy runtime is expected
-behavior, not a defect.
+behavior, not a defect. The §17.8 audit additionally backlogs the declined/
+caps canonical-pair gap for v18.3 without a rollback claim on this release.
+
+### 17.8 Corpus diff audit (one-card anchor, 2026-11-09)
+
+The 915 → 852 delta was audited row-by-row (fresh `--generator legacy`
+re-run on the full corpus against the `generator_v2_2026-11-09` CSV). The
+owner-required spot check (5 of the 22 files that lost all mentions) was
+upgraded to a full audit of all 118 dropped rows and all 54 gained rows.
+
+- Decomposition: the net −63 mentions is 118 dropped / 54 added. The 22
+  files that lost all mentions carried 37 rows; the other 81 dropped rows
+  came from files that kept some rows.
+- Dropped-row audit: ~80 rows are standalone false positives — Russian
+  «наг» = naked, Belarusian «на нагах», Indian nāgas «наги», toponym
+  «Нага» in Sudan — the intended win. 10 dropped rows re-match in-file as
+  whole-phrase forms. ~5 are enumeration/disjunction contexts («Йига,
+  Тулу, Нага, Йеба и Неназываемого», «Нугу или Йебу») suppressed under the
+  approved policy. ~8 are `(entity, context)`-dedup reshuffles across
+  repeated litany fragments, with the evidence retained on a sibling row.
+- **Real limitation found (~9 rows, ~1%):** declined and caps forms of the
+  canonical pair are not matched: «Нугу и Йебу» (twins Чёрная река /
+  Hapeksamendeus, Aa. Черная река), «Нуга и Йеба» (ЦИКЛ ТСАТХОГГУА,
+  Хармс), caps «НУГА и ЙЕБА» (Пулвер). Root cause:
+  `FullPhraseMorphology.Decline` is given the English canon
+  (`Nug and Yeb`) and declines nothing, so canon-translit phrase
+  declensions are never generated; name-phrase forms («Нага и Йеба»…)
+  are covered. Backlogged for v18.3 (decline the translit compound
+  phrase); deliberately not fixed in the RC so the recorded anchors stay
+  byte-frozen.
+- Added rows (54) are genuine matches: name-phrase forms
+  (`Нага и Йеба`, `Наге и Йебе`, `Нагом и Йебом`), the canonical
+  nominative (`Нуг и Йеб`), and canonical standalones (`Нуг`) that the
+  Legacy pool had dropped at the variant cap. The flagship file
+  `Уилл_Мюррей_О_природе_Нага_и_Йеба` kept its pair coverage: 11 rows →
+  10 rows, 9 of them gained phrase rows.
+- Method note: the `line` column is a segmentation index, not the physical
+  file line; the audit matched by context probes, hence "re-match" means
+  the same text evidence is present elsewhere in the file's output.
+
+Verdict under the owner's spec (§17.7): the audit found real pair-mention
+losses at ~1% of rows, recorded as the known limitation above instead of a
+rollback trigger — the removal mass is dominated by false positives and
+the addition batch is genuine coverage improvement.
+
+### 17.9 Version markers and release-chain checks
+
+- Version markers moved with the release line: `Core.About.Version` =
+  "18.2.0" (the constant had stayed "1.0.0" since the very first release
+  while the tag line ran v18.x), the App csproj `<Version>18.2.0</Version>`,
+  and the app-manifest identity `18.2.0.0`. By design (R2-16) existing
+  users get the one-time release self-check on the first launch of
+  18.2.0 — desired for a release that changes the default engine output.
+  Verified by compiling a probe against the published `Core.dll`
+  (`About.Version` = 18.2.0; note the C# const is folded into callers,
+  so the CLI exe was rebuilt after the bump for the manifest metadata).
+- `verify.ps1 -WithGuiSmoke` executed green before the push: 10/10 steps,
+  including the detached GUI smoke (SMOKE V15, 56 s — the rebuilt GUI
+  publish was actually observed running) and the smoke corpus anchor
+  `E50A1559…` re-verified unchanged. Bench gate ran under the High
+  performance power scheme; Balanced restored afterwards.
